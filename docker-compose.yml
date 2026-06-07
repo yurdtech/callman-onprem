@@ -135,26 +135,34 @@ services:
       retries: 5
       start_period: 10s
 
-  # ─────────────────────────────────────────────────────────────────────
-  # TODO: ADMIN PANEL — enable when the admin image is published.
-  # The image does not exist yet; the block below is a PLACEHOLDER. Confirm
-  # the real internal port / env contract before uncommenting.
-  #
-  # admin:
-  #   image: ghcr.io/yurdtech/callman-admin:${CALLMAN_VERSION}
-  #   container_name: callman-admin
-  #   restart: unless-stopped
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     # Where the admin UI reaches the backend API (internal network name).
-  #     CALLMAN_API_URL: http://backend:${CALLMAN_PORT:-8080}
-  #   ports:
-  #     - "${CALLMAN_ADMIN_PORT:-8081}:80"   # placeholder internal port
-  #   depends_on:
-  #     backend:
-  #       condition: service_healthy
-  # ─────────────────────────────────────────────────────────────────────
+  # Admin panel — ONE image (NestJS API + bundled React SPA served same-origin
+  # on a single port). It is INDEPENDENT of backend/worker: it talks DIRECTLY
+  # to the SAME bundled MongoDB, with its OWN auth + JWT secrets (it does NOT
+  # share the backend's encryption/JWT keys, and never calls the backend API).
+  # By default it can only READ Callman data (CALLMAN_DB_WRITE_ENABLED=false).
+  admin:
+    image: ghcr.io/yurdtech/callman-admin:${CALLMAN_ADMIN_VERSION:?set CALLMAN_ADMIN_VERSION in .env}
+    container_name: callman-admin
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Internal port is fixed at 5100 (matches the image's baked HEALTHCHECK).
+      PORT: 5100
+      # SAME bundled Mongo + DB as the backend — admin reads the same database.
+      # Built from the bundled creds so it always matches (no hand-written URI).
+      CALLMAN_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/callman?authSource=admin
+    ports:
+      - "${CALLMAN_ADMIN_PORT:-5100}:5100"
+    depends_on:
+      # Hard requirement: admin connects directly to Mongo on boot.
+      mongo:
+        condition: service_healthy
+      # Wait for the one-shot migrate so admin reads an already-migrated schema
+      # (it shares the DB). This is DB-readiness ordering, NOT a dependency on
+      # the backend/worker app tier — admin never calls the backend API.
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   mongo_data:

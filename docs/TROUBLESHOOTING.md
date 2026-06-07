@@ -154,6 +154,66 @@ For image/version changes also run `docker compose pull` first.
 
 ---
 
+## Admin panel: `callman-admin` won't start
+
+**Cause:** it waits for MongoDB to be healthy and for the one-shot `migrate`
+to finish. If Mongo is unhealthy or `migrate` failed, admin never starts.
+
+**Fix:**
+```bash
+docker compose ps                  # is mongo healthy? did migrate Exit (0)?
+docker compose logs admin          # the real error
+docker compose logs migrate        # if migrate failed, fix that first
+```
+
+## Admin panel: `/health` not 200 / can't reach Mongo
+
+**Symptom:** `curl http://localhost:5100/health` is not 200, or admin logs show
+a Mongo connection/auth error.
+
+**Cause:** the admin's `CALLMAN_MONGODB_URI` must match the bundled Mongo
+credentials. In the shipped compose it is built automatically from
+`MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` with `authSource=admin`, so this
+only breaks if you edited it or pointed it at an external Mongo.
+
+**Fix:** ensure `MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` in `.env` are set
+and that you didn't override `CALLMAN_MONGODB_URI` incorrectly. Then:
+```bash
+docker compose up -d
+curl http://localhost:5100/health   # → {"status":"ok","mongo":{"callman":true,...}}
+```
+
+> ⚠️ **Changed `MONGO_ROOT_PASSWORD` after the first start?** The bundled Mongo
+> only applies `MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` when it
+> **initialises an empty data volume**. Changing them later does NOT update the
+> existing user, so backend AND admin then fail with `Authentication failed`.
+> Either set the password back to the original, or wipe the volume and start
+> fresh (**destroys data**): `docker compose down -v && docker compose up -d`.
+
+## Admin panel: can't log in
+
+**Cause:** no admin user was seeded, or the JWT secret is invalid.
+
+**Fix:**
+- Make sure `ADMIN_BOOTSTRAP_EMAIL` + `ADMIN_BOOTSTRAP_PASSWORD` were set in
+  `.env` **before first start** (the first admin is seeded only when the
+  `admin_users` collection is empty). If you set them late:
+  ```bash
+  docker compose up -d --force-recreate admin
+  docker compose logs admin        # look for the bootstrap message
+  ```
+- `ADMIN_JWT_SECRET` and `ADMIN_JWT_REFRESH_SECRET` must each be **≥ 32
+  characters** and different from each other, or admin token issuance fails.
+
+## Admin panel: can't change Callman data
+
+**Not a bug — intended.** `CALLMAN_DB_WRITE_ENABLED=false` (the safe default)
+makes the admin panel **read-only** over core Callman data, so it can't
+accidentally corrupt the main app's database. Only set it to `true` if you
+specifically need admin writes.
+
+---
+
 ## Start over from scratch (⚠ deletes all data)
 
 ```bash

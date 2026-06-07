@@ -45,6 +45,38 @@ These configure the bundled MongoDB + Redis. The app's connection strings
 
 ---
 
+## Admin panel
+
+The `admin` service (separate image + version) connects to the **same**
+bundled MongoDB as the backend. Its Mongo connection string is **built
+automatically** in `docker-compose.yml` from the `MONGO_ROOT_*` values above —
+do **not** point it at a separate database. Its auth is **independent** of the
+backend (own JWT secrets; no shared encryption keys).
+
+| Variable | Required | Default | Description / how to create |
+|---|---|---|---|
+| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin image version to run (e.g. `0.1.0`). Separate from `CALLMAN_VERSION`. |
+| `CALLMAN_ADMIN_PORT` | optional | `5100` | Port to reach the admin UI + API on (same origin). |
+| `ADMIN_JWT_SECRET` | ✅ | — | Signs admin access tokens. ≥ 32 chars. `openssl rand -hex 32`. Separate from backend secrets. |
+| `ADMIN_JWT_REFRESH_SECRET` | ✅ | — | Signs admin refresh tokens. ≥ 32 chars, different from `ADMIN_JWT_SECRET`. |
+| `ADMIN_BOOTSTRAP_EMAIL` | optional* | _(unset)_ | Email of the first admin user, seeded on first start if no admins exist. |
+| `ADMIN_BOOTSTRAP_PASSWORD` | optional* | _(unset)_ | Password for that first admin. ⚠ Use a STRONG value; change it right after first login. |
+| `ADMIN_JWT_EXPIRES_IN` | optional | `1h` | Admin access-token lifetime. |
+| `ADMIN_JWT_REFRESH_EXPIRES_IN` | optional | `7d` | Admin refresh-token lifetime. |
+| `ADMIN_BCRYPT_ROUNDS` | optional | `12` | Admin password hashing cost. |
+| `CALLMAN_DB_WRITE_ENABLED` | optional | `false` | Keep `false`: the admin panel can READ Callman data but never MODIFY it. Only enable if you specifically need admin writes. |
+| `CORS_ORIGINS` | optional | `http://localhost:5173` | Admin API allowed browser origins — only needed if the UI is served cross-origin. |
+| `RATE_LIMIT_MAX` | optional | `300` | Admin API request rate cap. |
+
+\* `ADMIN_BOOTSTRAP_EMAIL` + `ADMIN_BOOTSTRAP_PASSWORD` are needed only to seed
+the **first** admin. Once an admin exists you can remove them.
+
+> `CALLMAN_MONGODB_URI` for the admin is set by `docker-compose.yml` (bundled
+> Mongo). You only set it by hand for an EXTERNAL database — see "Using your
+> own MongoDB / Redis" below.
+
+---
+
 ## Optional knobs (safe defaults — change only if needed)
 
 | Variable | Default | Description |
