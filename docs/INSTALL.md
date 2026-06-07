@@ -193,12 +193,43 @@ docker compose down -v      # stop AND DELETE all data (destructive!)
 
 ---
 
-## Admin panel (coming soon)
+## Admin panel
 
-A web-based admin panel will ship in a future release. The
-`docker-compose.yml` already contains a commented-out `admin` service as a
-placeholder — there is nothing to configure today. When it’s available
-we’ll update these docs with the exact steps.
+The stack includes a web **admin panel** (the `admin` service) — one image
+serving both its UI and API on a single port. It connects to the **same**
+bundled MongoDB and has its own login.
+
+**Configure it** in `.env` (already in `.env.example`):
+- `CALLMAN_ADMIN_VERSION` — the admin image version we tell you (e.g. `0.1.0`).
+- `CALLMAN_ADMIN_PORT` — port to reach it on (default `5100`).
+- `ADMIN_JWT_SECRET`, `ADMIN_JWT_REFRESH_SECRET` — each `openssl rand -hex 32`
+  (separate from the backend secrets).
+- `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD` — the first admin user,
+  created automatically on first start.
+
+**Verify it** (after `docker compose up -d`):
+
+```bash
+docker compose ps                              # callman-admin → running (healthy)
+curl http://localhost:5100/health              # → HTTP 200, {"status":"ok",...}
+```
+
+Then open the UI in a browser:
+
+```
+http://<this-host>:5100        # (or your CALLMAN_ADMIN_PORT)
+```
+
+You should see the **Callman Admin** login page. Log in with the
+`ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD` you set.
+
+> ⚠️ **SECURITY — do this immediately.** Set a **strong**
+> `ADMIN_BOOTSTRAP_PASSWORD` before first start, and change it (or create a
+> personal admin and disable the bootstrap one) right after your first
+> login. A weak or default bootstrap password leaves the admin panel — which
+> can read all Callman data — wide open. By default the admin can only
+> **read** Callman data (`CALLMAN_DB_WRITE_ENABLED=false`); leave it that way
+> unless you have a specific reason to allow writes.
 
 ---
 
