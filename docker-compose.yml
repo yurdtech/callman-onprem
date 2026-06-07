@@ -1,0 +1,162 @@
+# ─────────────────────────────────────────────────────────────────────
+# Callman — on-prem stack (ALL-IN-ONE / bundled by default).
+#
+# Runs the Callman backend from a pre-built registry image plus a bundled
+# MongoDB + Redis, so a single `docker compose up -d` gives a working
+# install. No source is built here — the image is pulled by version tag.
+#
+# Quick start:
+#     cp .env.example .env     # fill in CALLMAN_VERSION + secrets
+#     docker compose pull
+#     docker compose up -d
+#     curl http://localhost:${CALLMAN_PORT}/health
+#
+# Full guide: docs/INSTALL.md
+# ─────────────────────────────────────────────────────────────────────
+
+name: callman
+
+# Shared backend image config (HTTP server, worker, and migrate are the
+# same image, different commands).
+x-app: &app
+  image: ghcr.io/yurdtech/callman-backend:${CALLMAN_VERSION:?set CALLMAN_VERSION in .env}
+  env_file:
+    - .env
+  restart: unless-stopped
+
+# DB/cache connection strings are CONSTRUCTED here from the bundled
+# passwords so they always match the mongo/redis services below — the
+# customer never hand-writes a connection URI. (For EXTERNAL databases,
+# see docs/ENVIRONMENT.md → "Using your own MongoDB / Redis".)
+x-db-env: &db-env
+  MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/callman?authSource=admin
+  REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+
+services:
+  # One-shot schema migration. Backs up the DB (mongodump → /backups) and
+  # applies pending migrations, then exits. The app waits for it.
+  migrate:
+    <<: *app
+    container_name: callman-migrate
+    command: ["node", "dist/migrations/cli.js", "up"]
+    restart: "no"
+    environment: *db-env
+    volumes:
+      - backups:/backups
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend:
+    <<: *app
+    container_name: callman-backend
+    command: ["node", "dist/server.js"]
+    init: true
+    environment:
+      # Single source for the port: the API binds to it AND it is published
+      # below — so the URL you curl is the URL the app listens on.
+      <<: *db-env
+      PORT: ${CALLMAN_PORT:-8080}
+    ports:
+      - "${CALLMAN_PORT:-8080}:${CALLMAN_PORT:-8080}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${CALLMAN_PORT:-8080}/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    <<: *app
+    container_name: callman-worker
+    command: ["node", "dist/worker.js"]
+    init: true
+    environment: *db-env
+    volumes:
+      - backups:/backups
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Bundled MongoDB (standalone — the backend uses no multi-document
+  # transactions, so a replica set is NOT required). Not published to the
+  # host; only the app containers reach it over the internal network.
+  mongo:
+    image: mongo:7
+    container_name: callman-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?set MONGO_ROOT_USERNAME in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      # `ping` is allowed pre-auth, so no credentials needed here.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Bundled Redis. `noeviction` is CRITICAL — BullMQ stores jobs in Redis
+  # and must never have them evicted under memory pressure. `appendonly`
+  # persists across restarts. Password-protected; not published to the host.
+  redis:
+    image: redis:7-alpine
+    container_name: callman-redis
+    restart: unless-stopped
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--maxmemory-policy"
+      - "noeviction"
+      - "--requirepass"
+      - "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────
+  # TODO: ADMIN PANEL — enable when the admin image is published.
+  # The image does not exist yet; the block below is a PLACEHOLDER. Confirm
+  # the real internal port / env contract before uncommenting.
+  #
+  # admin:
+  #   image: ghcr.io/yurdtech/callman-admin:${CALLMAN_VERSION}
+  #   container_name: callman-admin
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     # Where the admin UI reaches the backend API (internal network name).
+  #     CALLMAN_API_URL: http://backend:${CALLMAN_PORT:-8080}
+  #   ports:
+  #     - "${CALLMAN_ADMIN_PORT:-8081}:80"   # placeholder internal port
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+  # ─────────────────────────────────────────────────────────────────────
+
+volumes:
+  mongo_data:
+  redis_data:
+  backups:

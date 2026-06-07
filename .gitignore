@@ -1,0 +1,11 @@
+# Never commit a real environment file — it holds secrets/passwords.
+# Only .env.example (the placeholder template) is tracked.
+.env
+.env.*
+!.env.example
+
+# Local DB backups (if a bind-mount is ever used instead of a volume).
+backups/
+*.archive.gz
+
+.DS_Store
