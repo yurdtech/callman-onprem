@@ -33,7 +33,8 @@ docker compose up -d
 
 # 4. Verify
 docker compose ps
-curl http://localhost:8080/health
+curl http://localhost:8080/health   # backend
+curl http://localhost:5100/health   # admin panel
 ```
 
 A healthy install: all services `running`/`healthy`, the `callman-migrate`
@@ -45,7 +46,7 @@ service shows `Exited (0)`, and `/health` returns HTTP 200.
 
 | File | Purpose |
 |---|---|
-| [`docker-compose.yml`](docker-compose.yml) | The stack: backend, worker, one-shot migrator, bundled MongoDB + Redis |
+| [`docker-compose.yml`](docker-compose.yml) | The stack: backend, worker, one-shot migrator, admin panel, bundled MongoDB + Redis |
 | [`.env.example`](.env.example) | Configuration template — copy to `.env` and fill in |
 | [`docs/INSTALL.md`](docs/INSTALL.md) | Step-by-step install + first-run checks + updating |
 | [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | Every `.env` setting: required/optional, default, meaning |
@@ -60,6 +61,9 @@ service shows `Exited (0)`, and `/health` returns HTTP 200.
 - **migrate** — runs once on every start: backs up the database, applies any
   new schema migrations, then exits. backend + worker start **only after**
   it succeeds.
+- **admin** — the web admin panel (its own UI + API on one port). It reads
+  the same bundled MongoDB directly, has its own login, and never calls the
+  backend API.
 - **mongo / redis** — bundled data stores (your data lives in Docker
   volumes and survives restarts).
 
@@ -71,9 +75,32 @@ rollback notes: [docs/INSTALL.md](docs/INSTALL.md#updating).
 
 ## Admin panel
 
-A web admin panel is **coming soon**. A placeholder is already wired in
-`docker-compose.yml` (commented out) and will be enabled in a future
-release — nothing to do today.
+The stack includes a web **admin panel** (the `admin` service) — one image
+serving both its UI and API on a single port. It connects to the **same**
+bundled MongoDB as the backend and has its own login. By default it can only
+**read** Callman data (`CALLMAN_DB_WRITE_ENABLED=false`).
+
+Configure it in `.env` (already in `.env.example`):
+
+- `CALLMAN_ADMIN_VERSION` — the admin image version we tell you (e.g. `0.1.0`).
+- `CALLMAN_ADMIN_PORT` — port to reach it on (default `5100`).
+- `ADMIN_JWT_SECRET`, `ADMIN_JWT_REFRESH_SECRET` — each `openssl rand -hex 32`
+  (separate from the backend secrets).
+- `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD` — the first admin user,
+  created automatically on first start.
+
+After `docker compose up -d`, open `http://<this-host>:5100` (or your
+`CALLMAN_ADMIN_PORT`) and log in. Quick check:
+
+```bash
+curl http://localhost:5100/health    # → HTTP 200
+```
+
+> ⚠️ **Security:** set a **strong** `ADMIN_BOOTSTRAP_PASSWORD` before first
+> start and change it right after your first login. Keep
+> `CALLMAN_DB_WRITE_ENABLED=false` unless you specifically need admin writes.
+
+Full setup + verification: [docs/INSTALL.md](docs/INSTALL.md#admin-panel).
 
 ## Need help?
 
