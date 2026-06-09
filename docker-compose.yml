@@ -135,13 +135,16 @@ services:
       retries: 5
       start_period: 10s
 
-  # Admin panel — ONE image (NestJS API + bundled React SPA served same-origin
-  # on a single port). It is INDEPENDENT of backend/worker: it talks DIRECTLY
-  # to the SAME bundled MongoDB, with its OWN auth + JWT secrets (it does NOT
-  # share the backend's encryption/JWT keys, and never calls the backend API).
-  # By default it can only READ Callman data (CALLMAN_DB_WRITE_ENABLED=false).
+  # On-prem admin panel — ONE image (NestJS API + bundled React SPA served
+  # same-origin on a single port), built from the DEDICATED
+  # callman-onprem-admin-panel repo (the on-prem-only admin with org groups,
+  # activity log, group access, dashboard analytics). It is INDEPENDENT of
+  # backend/worker: it talks DIRECTLY to the SAME bundled MongoDB, with its OWN
+  # auth + JWT secrets (it does NOT share the backend's encryption/JWT keys, and
+  # never calls the backend API). By default it can only READ Callman data
+  # (CALLMAN_DB_WRITE_ENABLED=false).
   admin:
-    image: ghcr.io/yurdtech/callman-admin:${CALLMAN_ADMIN_VERSION:?set CALLMAN_ADMIN_VERSION in .env}
+    image: ghcr.io/yurdtech/callman-onprem-admin:${CALLMAN_ADMIN_VERSION:?set CALLMAN_ADMIN_VERSION in .env}
     container_name: callman-admin
     restart: unless-stopped
     env_file:
