@@ -233,3 +233,7 @@ docker compose logs --no-color --tail=200 backend worker migrate
 curl -i http://localhost:8080/version
 ```
 (Do **not** include your `.env` — it contains secrets.)
+
+**Contact us:**
+- 📧 Email: [info@yurdtech.com](mailto:info@yurdtech.com)
+- 📞 Phone: [+994 70 238 88 38](tel:+994702388838)
