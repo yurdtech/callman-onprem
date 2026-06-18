@@ -91,8 +91,8 @@ the **first** admin. Once an admin exists you can remove them.
 | `RATE_LIMIT_LOGIN_WINDOW_MS` | `900000` | Login throttle window (ms, default 15 min). |
 | `MONGODB_MAX_POOL_SIZE` | `100` | Mongo connection pool max. |
 | `MONGODB_MIN_POOL_SIZE` | `10` | Mongo connection pool min (≤ max). |
-| `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. |
-| `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics`. Set `false` to disable. |
+| `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. Raise this first under load; to add *more* worker containers, see [SCALING.md](SCALING.md). |
+| `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics` (incl. `bullmq_jobs_waiting`). Set `false` to disable. See [SCALING.md](SCALING.md). |
 | `MONGODB_BACKUP_DIR` | `/backups` | Where the pre-migration `mongodump` is written (a volume is mounted here — leave as-is). |
 
 ### Queue dashboard (optional)
