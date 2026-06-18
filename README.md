@@ -50,14 +50,18 @@ service shows `Exited (0)`, and `/health` returns HTTP 200.
 | [`.env.example`](.env.example) | Configuration template — copy to `.env` and fill in |
 | [`docs/INSTALL.md`](docs/INSTALL.md) | Step-by-step install + first-run checks + updating |
 | [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | Every `.env` setting: required/optional, default, meaning |
+| [`docs/SCALING.md`](docs/SCALING.md) | Watch the job backlog and add/remove worker containers under load |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common errors and how to fix them |
+| [`scripts/autoscale-worker.sh`](scripts/autoscale-worker.sh) | Optional autoscaler — adjusts the worker count from the live backlog |
 
 ---
 
 ## How it works (30-second tour)
 
 - **backend** — the Callman HTTP API (the port you curl / point clients at).
-- **worker** — runs background jobs (scenario runs, schedules).
+- **worker** — runs background jobs (scenario runs, schedules). Under heavy
+  load you can run several worker containers at once — see
+  [docs/SCALING.md](docs/SCALING.md).
 - **migrate** — runs once on every start: backs up the database, applies any
   new schema migrations, then exits. backend + worker start **only after**
   it succeeds.

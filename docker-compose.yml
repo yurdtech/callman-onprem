@@ -75,9 +75,16 @@ services:
       retries: 5
       start_period: 30s
 
+  # Background job processor (scenario runs + schedules). Deliberately has
+  # NO `container_name` so it can be scaled to many replicas under load:
+  #   docker compose up -d --scale worker=N
+  # A fixed name would make Compose refuse the 2nd replica ("name already in
+  # use"). Replicas are auto-named callman-worker-1, callman-worker-2, …
+  # All replicas share one Redis/BullMQ queue and BullMQ spreads jobs across
+  # them; per-schedule redlock keeps any one schedule from running twice.
+  # See docs/SCALING.md.
   worker:
     <<: *app
-    container_name: callman-worker
     command: ["node", "dist/worker.js"]
     init: true
     environment: *db-env
