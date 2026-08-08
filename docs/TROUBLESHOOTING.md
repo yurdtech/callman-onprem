@@ -48,6 +48,58 @@ docker compose logs backend
 
 ---
 
+## Callman is read-only — nothing can be saved
+
+**Symptom:** users can browse everything, but every save / create / delete
+fails with a message about the license. Backend log shows:
+`Callman started WITHOUT a valid license — running in READ-ONLY mode`.
+
+**Cause:** the deployment has no valid license certificate installed, or the
+installed one expired and its grace period is over.
+
+**Fix:** open the admin panel (`http://<host>:5100`) → **On-Prem → License** →
+paste the certificate we provided → **Activate license**. Callman applies it
+within a minute; no restart. If you do not have a current certificate, contact
+info@yurdtech.com.
+
+> The license is **not** an env var. Nothing to edit in `.env`, and no
+> internet connection is used — the certificate is verified locally.
+
+---
+
+## The admin panel rejects my certificate
+
+Each rejection names the reason:
+
+| Message mentions | Cause | What to do |
+|---|---|---|
+| not a Callman license / payload corrupted | Partial copy/paste | Copy the WHOLE value, including the `CALLMAN-LICENSE-v1` prefix |
+| signature is invalid | The text was altered in transit (e.g. auto-formatting) | Ask us to resend; paste as plain text |
+| signed with key "…" which this Callman version does not know | Certificate newer than your Callman build | Upgrade Callman, or ask for a certificate signed with the key your version ships |
+| issued for the "cloud" edition | Wrong certificate type | Ask for an on-prem certificate |
+| becomes valid on … | Its start date is in the future | Wait, or ask for one starting today |
+| expired on … | Dead on arrival | Ask for a renewed certificate |
+| issued for a different company | Someone else's certificate | Check you pasted yours. If your company was renamed with us, press **Install anyway** |
+| expires earlier than the installed one | An older certificate from a previous email | Find the latest one. To install it deliberately, press **Install anyway** |
+
+**Emergency path** (panel unreachable): write the certificate straight into
+Mongo, then wait a minute:
+
+```bash
+docker compose exec mongo mongosh -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" \
+  --authenticationDatabase admin callman --eval '
+    db.on_prem_license.updateOne(
+      { _id: "singleton" },
+      { $set: { certificate: "CALLMAN-LICENSE-v1...." } },
+      { upsert: true }
+    )'
+```
+
+The backend re-verifies the signature itself, so this shortcut cannot be used
+to install anything we did not sign.
+
+---
+
 ## `Environment validation failed` — secret too short / duplicated
 
 **Symptom:** log shows a field error for `JWT_SECRET` (or another secret).

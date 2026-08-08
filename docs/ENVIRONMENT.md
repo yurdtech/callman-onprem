@@ -23,6 +23,12 @@ placeholders you must replace.
 > characters**, or the app exits at startup. Generate each with
 > `openssl rand -hex 32`.
 
+> **The license is NOT an environment variable.** It is a signed certificate
+> installed once through the admin panel (**On-Prem → License**) and stored in
+> the database — so renewing it needs no `.env` edit and no restart. See
+> [INSTALL.md § 7](INSTALL.md). (`CALLMAN_LICENSE_KEY` is a leftover from an
+> older design and is ignored; you can delete it from your `.env`.)
+
 ## Bundled databases — you must set these (default install)
 
 These configure the bundled MongoDB + Redis. The app's connection strings
