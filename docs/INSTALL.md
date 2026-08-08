@@ -18,6 +18,9 @@ follow the steps in order.
 - **Resources:** at least **2 GB RAM** and **5 GB free disk** for the
   all-in-one stack (more if you expect heavy use).
 - The **access token** we provided to pull the private image.
+- The **license certificate** we provided (a single `CALLMAN-LICENSE-v1...`
+  line). You paste it into the admin panel after the first start — see
+  step 7 below. It is not a secret and does not go into `.env`.
 
 ---
 
@@ -155,6 +158,35 @@ To watch logs live:
 ```bash
 docker compose logs -f backend worker
 ```
+
+---
+
+## 7. Activate your license
+
+Callman starts **read-only** until a license is installed: everything is
+readable, but nothing can be saved. Activating takes about ten seconds.
+
+1. Open the admin panel at `http://<this-host>:5100` and log in.
+2. A **license activation** dialog appears (you can also reach it any time at
+   **On-Prem → License**).
+3. Paste the `CALLMAN-LICENSE-v1...` certificate we sent you and press
+   **Activate license**.
+
+The panel verifies the signature locally — **no internet connection is used or
+required**. Callman picks up the new license within a minute; there is nothing
+to restart.
+
+Verify from the API if you like:
+
+```bash
+curl -H "Authorization: Bearer <your token>" \
+  http://localhost:8080/api/license
+# → {"licensed":true,"status":"active","companyName":"...","seatsUsed":3,"seatsMax":50,...}
+```
+
+**Renewing later** is the same flow: paste the new certificate over the old
+one. The panel warns you 30 days before expiry, and Callman keeps working for
+14 days after it (the grace period) before going read-only.
 
 ---
 

@@ -35,6 +35,11 @@ docker compose up -d
 docker compose ps
 curl http://localhost:8080/health   # backend
 curl http://localhost:5100/health   # admin panel
+
+# 5. Activate your license
+#    Open http://<this-host>:5100 → log in → paste the certificate we gave you.
+#    Callman is read-only until this is done. No .env edit, no restart, no
+#    internet connection required.
 ```
 
 A healthy install: all services `running`/`healthy`, the `callman-migrate`
