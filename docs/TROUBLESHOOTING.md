@@ -1,12 +1,18 @@
 # Troubleshooting
 
 Common problems with the on-prem stack, each as **symptom → cause → fix**.
-First, two commands that answer most questions:
+
+First, three commands that answer most questions:
 
 ```bash
+./scripts/preflight.sh      # checks your .env and host for known mistakes
 docker compose ps           # what's running / exited / unhealthy
-docker compose logs <name>  # logs for a service: backend | worker | migrate | mongo | redis
+docker compose logs <name>  # logs for a service:
+                            #   backend | worker | migrate | admin | mongo | redis
 ```
+
+If you are setting up for the first time, run `preflight.sh` before anything
+else — most of the problems below are things it catches up front.
 
 ---
 
@@ -86,14 +92,19 @@ Each rejection names the reason:
 Mongo, then wait a minute:
 
 ```bash
-docker compose exec mongo mongosh -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" \
-  --authenticationDatabase admin callman --eval '
+docker compose exec -T mongo sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" \
+  -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin callman --eval "
     db.on_prem_license.updateOne(
-      { _id: "singleton" },
-      { $set: { certificate: "CALLMAN-LICENSE-v1...." } },
+      { _id: \"singleton\" },
+      { \$set: { certificate: \"CALLMAN-LICENSE-v1....\" } },
       { upsert: true }
-    )'
+    )"'
 ```
+
+> The credentials are read **inside** the container, where they already exist
+> as environment variables — your host shell does not have them, so a bare
+> `-u "$MONGO_ROOT_USERNAME"` would send an empty username. Using your own
+> MongoDB? Connect to it directly with `mongosh "$MONGODB_URI"` instead.
 
 The backend re-verifies the signature itself, so this shortcut cannot be used
 to install anything we did not sign.
@@ -174,23 +185,101 @@ requires `maxmemory-policy noeviction`.
 
 **Fix:** the bundled Redis is already configured with `noeviction`. If you
 switched to your **own** Redis, set `maxmemory-policy noeviction` there.
-Verify the bundled one:
+
+Verify the bundled one (the password is read inside the container — your host
+shell does not have `$REDIS_PASSWORD`):
 ```bash
-docker compose exec redis redis-cli --no-auth-warning -a "$REDIS_PASSWORD" config get maxmemory-policy
+docker compose exec -T redis sh -c \
+  'redis-cli --no-auth-warning -a "$REDIS_PASSWORD" config get maxmemory-policy'
 # → should print: noeviction
+```
+
+Verify your own:
+```bash
+redis-cli -u "$REDIS_URL" config get maxmemory-policy
+```
+
+---
+
+## I set `MONGODB_URI` / `REDIS_URL` but Callman still uses the bundled database
+
+**Symptom:** you pointed `.env` at your company database, restarted, and
+`docker compose logs backend | grep "MongoDB connection established"` still
+names `mongo` (the bundled container).
+
+**Cause A — the bundled profile is still on.** Setting the URI is only half of
+it; you must also stop us from running our own database.
+
+**Fix:** remove the matching profile in `.env`, then `docker compose up -d`:
+```dotenv
+COMPOSE_PROFILES=bundled-redis        # bundled-mongo removed → your MongoDB
+MONGODB_URI=mongodb://user:pass@mongo.acme.local:27017/callman?authSource=admin
+```
+`./scripts/preflight.sh` reports this conflict explicitly.
+
+**Cause B — you are on an older release of these deployment files.** Before
+this version, `docker-compose.yml` hardcoded the bundled connection strings in
+a way that silently overrode `.env`.
+
+**Fix:** `git pull` in this folder to get the current `docker-compose.yml`,
+then follow [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
+
+---
+
+## Can't connect to my own MongoDB / Redis
+
+**Symptom:** `MongoServerSelectionError`, connection timeouts, or
+`/health/ready` returning 503 with `{"checks":{"mongo":false}}`.
+
+**Fix, in order:**
+
+1. **Is it a database on this same server, outside Docker?** `localhost` in the
+   URI means *the container itself*. Use `host.docker.internal`:
+   ```dotenv
+   MONGODB_URI=mongodb://user:pass@host.docker.internal:27017/callman?authSource=admin
+   ```
+2. **Does the database accept remote connections?** MongoDB's default
+   `bindIp: 127.0.0.1` refuses the Docker network. Check firewall rules too.
+3. **Test from inside a container**, which is what actually matters:
+   ```bash
+   docker compose exec -T backend sh -c 'nc -zv mongo.acme.local 27017'
+   ```
+4. **`Authentication failed`?** Add `?authSource=admin` (or whichever database
+   holds the user), and percent-encode special characters in the password —
+   `p@ss/w0rd` must be written `p%40ss%2Fw0rd`.
+5. **Certificate errors?** Put your CA's PEM in `certs/` and add
+   `&tls=true&tlsCAFile=/certs/your-ca.pem` to the URI.
+
+Full reference: [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
+
+---
+
+## A worker container shows `unhealthy`
+
+**Cause:** the worker serves its health probes on its own internal port
+(`WORKER_HEALTH_PORT`, default `9090`), not on the API port. On older
+deployment files the worker inherited the API's probe and reported `unhealthy`
+forever while processing jobs perfectly.
+
+**Fix:** `git pull` here to get the current `docker-compose.yml`, then
+`docker compose up -d`. To confirm the worker is genuinely fine either way:
+```bash
+docker compose logs worker | tail -20      # should show jobs being processed
+curl -s http://localhost:8080/health | jq .data.queue
 ```
 
 ---
 
 ## Mongo errors mentioning transactions / replica set
 
-**Cause:** an old/edited compose tried to use transactions against a
+**Cause:** an edited compose file tried to use transactions against a
 standalone MongoDB.
 
 **Fix:** the shipped stack does **not** use MongoDB transactions, so the
-bundled Mongo runs standalone by design — no replica set needed. Use the
-unmodified `docker-compose.yml` from this repo. If you customized it,
-revert the `mongo` service to the original.
+bundled Mongo runs standalone by design — no replica set needed, and none is
+required if you bring your own. Use the unmodified `docker-compose.yml` from
+this repo; if you customized it, `git checkout docker-compose.yml` to restore
+it. Everything configurable lives in `.env`.
 
 ---
 
@@ -223,13 +312,13 @@ docker compose logs migrate        # if migrate failed, fix that first
 **Symptom:** `curl http://localhost:5100/health` is not 200, or admin logs show
 a Mongo connection/auth error.
 
-**Cause:** the admin's `CALLMAN_MONGODB_URI` must match the bundled Mongo
-credentials. In the shipped compose it is built automatically from
-`MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` with `authSource=admin`, so this
-only breaks if you edited it or pointed it at an external Mongo.
+**Cause:** the admin panel follows the same MongoDB as the backend
+automatically. This only breaks if you set `CALLMAN_MONGODB_URI` by hand and
+pointed it somewhere else.
 
-**Fix:** ensure `MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` in `.env` are set
-and that you didn't override `CALLMAN_MONGODB_URI` incorrectly. Then:
+**Fix:** leave `CALLMAN_MONGODB_URI` unset (commented out) so it follows
+`MONGODB_URI` — bundled or your own. If the backend is healthy and only admin
+is not, that mismatch is almost always the cause. Then:
 ```bash
 docker compose up -d
 curl http://localhost:5100/health   # → {"status":"ok","mongo":{"callman":true,...}}

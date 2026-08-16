@@ -16,12 +16,24 @@ placeholders you must replace.
 | `CALLMAN_VERSION` | ✅ | — | Image version to run (e.g. `1.0.1`). We tell you which. |
 | `JWT_SECRET` | ✅ | — | Signs access tokens. ≥ 32 chars. `openssl rand -hex 32` |
 | `JWT_REFRESH_SECRET` | ✅ | — | Signs refresh tokens. ≥ 32 chars, **different** from the others. |
+| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin panel image version (e.g. `0.1.0`). Separate from `CALLMAN_VERSION`. |
 | `SESSION_TOKEN_ENCRYPTION_SECRET` | ✅ | — | Encrypts stored sessions. ≥ 32 chars, **different**. |
-| `CONNECTION_ENCRYPTION_KEY` | ✅ | — | Encrypts saved DB/connection credentials. ≥ 32 chars, **different**. |
+| `CONNECTION_ENCRYPTION_KEY` | ✅ | — | Encrypts saved DB/connection credentials. ≥ 32 chars, **different**. **Shared with the admin panel** — see below. |
 
 > The four secrets must be **four distinct values**, each **≥ 32
 > characters**, or the app exits at startup. Generate each with
-> `openssl rand -hex 32`.
+> `openssl rand -hex 32`. Run `./scripts/preflight.sh` to check them before
+> you start the stack.
+
+> ⚠️ **`CONNECTION_ENCRYPTION_KEY` is read by BOTH the backend and the admin
+> panel** from this one `.env`. The admin panel encrypts AI provider keys with
+> it; the backend decrypts them. They must stay identical — do not give the
+> admin panel a different value.
+
+> ⚠️ **Two of these secrets encrypt data inside the database**
+> (`SESSION_TOKEN_ENCRYPTION_SECRET`, `CONNECTION_ENCRYPTION_KEY`). Keep a safe
+> copy of `.env`: a database backup restored against different values cannot be
+> decrypted. See [BACKUP.md](BACKUP.md).
 
 > **The license is NOT an environment variable.** It is a signed certificate
 > installed once through the admin panel (**On-Prem → License**) and stored in
@@ -29,17 +41,42 @@ placeholders you must replace.
 > [INSTALL.md § 7](INSTALL.md). (`CALLMAN_LICENSE_KEY` is a leftover from an
 > older design and is ignored; you can delete it from your `.env`.)
 
-## Bundled databases — you must set these (default install)
+## Databases
 
-These configure the bundled MongoDB + Redis. The app's connection strings
-(`MONGODB_URI`, `REDIS_URL`) are **built automatically** from them by
-`docker-compose.yml` — you do not write a connection URI yourself.
+`COMPOSE_PROFILES` decides which databases this stack runs for you. Everything
+here is set in `.env` — **`docker-compose.yml` is never edited**.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `COMPOSE_PROFILES` | ✅ | `bundled-mongo,bundled-redis` | Which bundled databases to run. Remove `bundled-mongo` to use your own MongoDB, `bundled-redis` for your own Redis, or leave it empty for both. |
+
+### Bundled MongoDB + Redis (default)
+
+Needed only for whichever bundled database is enabled above. The app's
+connection strings are **built automatically** from these — you do not write a
+connection URI yourself.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `MONGO_ROOT_USERNAME` | ✅ | `callman` | Username for the bundled MongoDB. |
 | `MONGO_ROOT_PASSWORD` | ✅ | — | Password for the bundled MongoDB. Choose a strong one. |
 | `REDIS_PASSWORD` | ✅ | — | Password for the bundled Redis. Choose a strong one. |
+
+> ⚠️ `MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` are applied **only when the
+> data volume is first created**. Changing them later does not update the
+> existing database user — see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+### Your own MongoDB / Redis
+
+Set these **only** for a database you run yourself, after removing the matching
+profile from `COMPOSE_PROFILES`. Your value always wins over the bundled
+default. Full guide: **[EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md)**.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `MONGODB_URI` | when `bundled-mongo` is off | _(built from the bundled credentials)_ | Full MongoDB connection URI. Everything — auth source, replica set, TLS — rides as a query parameter. |
+| `REDIS_URL` | when `bundled-redis` is off | _(built from `REDIS_PASSWORD`)_ | Full Redis URI. Your Redis **must** run with `maxmemory-policy noeviction`. |
+| `CALLMAN_MONGODB_URI` | optional | _(follows `MONGODB_URI`)_ | Admin panel's MongoDB. Leave unset — it follows the backend automatically. Set it only if the admin panel must use a *different* database, which is unusual. |
 
 ## Network & edition
 
@@ -53,11 +90,11 @@ These configure the bundled MongoDB + Redis. The app's connection strings
 
 ## Admin panel
 
-The `admin` service (separate image + version) connects to the **same**
-bundled MongoDB as the backend. Its Mongo connection string is **built
-automatically** in `docker-compose.yml` from the `MONGO_ROOT_*` values above —
-do **not** point it at a separate database. Its auth is **independent** of the
-backend (own JWT secrets; no shared encryption keys).
+The `admin` service (separate image + version) connects to the **same** MongoDB
+as the backend — bundled or your own, it follows `MONGODB_URI` automatically.
+Do **not** point it at a separate database. Its login is **independent** of the
+backend's (own JWT secrets, always local email + password — it does not support
+LDAP even when the backend does).
 
 | Variable | Required | Default | Description / how to create |
 |---|---|---|---|
@@ -77,9 +114,8 @@ backend (own JWT secrets; no shared encryption keys).
 \* `ADMIN_BOOTSTRAP_EMAIL` + `ADMIN_BOOTSTRAP_PASSWORD` are needed only to seed
 the **first** admin. Once an admin exists you can remove them.
 
-> `CALLMAN_MONGODB_URI` for the admin is set by `docker-compose.yml` (bundled
-> Mongo). You only set it by hand for an EXTERNAL database — see "Using your
-> own MongoDB / Redis" below.
+> `CALLMAN_MONGODB_URI` follows `MONGODB_URI` automatically, for both the
+> bundled and an external MongoDB. Leave it unset.
 
 ---
 
@@ -99,7 +135,8 @@ the **first** admin. Once an admin exists you can remove them.
 | `MONGODB_MIN_POOL_SIZE` | `10` | Mongo connection pool min (≤ max). |
 | `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. Raise this first under load; to add *more* worker containers, see [SCALING.md](SCALING.md). |
 | `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics` (incl. `bullmq_jobs_waiting`). Set `false` to disable. See [SCALING.md](SCALING.md). |
-| `MONGODB_BACKUP_DIR` | `/backups` | Where the pre-migration `mongodump` is written (a volume is mounted here — leave as-is). |
+| `WORKER_HEALTH_PORT` | `9090` | Port the worker serves its own health probes on, inside its container. Not published to the host; change only on a port conflict. |
+| `MONGODB_BACKUP_DIR` | `/backups` | Where the pre-migration `mongodump` is written (a volume is mounted here — leave as-is). See [BACKUP.md](BACKUP.md). |
 
 ### Queue dashboard (optional)
 
@@ -148,22 +185,19 @@ old server.
 
 ## Using your own MongoDB / Redis
 
-The default stack bundles MongoDB + Redis. To use your **own** databases
-instead:
+Two lines in `.env` — remove the bundled profile, set the URI. You never edit
+`docker-compose.yml`:
 
-1. In `.env`, set the full connection strings (uncomment the lines at the
-   bottom of `.env.example`):
-   ```
-   MONGODB_URI=mongodb://user:pass@your-mongo-host:27017/callman?authSource=admin
-   REDIS_URL=redis://:pass@your-redis-host:6379
-   ```
-2. In `docker-compose.yml`:
-   - Remove (or comment out) the `mongo:` and `redis:` **services** and the
-     `mongo_data` / `redis_data` **volumes**.
-   - In the `x-db-env` block near the top, remove the `MONGODB_URI` and
-     `REDIS_URL` lines so your `.env` values are used instead of the
-     auto-built bundled ones.
-   - Remove the `mongo`/`redis` entries from each service's `depends_on`.
+```dotenv
+COMPOSE_PROFILES=bundled-redis        # our Redis, your MongoDB
+MONGODB_URI=mongodb://user:pass@mongo.acme.local:27017/callman?authSource=admin
+```
 
-> Your Redis must use `maxmemory-policy noeviction` (BullMQ requires that
-> jobs are never evicted).
+Then `./scripts/preflight.sh && docker compose up -d`.
+
+Replica sets, TLS with a private CA, databases running on the Docker host,
+verification steps and common errors are all covered in
+**[EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md)**.
+
+> Your Redis must use `maxmemory-policy noeviction` (queued background jobs
+> live in Redis and must never be evicted).

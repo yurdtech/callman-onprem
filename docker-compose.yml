@@ -1,16 +1,25 @@
 # ─────────────────────────────────────────────────────────────────────
-# Callman — on-prem stack (ALL-IN-ONE / bundled by default).
+# Callman — on-prem stack.
 #
-# Runs the Callman backend from a pre-built registry image plus a bundled
-# MongoDB + Redis, so a single `docker compose up -d` gives a working
-# install. No source is built here — the image is pulled by version tag.
+# ALL-IN-ONE by default: the Callman backend runs from a pre-built
+# registry image alongside a bundled MongoDB + Redis, so a single
+# `docker compose up -d` gives a working install. No source is built
+# here — images are pulled by version tag.
+#
+# YOUR OWN DATABASES: you never edit this file. Change `.env` only —
+# drop the bundled profile and set MONGODB_URI / REDIS_URL. Full guide:
+# docs/EXTERNAL-DATABASES.md
 #
 # Quick start:
+#     git clone https://github.com/yurdtech/callman-onprem.git
+#     cd callman-onprem
 #     cp .env.example .env     # fill in CALLMAN_VERSION + secrets
+#     ./scripts/preflight.sh   # catches config mistakes before you start
 #     docker compose pull
 #     docker compose up -d
 #     curl http://localhost:${CALLMAN_PORT}/health
 #
+# Requires Docker Compose v2.20+ (for `depends_on: required:`).
 # Full guide: docs/INSTALL.md
 # ─────────────────────────────────────────────────────────────────────
 
@@ -18,19 +27,52 @@ name: callman
 
 # Shared backend image config (HTTP server, worker, and migrate are the
 # same image, different commands).
+#
+# `extra_hosts` makes `host.docker.internal` resolve to the Docker host on
+# Linux too — needed when your MongoDB/Redis runs on this same machine but
+# OUTSIDE Docker. (Inside a container, "localhost" is the container itself,
+# so a URI pointing at localhost would never reach your database.)
+#
+# `./certs` is mounted read-only into every app container so a private-CA
+# certificate works with NO edit to this file: drop your PEM in ./certs and
+# reference it as /certs/<name>.pem from .env (Mongo `tlsCAFile=`). The
+# directory ships empty. (An LDAP CA does NOT go here — you paste it into the
+# admin panel; see docs/AUTH_SETUP.md.)
 x-app: &app
   image: ghcr.io/yurdtech/callman-backend:${CALLMAN_VERSION:?set CALLMAN_VERSION in .env}
   env_file:
     - .env
   restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - ./certs:/certs:ro
 
-# DB/cache connection strings are CONSTRUCTED here from the bundled
-# passwords so they always match the mongo/redis services below — the
-# customer never hand-writes a connection URI. (For EXTERNAL databases,
-# see docs/ENVIRONMENT.md → "Using your own MongoDB / Redis".)
+# DB/cache connection strings.
+#
+# The value from your `.env` ALWAYS WINS. If you leave MONGODB_URI /
+# REDIS_URL unset (the default), the URI is constructed from the bundled
+# passwords below so it always matches the bundled mongo/redis services —
+# you never hand-write a connection URI for the default install.
+#
+# To use your own databases, set MONGODB_URI / REDIS_URL in `.env` and
+# remove the matching profile from COMPOSE_PROFILES. Nothing here changes.
+# See docs/EXTERNAL-DATABASES.md.
 x-db-env: &db-env
-  MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/callman?authSource=admin
-  REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+  MONGODB_URI: ${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-callman}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/callman?authSource=admin}
+  REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-}@redis:6379}
+
+# DB readiness ordering. `required: false` means "wait for it IF it is part
+# of this deployment" — so when the bundled profiles are off and there is no
+# mongo/redis service, these dependencies are simply skipped instead of
+# being an error. That is what lets one compose file serve both layouts.
+x-db-depends: &db-depends
+  mongo:
+    condition: service_healthy
+    required: false
+  redis:
+    condition: service_healthy
+    required: false
 
 services:
   # One-shot schema migration. Backs up the DB (mongodump → /backups) and
@@ -42,12 +84,14 @@ services:
     restart: "no"
     environment: *db-env
     volumes:
+      - ./certs:/certs:ro
       - backups:/backups
-    depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    # The image bakes a liveness probe for the HTTP server, which this
+    # one-shot job never starts. Without this, migrate would sit at
+    # "unhealthy" after a perfectly successful run.
+    healthcheck:
+      disable: true
+    depends_on: *db-depends
 
   backend:
     <<: *app
@@ -62,12 +106,11 @@ services:
     ports:
       - "${CALLMAN_PORT:-8080}:${CALLMAN_PORT:-8080}"
     depends_on:
+      <<: *db-depends
       migrate:
         condition: service_completed_successfully
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    # Overrides the image's baked probe, which targets the image default
+    # port (4000) rather than your CALLMAN_PORT.
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:${CALLMAN_PORT:-8080}/health/live"]
       interval: 30s
@@ -89,25 +132,39 @@ services:
     init: true
     environment: *db-env
     volumes:
+      - ./certs:/certs:ro
       - backups:/backups
     depends_on:
+      <<: *db-depends
       migrate:
         condition: service_completed_successfully
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    # The worker serves no HTTP API — its probes live on a dedicated port
+    # (WORKER_HEALTH_PORT, default 9090). Without this override it would
+    # inherit the image's probe against port 4000 and report "unhealthy"
+    # forever while working perfectly.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Bundled data stores (optional) ─────────────────────────────────
+  # Enabled by COMPOSE_PROFILES in .env (default: both on). Remove a
+  # profile there to use your own database instead — see
+  # docs/EXTERNAL-DATABASES.md. Neither is published to the host; only the
+  # app containers reach them over the internal network.
 
   # Bundled MongoDB (standalone — the backend uses no multi-document
-  # transactions, so a replica set is NOT required). Not published to the
-  # host; only the app containers reach it over the internal network.
+  # transactions, so a replica set is NOT required).
   mongo:
     image: mongo:7
     container_name: callman-mongo
+    profiles: ["bundled-mongo"]
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?set MONGO_ROOT_USERNAME in .env}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-callman}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-}
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -120,11 +177,19 @@ services:
 
   # Bundled Redis. `noeviction` is CRITICAL — BullMQ stores jobs in Redis
   # and must never have them evicted under memory pressure. `appendonly`
-  # persists across restarts. Password-protected; not published to the host.
+  # persists across restarts. Password-protected.
   redis:
     image: redis:7-alpine
     container_name: callman-redis
+    profiles: ["bundled-redis"]
     restart: unless-stopped
+    environment:
+      # Also exposed as an env var (not just the --requirepass argument below)
+      # so admin commands can authenticate from inside the container without
+      # you having to retype the password:
+      #   docker compose exec -T redis sh -c \
+      #     'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping'
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     command:
       - "redis-server"
       - "--appendonly"
@@ -132,11 +197,11 @@ services:
       - "--maxmemory-policy"
       - "noeviction"
       - "--requirepass"
-      - "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"
+      - "${REDIS_PASSWORD:-}"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-}", "ping"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -146,31 +211,39 @@ services:
   # same-origin on a single port), built from the DEDICATED
   # callman-onprem-admin-panel repo (the on-prem-only admin with org groups,
   # activity log, group access, dashboard analytics). It is INDEPENDENT of
-  # backend/worker: it talks DIRECTLY to the SAME bundled MongoDB, with its OWN
-  # auth + JWT secrets (it does NOT share the backend's encryption/JWT keys, and
-  # never calls the backend API). By default it can only READ Callman data
-  # (CALLMAN_DB_WRITE_ENABLED=false).
+  # backend/worker: it talks DIRECTLY to the SAME MongoDB, with its OWN
+  # auth + JWT secrets, and never calls the backend API. It uses no Redis.
+  # By default it can only READ Callman data (CALLMAN_DB_WRITE_ENABLED=false).
   admin:
     image: ghcr.io/yurdtech/callman-onprem-admin:${CALLMAN_ADMIN_VERSION:?set CALLMAN_ADMIN_VERSION in .env}
     container_name: callman-admin
     restart: unless-stopped
     env_file:
       - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./certs:/certs:ro
     environment:
       # Internal port is fixed at 5100 (matches the image's baked HEALTHCHECK).
       PORT: 5100
-      # SAME bundled Mongo + DB as the backend — admin reads the same database.
-      # Built from the bundled creds so it always matches (no hand-written URI).
-      CALLMAN_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/callman?authSource=admin
+      # Follows the SAME Mongo as the backend automatically — bundled or
+      # yours. Set CALLMAN_MONGODB_URI in .env only if the admin panel must
+      # use a DIFFERENT Mongo than the backend (unusual; it reads the same
+      # database).
+      CALLMAN_MONGODB_URI: ${CALLMAN_MONGODB_URI:-${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-callman}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/callman?authSource=admin}}
     ports:
       - "${CALLMAN_ADMIN_PORT:-5100}:5100"
     depends_on:
-      # Hard requirement: admin connects directly to Mongo on boot.
+      # Hard requirement: admin connects directly to Mongo on boot — but
+      # only wait for the bundled one when it is part of this deployment.
       mongo:
         condition: service_healthy
-      # Wait for the one-shot migrate so admin reads an already-migrated schema
-      # (it shares the DB). This is DB-readiness ordering, NOT a dependency on
-      # the backend/worker app tier — admin never calls the backend API.
+        required: false
+      # Wait for the one-shot migrate so admin reads an already-migrated
+      # schema (it shares the DB). This is DB-readiness ordering, NOT a
+      # dependency on the backend/worker app tier — admin never calls the
+      # backend API.
       migrate:
         condition: service_completed_successfully
 
