@@ -32,7 +32,9 @@ saturated.
   second, only one runs it. Long runs keep the lock alive with a heartbeat, and
   a crashed worker's lock expires so another can take over.
 - The bundled Redis already runs with `--maxmemory-policy noeviction` (required
-  by BullMQ) — no change needed when you add workers.
+  by BullMQ) — no change needed when you add workers. If you use
+  [your own Redis](EXTERNAL-DATABASES.md), confirm it has that policy *and*
+  enough memory headroom before scaling up: more workers means a deeper queue.
 
 So scaling `worker` up or down is safe at any time. **No duplicate runs.**
 

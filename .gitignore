@@ -4,6 +4,11 @@
 .env.*
 !.env.example
 
+# Private CA certificates the customer drops in — never commit them.
+# The folder itself is tracked (it is mounted at /certs in every container).
+certs/*
+!certs/.gitkeep
+
 # Local DB backups (if a bind-mount is ever used instead of a volume).
 backups/
 *.archive.gz
