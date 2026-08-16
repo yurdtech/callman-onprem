@@ -202,6 +202,68 @@ uri_port() {
   if [[ "$hostport" == *:* ]]; then printf '%s' "${hostport##*:}"; else printf '%s' "$default"; fi
 }
 
+# The bundled MongoDB applies MONGO_INITDB_ROOT_USERNAME / _PASSWORD **only
+# when it initialises an empty data volume**. Change them in .env afterwards
+# and the running database keeps expecting the ORIGINAL ones — every service
+# then dies with a bare "Authentication failed", which reads like a broken
+# app rather than a configuration mismatch.
+#
+# Catch it here, while it is still cheap to fix, and never suggest
+# `down -v` as the first move: on an established install that erases the
+# license and every user.
+check_bundled_mongo_credentials() {
+  command -v docker >/dev/null 2>&1 || return 0
+
+  # Volume name is <compose project>_mongo_data; the project is `callman`.
+  local volume="callman_mongo_data"
+  docker volume inspect "$volume" >/dev/null 2>&1 || {
+    info "first start — the bundled MongoDB will be created with these credentials"
+    return 0
+  }
+
+  local user password
+  user="$(env_get MONGO_ROOT_USERNAME)"
+  password="$(env_get MONGO_ROOT_PASSWORD)"
+
+  # Only verifiable while the container is up; compose has not run yet on a
+  # cold start, and we will not mount a live data volume just to look.
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "callman-mongo"; then
+    warn "an existing MongoDB data volume ($volume) was found"
+    info "Its credentials were fixed when it was FIRST created. If you have"
+    info "changed MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD since then, every"
+    info "service will fail with 'Authentication failed'. Verify with:"
+    info "  docker compose up -d mongo && \\"
+    info "    docker compose exec -T mongo sh -c 'mongosh --quiet -u \"\$MONGO_INITDB_ROOT_USERNAME\" \\"
+    info "      -p \"\$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.runCommand({ping:1}).ok\"'"
+    return 0
+  fi
+
+  if docker exec callman-mongo mongosh --quiet \
+       -u "$user" -p "$password" --authenticationDatabase admin \
+       --eval 'db.runCommand({ ping: 1 }).ok' >/dev/null 2>&1; then
+    ok "the bundled MongoDB accepts the credentials in .env"
+    return 0
+  fi
+
+  bad "the existing MongoDB does NOT accept MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD"
+  info "The data volume ($volume) already exists, and those two values are"
+  info "applied ONLY when the volume is first created — so changing them in"
+  info ".env has no effect on a database that already exists."
+  info ""
+  info "Pick one:"
+  info "  1. Put the ORIGINAL username and password back in .env (no data loss)."
+  info "  2. Reset the password on the existing volume, keeping your data:"
+  info "       docker compose stop"
+  info "       docker run --rm -d --name mongo-fix -v $volume:/data/db mongo:7 --noauth"
+  info "       sleep 8 && docker exec mongo-fix mongosh --quiet admin --eval \\"
+  info "         'db.createUser({user:\"$user\", pwd:\"<your .env password>\", roles:[{role:\"root\", db:\"admin\"}]})'"
+  info "       docker stop mongo-fix && docker compose up -d"
+  info "  3. ONLY if this install is disposable — erase it and start over:"
+  info "       docker compose down -v     # DELETES the license and all data"
+  info ""
+  info "See docs/TROUBLESHOOTING.md -> 'Authentication failed'."
+}
+
 # Best-effort TCP reachability from THIS host. Containers resolve
 # host.docker.internal to the host, which the host itself cannot resolve —
 # so probe 127.0.0.1 in that case.
@@ -221,6 +283,7 @@ if [[ "$bundled_mongo" -eq 1 ]]; then
     bad "MONGO_ROOT_PASSWORD is empty but the bundled MongoDB is enabled"
   else
     ok "MongoDB: bundled (we run it for you)"
+    check_bundled_mongo_credentials
   fi
 else
   mongo_uri="$(env_get MONGODB_URI)"
