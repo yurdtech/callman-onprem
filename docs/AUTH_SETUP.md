@@ -165,6 +165,7 @@ the message. Beyond that:
 
 | Symptom | Likely cause |
 |---|---|
+| Test: "Nothing is listening on that address" / fails instantly at 0 ms | The URL says `localhost`. Callman runs in containers, where `localhost` is the container itself. If your directory runs on the machine hosting Callman, use `ldap://host.docker.internal:389`; otherwise use its real hostname. |
 | Test: "server name could not be resolved" | Wrong host, or the container cannot reach your DNS. |
 | Test: "refused the connection" | Wrong port, or a firewall between this server and the directory. |
 | Test: "TLS certificate could not be verified" | Private CA — paste its certificate into the **CA certificate** box. |

@@ -226,6 +226,75 @@ then follow [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 
 ---
 
+## `Authentication failed` — and the credentials in `.env` look correct
+
+**Symptom:** `callman-migrate` exits 1 and the backend never starts.
+`docker compose logs migrate` shows:
+
+```
+MongoServerError: Authentication failed.
+```
+
+**Cause:** you changed `MONGO_ROOT_USERNAME` or `MONGO_ROOT_PASSWORD` after the
+first start. The bundled MongoDB applies those **only when it initialises an
+empty data volume**. Your database already exists, so it still expects the
+values it was *originally* created with — the new ones were never applied.
+
+Nothing is broken and no data is lost. The database and your `.env` simply
+disagree about the password.
+
+**⚠️ Do not run `docker compose down -v` as a first move.** It erases the
+volume — including your activated license, admin users and all Callman data.
+
+**Fix — pick one:**
+
+**1. Restore the original credentials** (simplest, if you know them).
+Put them back in `.env` and `docker compose up -d`.
+
+**2. Reset the password on the existing volume, keeping all data.** Use this
+when the original password is lost — MongoDB stores a one-way hash, so it
+cannot be read back:
+
+```bash
+docker compose stop
+
+# Temporary server with authentication disabled, on the same volume.
+docker run --rm -d --name mongo-fix -v callman_mongo_data:/data/db mongo:7 --noauth
+sleep 8
+
+# Create (or update) the user named in your .env.
+docker exec mongo-fix mongosh --quiet admin --eval '
+  db.createUser({ user: "<MONGO_ROOT_USERNAME>", pwd: "<MONGO_ROOT_PASSWORD>",
+                  roles: [{ role: "root", db: "admin" }] })'
+
+docker stop mongo-fix
+docker compose up -d
+```
+
+If the user already exists, use `db.changeUserPassword("<user>", "<password>")`
+instead of `createUser`.
+
+Confirm it worked:
+
+```bash
+docker compose logs migrate     # → "No pending migrations" / "Migrations applied"
+curl http://localhost:8080/health/ready
+```
+
+**3. Start completely over — destroys everything:**
+
+```bash
+docker compose down -v && docker compose up -d
+```
+
+Only do this if the install is disposable. You will have to activate your
+license again.
+
+> `./scripts/preflight.sh` checks this before you start the stack and reports
+> the mismatch instead of letting the migrator fail.
+
+---
+
 ## Can't connect to my own MongoDB / Redis
 
 **Symptom:** `MongoServerSelectionError`, connection timeouts, or
