@@ -43,7 +43,23 @@ paste into the form.
 
 ## 2. LDAP / Active Directory
 
-### Create a read-only service account
+### One deployment, several directories
+
+Directory login is a **list of directories**. Add one entry per independent
+directory — for example head office plus each subsidiary running its own
+domain/forest, each with its own server, service account and base DN. Every
+login tries the directories **in list order** until one matches; the same
+username may exist in several of them, and the one where the password
+actually matches wins. Each entry has its own **Test connection**, and every
+enabled entry must pass its test before the settings can be saved.
+
+A single-directory setup is simply a list of one.
+
+> Renaming a directory's label is always safe. **Removing** a directory (or
+> re-adding it as a new entry) disconnects the Callman accounts that were
+> created through it — those users can no longer sign in.
+
+### Create a read-only service account (per directory)
 
 Callman binds to your directory with a dedicated **service account** to look
 users up. It needs only **read** access to the user subtree — never admin
@@ -60,8 +76,12 @@ never shown again — the screen displays only its last four characters.
 
 ### Fill in the form
 
+Each directory entry has the same fields:
+
 | Field | Example | Notes |
 |---|---|---|
+| **Name** | `Head office` | Free-text label shown in this list and in Callman's logs. |
+| **Enabled** | — | A disabled directory keeps its settings but is skipped at login. |
 | **Server URL** | `ldaps://ldap.acme.local:636` | LDAPS recommended. For `ldap://…:389`, enable **Use StartTLS**. |
 | **Service account DN** | `cn=callman-svc,ou=services,dc=acme,dc=local` | The account above. |
 | **Service account password** | — | Leave empty when editing to keep the stored one. |
