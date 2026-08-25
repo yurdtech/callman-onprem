@@ -90,6 +90,7 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/EXTERNAL-DATABASES.md`](docs/EXTERNAL-DATABASES.md) | Use your own MongoDB / Redis |
 | [`docs/BACKUP.md`](docs/BACKUP.md) | Backing up and restoring your data |
 | [`docs/AUTH_SETUP.md`](docs/AUTH_SETUP.md) | How people sign in — email + password, or your corporate LDAP / Active Directory (configured in the admin panel) |
+| [`docs/UI-RUNNER.md`](docs/UI-RUNNER.md) | Optional UI-test runner: scheduled web UI tests in a headless browser |
 | [`docs/SCALING.md`](docs/SCALING.md) | Watch the job backlog and add worker containers under load |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common errors and how to fix them |
 | [`scripts/preflight.sh`](scripts/preflight.sh) | Config check — run it before `docker compose up -d` |

@@ -319,6 +319,11 @@ The `migrate` service runs first (taking a backup), applies the new schema
 migrations automatically, and only then do the backend, worker and admin panel
 start on the new version. Confirm with `curl http://localhost:8080/version`.
 
+> Since backend **1.0.1** an optional **UI-test runner** is available —
+> scheduled web UI tests executed on this server in a headless browser. It is
+> off by default and enabled with one `.env` line; see
+> [UI-RUNNER.md](UI-RUNNER.md).
+
 ### Rollback note
 
 To roll back, set the previous `CALLMAN_VERSION` and `docker compose up -d`

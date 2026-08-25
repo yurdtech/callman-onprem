@@ -199,6 +199,22 @@ Verify your own:
 redis-cli -u "$REDIS_URL" config get maxmemory-policy
 ```
 
+## "No UI test runner is available in this deployment" (UI test schedules)
+
+**Cause:** the optional `ui-runner` service is not running — the profile is
+not enabled, the container is down, or it stopped answering more than ~30
+seconds ago.
+
+**Fix:** enable/check it per [UI-RUNNER.md](UI-RUNNER.md):
+```bash
+grep COMPOSE_PROFILES .env          # must include: ui-runner
+docker compose ps                   # ...-ui-runner-1 should be healthy
+docker compose logs ui-runner | tail -20
+```
+The ui-runner has its own troubleshooting table (pull denied, unhealthy /
+restarts, browser launch errors, run time limit) at the end of
+[UI-RUNNER.md](UI-RUNNER.md).
+
 ---
 
 ## I set `MONGODB_URI` / `REDIS_URL` but Callman still uses the bundled database
