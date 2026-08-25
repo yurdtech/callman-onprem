@@ -75,6 +75,7 @@ after it fires, the run appears in the flow's **History** with a
 | Symptom | Cause / fix |
 |---|---|
 | `docker compose pull` says `denied` / `manifest unknown` for `callman-ui-runner` | Your registry token may not cover the (newer) ui-runner package — re-run `docker login ghcr.io` with the token we gave you; if it persists, contact us so we grant the package to your token. |
+| `docker compose pull` says `no matching manifest for linux/arm64` | You are on an ARM host (Apple Silicon, Graviton) and this runner version shipped amd64-only (fixed from 1.0.2 — multi-arch). Until you update, add a `docker-compose.override.yml` with:<br>`services:`<br>`  ui-runner:`<br>`    platform: linux/amd64`<br>then `docker compose pull` again — it runs under emulation (on macOS enable *Use Rosetta* in Docker Desktop). Delete the override once on a multi-arch version. |
 | Desktop shows "No UI test runner is available…" (503) | The runner isn't running (profile not enabled, container down) or died >30 s ago. Check `docker compose ps` and `docker compose logs ui-runner`. |
 | `ui-runner` is `unhealthy` or restarts | Usually RAM. Check `docker stats`; lower `UITEST_WORKER_CONCURRENCY` to `1`, scale replicas instead, or give the host more memory. |
 | Runs fail with a browser/sandbox launch error | The container ships with the correct flags (`CALLMAN_WEB_DRIVER_NO_SANDBOX=1`, `shm_size: 2gb` are set in docker-compose.yml) — if you overrode compose settings, restore them. |
