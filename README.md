@@ -109,6 +109,10 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
   succeeds.
 - **admin** — the web admin panel (its own UI + API on one port). It reads the
   same MongoDB directly, has its own login, and never calls the backend API.
+- **ui-runner** *(optional, off by default)* — runs your team's **web UI test
+  flows** on a schedule, in a headless browser on this server. Separate,
+  larger image; enabled with one `.env` line — see
+  [docs/UI-RUNNER.md](docs/UI-RUNNER.md).
 - **mongo / redis** — the bundled data stores, unless you brought your own.
 
 ---
