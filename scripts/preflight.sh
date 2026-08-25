@@ -357,6 +357,22 @@ else
   fi
 fi
 
+# ── UI-test runner (optional profile) ──
+# Headless-browser containers are memory-hungry: warn when the profile is on
+# and the host looks tight (<4 GB available RAM).
+if [[ ",$profiles," == *",ui-runner,"* ]]; then
+  avail_kb=""
+  if [[ -r /proc/meminfo ]]; then
+    avail_kb="$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null)"
+  fi
+  if [[ -n "$avail_kb" && "$avail_kb" -lt 4194304 ]]; then
+    warn "ui-runner profile is enabled but this host has <4 GB RAM available"
+    info "Each ui-runner replica should be budgeted ~2 GB. See docs/SCALING.md."
+  else
+    ok "ui-runner profile enabled (scheduled web UI tests will run here)"
+  fi
+fi
+
 if [[ ! -d "$COMPOSE_DIR/certs" ]]; then
   warn "certs/ directory is missing — recreate it if you need a private CA"
 fi

@@ -23,6 +23,27 @@ Total jobs processed in parallel ≈ **`N workers × BULLMQ_WORKER_CONCURRENCY`*
 Start by raising concurrency; reach for more workers when a single container is
 saturated.
 
+## Scaling the UI-test runner (profile `ui-runner`)
+
+The `ui-runner` service executes web UI tests in headless Chromium — a very
+different cost profile from the worker's HTTP jobs. Scale it **manually**:
+
+```bash
+docker compose up -d --scale ui-runner=2 ui-runner
+```
+
+Rules of thumb:
+
+- Parallel browser runs = **replicas × `UITEST_WORKER_CONCURRENCY`** (default
+  2 per replica; 1–5 allowed). One browser session uses ~400–800 MB RSS —
+  budget **~2 GB RAM per replica** and keep concurrency low rather than high.
+- `scripts/autoscale-worker.sh` is hardcoded to the **worker** service and its
+  queue math (hundreds of cheap jobs per worker) — do **not** point it at
+  `ui-runner`.
+- Long-lived browser containers slowly accumulate memory; a periodic restart
+  (`docker compose restart ui-runner`, e.g. nightly via cron) is a cheap
+  hygiene measure.
+
 ## Why running many workers is safe
 
 - All workers consume the **same** Redis/BullMQ queue, and BullMQ hands each job

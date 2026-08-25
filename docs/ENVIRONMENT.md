@@ -48,7 +48,21 @@ here is set in `.env` — **`docker-compose.yml` is never edited**.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `COMPOSE_PROFILES` | ✅ | `bundled-mongo,bundled-redis` | Which bundled databases to run. Remove `bundled-mongo` to use your own MongoDB, `bundled-redis` for your own Redis, or leave it empty for both. |
+| `COMPOSE_PROFILES` | ✅ | `bundled-mongo,bundled-redis` | Which bundled databases to run. Remove `bundled-mongo` to use your own MongoDB, `bundled-redis` for your own Redis, or leave it empty for both. Add `ui-runner` to also run the UI-test runner (scheduled web UI tests in a headless browser — see below). |
+
+### UI-test runner (optional, profile `ui-runner`)
+
+Runs users' **web UI test flows on the server on a schedule** (headless
+Chromium). Opt-in because it is heavy: the image is ~2 GB on disk and every
+replica should be budgeted ~2 GB RAM. Without it, everything else works —
+the app just answers "UI runner unavailable" to schedule/run requests.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `UITEST_WORKER_CONCURRENCY` | — | `2` | Browsers per runner replica (1–5). Parallel web tests = replicas × this. |
+| `UITEST_RUN_MAX_DURATION_MS` | — | `900000` | Per-run time limit (ms). A run over the limit is stopped and reported failed. |
+| `UITEST_REPORT_RETENTION_DAYS` | — | `90` | How long server run reports are kept. |
+| `UITEST_FAILURE_SCREENSHOT_MAX_BYTES` | — | `300000` | Failure screenshot size budget; `0` disables screenshots. |
 
 ### Bundled MongoDB + Redis (default)
 

@@ -149,6 +149,50 @@ services:
       retries: 5
       start_period: 30s
 
+  # ── UI-test runner (optional, profile "ui-runner") ─────────────────
+  # Executes WEB UI test flows on a schedule in headless Chromium. A
+  # SEPARATE, browser-capable image (~2 GB — the backend image is Alpine
+  # and cannot host a browser), so it is opt-in via COMPOSE_PROFILES.
+  # Budget ~2 GB RAM per replica; parallel browsers = replicas ×
+  # UITEST_WORKER_CONCURRENCY (default 2). Scale like the worker:
+  #   docker compose up -d --scale ui-runner=N
+  # (deliberately NO container_name, same reasoning as the worker).
+  # Without this service running, the app answers "UI runner unavailable"
+  # to schedule/run requests — nothing else breaks. See docs/SCALING.md.
+  ui-runner:
+    image: ghcr.io/yurdtech/callman-ui-runner:${CALLMAN_VERSION:?set CALLMAN_VERSION in .env}
+    profiles: ["ui-runner"]
+    env_file:
+      - .env
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # tini as PID 1 — reaps orphaned Chromium processes.
+    init: true
+    # Chromium needs a real /dev/shm; the 64 MB Docker default crashes tabs.
+    shm_size: "2gb"
+    environment:
+      <<: *db-env
+      CALLMAN_WEB_DRIVER_NO_SANDBOX: "1"
+    volumes:
+      - ./certs:/certs:ro
+    depends_on:
+      <<: *db-depends
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.WORKER_HEALTH_PORT||9090)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # ── Bundled data stores (optional) ─────────────────────────────────
   # Enabled by COMPOSE_PROFILES in .env (default: both on). Remove a
   # profile there to use your own database instead — see
