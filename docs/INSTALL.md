@@ -23,7 +23,9 @@ as containers on one server.
   Docker Engine and the Compose plugin from
   <https://docs.docker.com/engine/install/>.
 - **2 GB RAM** and **5 GB free disk** minimum for the all-in-one stack (more
-  for heavy use).
+  for heavy use). Enabling the optional **UI-test runner** (`ui-runner`
+  profile — scheduled web UI tests in a headless browser) adds **~2 GB disk**
+  for its image and **~2 GB RAM per replica** on top of that.
 - Ports **8080** and **5100** free (both configurable).
 
 **From us, before you begin:**
@@ -316,6 +318,11 @@ When we publish a new version:
 The `migrate` service runs first (taking a backup), applies the new schema
 migrations automatically, and only then do the backend, worker and admin panel
 start on the new version. Confirm with `curl http://localhost:8080/version`.
+
+> Since backend **1.0.1** an optional **UI-test runner** is available —
+> scheduled web UI tests executed on this server in a headless browser. It is
+> off by default and enabled with one `.env` line; see
+> [UI-RUNNER.md](UI-RUNNER.md).
 
 ### Rollback note
 
