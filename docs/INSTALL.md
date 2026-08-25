@@ -49,8 +49,10 @@ This repository holds **only** deployment files — Docker Compose, a config
 template and these docs. There is no application source; the images come from
 our registry.
 
-Everything from here runs inside this folder. To update the deployment files
-later, `git pull` here.
+Everything from here runs inside this folder. **Keep the clone: every update
+starts with a `git pull` here** — new releases change these deployment files
+too (new optional services, compose/script fixes, docs), and those changes
+only arrive through git.
 
 > No git on the server? Download the archive instead:
 > ```bash
@@ -306,7 +308,10 @@ Do these before handing the system to users.
 
 When we publish a new version:
 
-1. Refresh the deployment files: `git pull`
+1. Refresh the deployment files: `git pull` — **always, before anything
+   else.** Releases change this repo too (compose services, scripts, docs);
+   without the pull, only the app images update and new capabilities (e.g.
+   the optional [UI-test runner](UI-RUNNER.md)) never appear.
 2. Edit `.env` and set the new `CALLMAN_VERSION` (and `CALLMAN_ADMIN_VERSION`
    if we gave you one).
 3. Pull and restart:

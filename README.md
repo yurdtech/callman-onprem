@@ -145,10 +145,17 @@ Full setup + verification: [docs/INSTALL.md](docs/INSTALL.md#8-activate-your-lic
 ## Updating
 
 ```bash
-git pull                       # refresh these deployment files
+git pull                       # ALWAYS first — refresh these deployment files
 # set the new CALLMAN_VERSION in .env, then:
 docker compose pull && docker compose up -d
 ```
+
+> **`git pull` is part of every update, not optional.** This cloned folder
+> holds the deployment itself — `docker-compose.yml`, scripts, docs. New
+> releases regularly change these files too (new optional services such as
+> the [UI-test runner](docs/UI-RUNNER.md), healthcheck and script fixes,
+> updated docs). Skipping `git pull` means those changes never reach you,
+> even though the app images update.
 
 Migrations apply automatically. Details + rollback notes:
 [docs/INSTALL.md](docs/INSTALL.md#updating).
