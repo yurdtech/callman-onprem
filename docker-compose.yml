@@ -186,7 +186,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:'+(process.env.WORKER_HEALTH_PORT||9090)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.UITEST_HEALTH_PORT||9091)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
