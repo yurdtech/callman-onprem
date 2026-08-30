@@ -256,7 +256,10 @@ services:
   # callman-onprem-admin-panel repo (the on-prem-only admin with org groups,
   # activity log, group access, dashboard analytics). It is INDEPENDENT of
   # backend/worker: it talks DIRECTLY to the SAME MongoDB, with its OWN
-  # auth + JWT secrets, and never calls the backend API. It uses no Redis.
+  # auth + JWT secrets. It uses no Redis. The ONE backend-API call it makes
+  # is the managed-connections "Test" action (CALLMAN_BACKEND_API_URL below):
+  # the real DB/Kafka/Redis drivers live only in the backend, and the config
+  # travels ENCRYPTED with the shared CONNECTION_ENCRYPTION_KEY.
   # By default it can only READ Callman data (CALLMAN_DB_WRITE_ENABLED=false).
   admin:
     image: ghcr.io/yurdtech/callman-onprem-admin:${CALLMAN_ADMIN_VERSION:?set CALLMAN_ADMIN_VERSION in .env}
@@ -276,6 +279,10 @@ services:
       # use a DIFFERENT Mongo than the backend (unusual; it reads the same
       # database).
       CALLMAN_MONGODB_URI: ${CALLMAN_MONGODB_URI:-${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-callman}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/callman?authSource=admin}}
+      # Backend API base URL for the managed-connections driver tests.
+      # Defaults to the bundled backend service; override in .env only when
+      # the backend runs elsewhere.
+      CALLMAN_BACKEND_API_URL: ${CALLMAN_BACKEND_API_URL:-http://backend:${CALLMAN_PORT:-8080}}
     ports:
       - "${CALLMAN_ADMIN_PORT:-5100}:5100"
     depends_on:
