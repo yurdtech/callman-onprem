@@ -114,6 +114,7 @@ LDAP even when the backend does).
 |---|---|---|---|
 | `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin image version to run (e.g. `0.1.0`). Separate from `CALLMAN_VERSION`. |
 | `CALLMAN_ADMIN_PORT` | optional | `5100` | Port to reach the admin UI + API on (same origin). |
+| `CALLMAN_BACKEND_API_URL` | optional* | `http://backend:<CALLMAN_PORT>` | Base URL of the Callman **backend** API, used by the managed-connections **Test** action — see below. Defaults to the bundled backend service; set it only when the backend runs outside this compose file. |
 | `ADMIN_JWT_SECRET` | ✅ | — | Signs admin access tokens. ≥ 32 chars. `openssl rand -hex 32`. Separate from backend secrets. |
 | `ADMIN_JWT_REFRESH_SECRET` | ✅ | — | Signs admin refresh tokens. ≥ 32 chars, different from `ADMIN_JWT_SECRET`. |
 | `ADMIN_BOOTSTRAP_EMAIL` | optional* | _(unset)_ | Email of the first admin user, seeded on first start if no admins exist. |
@@ -127,6 +128,22 @@ LDAP even when the backend does).
 
 \* `ADMIN_BOOTSTRAP_EMAIL` + `ADMIN_BOOTSTRAP_PASSWORD` are needed only to seed
 the **first** admin. Once an admin exists you can remove them.
+
+\* `CALLMAN_BACKEND_API_URL` is **required by the admin panel itself** (it
+refuses to boot without a valid URL) — it is "optional" here only because
+`docker-compose.yml` already fills it with the bundled backend
+(`http://backend:<CALLMAN_PORT>`). If you deploy the admin panel outside this
+compose file, or your backend runs on another host, you MUST set it in `.env`.
+
+> **Why the admin panel needs the backend URL:** the managed-connections
+> **Test** button in the admin UI does not test from the panel — the real
+> DB/Kafka/Redis/Slack drivers live only in the backend, so the panel calls
+> `POST <CALLMAN_BACKEND_API_URL>/api/internal/connections/test` and shows the
+> backend's result. The connection config travels **encrypted** with the shared
+> `CONNECTION_ENCRYPTION_KEY` (never plaintext), which is also why that key
+> must be identical for the backend and the admin panel. If Test fails with a
+> network error while saving connections still works, this URL (or the shared
+> key) is the first thing to check.
 
 > `CALLMAN_MONGODB_URI` follows `MONGODB_URI` automatically, for both the
 > bundled and an external MongoDB. Leave it unset.
