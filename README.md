@@ -8,24 +8,28 @@ are pre-built and versioned, and you pull them from our registry.
 
 By default the stack is **all-in-one** — it brings its own MongoDB and Redis, so
 one command gives you a working install. You can point it at your company's
-existing databases instead, by editing `.env` only.
+existing databases instead.
 
-## Two ways to install
+---
 
-| | Docker Compose | Helm (Kubernetes / OpenShift) |
+## Choose your deployment
+
+Callman ships as **two equal, fully supported deployment options**. Both run
+the same images and the same feature set — pick whichever fits your
+infrastructure:
+
+| | **Option A — Docker Compose** | **Option B — Helm chart** |
 | --- | --- | --- |
-| Best for | a single Linux VM | an existing cluster (banks: OpenShift) |
-| Guide | [docs/INSTALL.md](docs/INSTALL.md) — and the quick start below | [docs/HELM-INSTALL.md](docs/HELM-INSTALL.md) |
+| Runs on | a single Linux VM with Docker | Kubernetes 1.25+ / OpenShift 4.12+ |
+| Full guide | [docs/INSTALL.md](docs/INSTALL.md) | [docs/HELM-INSTALL.md](docs/HELM-INSTALL.md) |
 | Config | `.env` file | `values.yaml` + a Kubernetes Secret |
 | Exposure / TLS | host ports, your reverse proxy | Route (OpenShift) or Ingress + cert-manager |
 | Scaling | `--scale worker=N` + cron autoscaler | `worker.replicaCount` / HPA |
 | Air-gapped installs | copy images manually | `scripts/helm-airgap-bundle.sh` |
 
-Both run the same images and the same feature set; pick one per environment.
-
 ---
 
-## Quick start
+## Option A — Docker Compose quick start
 
 > New to this? Follow the full step-by-step guide instead, which explains what
 > each command should print: **[docs/INSTALL.md](docs/INSTALL.md)**.
@@ -69,22 +73,85 @@ service showing `Exited (0)`, and `/health` returning HTTP 200.
 
 ---
 
+## Option B — Helm chart quick start
+
+> Full guide with the secret recipe, OpenShift/Ingress examples, upgrades and
+> the complete `.env` → values mapping: **[docs/HELM-INSTALL.md](docs/HELM-INSTALL.md)**.
+
+```bash
+# 0. Requirements: kubectl + Helm 3.12+, a cluster, and the access token we gave you.
+
+# 1. Namespace + registry access (same token as Option A)
+kubectl create namespace callman
+kubectl -n callman create secret docker-registry ghcr-pull \
+  --docker-server=ghcr.io --docker-username=yurdtech --docker-password=<ACCESS_TOKEN>
+
+# 2. Create the secrets (the .env secrets, as one Kubernetes Secret)
+kubectl -n callman create secret generic callman-secrets \
+  --from-literal=JWT_SECRET=$(openssl rand -hex 32) \
+  --from-literal=JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  --from-literal=SESSION_TOKEN_ENCRYPTION_SECRET=$(openssl rand -hex 32) \
+  --from-literal=CONNECTION_ENCRYPTION_KEY=$(openssl rand -hex 32) \
+  --from-literal=ADMIN_JWT_SECRET=$(openssl rand -hex 32) \
+  --from-literal=ADMIN_JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  --from-literal=ADMIN_BOOTSTRAP_EMAIL=admin@example.com \
+  --from-literal=ADMIN_BOOTSTRAP_PASSWORD='<strong password>' \
+  --from-literal=MONGO_ROOT_PASSWORD='<password>' \
+  --from-literal=REDIS_PASSWORD='<password>' \
+  --from-literal=MONGODB_URI='mongodb://callman:<mongo password>@callman-mongo:27017/callman?authSource=admin' \
+  --from-literal=REDIS_URL='redis://:<redis password>@callman-redis:6379'
+
+# 3. Minimal values file
+cat > my-values.yaml <<'EOF'
+global:  { imagePullSecrets: [ghcr-pull] }
+secrets: { existingSecret: callman-secrets }
+EOF
+
+# 4. Install (migrations run automatically as a one-shot Job)
+helm install callman oci://ghcr.io/yurdtech/charts/callman \
+  -n callman -f my-values.yaml
+
+# 5. Verify
+kubectl -n callman get pods        # migrate Completed, everything else Running
+helm test callman -n callman       # backend + admin /health/ready
+
+# 6. Activate your license
+kubectl -n callman port-forward svc/callman-admin 5100:5100
+#    Open http://localhost:5100 → log in → paste the certificate we gave you.
+```
+
+Pods may restart a few times right after install while the migrate Job
+finishes — that is the migration gate, not an error. On OpenShift add Route
+values (on plain Kubernetes, Ingress values) to expose the services — examples
+in [docs/HELM-INSTALL.md](docs/HELM-INSTALL.md).
+
+---
+
 ## Bundled databases, or your own?
 
-**Bundled (default).** Callman runs MongoDB and Redis for you; the data lives in
-Docker volumes and survives restarts. Nothing to configure.
+**Bundled (default).** Callman runs MongoDB and Redis for you; the data lives
+in Docker volumes (Compose) or PersistentVolumeClaims (Helm) and survives
+restarts. Nothing to configure.
 
 **Your own.** If your company already runs MongoDB and/or Redis, point Callman
-at them by editing **`.env` only** — remove the matching profile from
-`COMPOSE_PROFILES` and set `MONGODB_URI` / `REDIS_URL`:
+at them — you can mix freely (e.g. your Mongo, our Redis):
 
 ```dotenv
+# Option A: edit .env only — remove the profile, set the URI
 COMPOSE_PROFILES=bundled-redis        # keep our Redis, drop our MongoDB
 MONGODB_URI=mongodb://user:pass@mongo.acme.local:27017/callman?authSource=admin
 ```
 
-Then `docker compose up -d`. You can mix freely, and you **never edit
-`docker-compose.yml`** — that is what keeps updates painless.
+```yaml
+# Option B: the same choice in values.yaml
+mongo: { enabled: false }
+externalMongo:
+  uri: mongodb://user:pass@mongo.acme.local:27017/callman?authSource=admin
+```
+
+Then `docker compose up -d` / `helm upgrade`. You **never edit
+`docker-compose.yml` or the chart templates** — that is what keeps updates
+painless.
 
 Full guide, including replica sets, TLS with a private CA, and databases
 running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABASES.md)**.
@@ -95,8 +162,12 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 
 | File | Purpose |
 |---|---|
-| [`docker-compose.yml`](docker-compose.yml) | The stack: backend, worker, one-shot migrator, admin panel, optional bundled MongoDB + Redis |
-| [`.env.example`](.env.example) | Configuration template — copy to `.env` and fill in. **The only file you edit.** |
+| [`docker-compose.yml`](docker-compose.yml) | **Option A** — the stack: backend, worker, one-shot migrator, admin panel, optional bundled MongoDB + Redis |
+| [`.env.example`](.env.example) | Option A configuration template — copy to `.env` and fill in. **The only file you edit.** |
+| [`helm/callman/`](helm/callman/) | **Option B** — the Helm chart: the same stack for Kubernetes / OpenShift |
+| [`docs/HELM-INSTALL.md`](docs/HELM-INSTALL.md) | Helm install guide: secrets, OpenShift/Ingress, upgrades, airgap, `.env` → values mapping |
+| [`scripts/helm-airgap-bundle.sh`](scripts/helm-airgap-bundle.sh) | Build an offline bundle (chart + all images) for air-gapped clusters |
+| [`scripts/helm-airgap-load.sh`](scripts/helm-airgap-load.sh) | Load that bundle into an internal registry (runs inside your network) |
 | [`certs/`](certs/) | Drop private-CA certificates here; mounted read-only at `/certs` in every container |
 | [`docs/INSTALL.md`](docs/INSTALL.md) | Step-by-step install, first-run checks, updating |
 | [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | Every `.env` setting: required/optional, default, meaning |
@@ -147,6 +218,8 @@ Configure it in `.env` (already in `.env.example`):
   created automatically on first start.
 
 After `docker compose up -d`, open `http://<this-host>:5100` and log in.
+(Helm: the same settings live in the `callman-secrets` Secret and the `admin.*`
+values; expose it with a Route/Ingress or `kubectl port-forward`.)
 
 > ⚠️ **Security.** Set a **strong** `ADMIN_BOOTSTRAP_PASSWORD` before first
 > start and change it right after your first login. Do **not** expose this port
@@ -161,10 +234,21 @@ Full setup + verification: [docs/INSTALL.md](docs/INSTALL.md#8-activate-your-lic
 
 ## Updating
 
+**Option A — Docker Compose:**
+
 ```bash
 git pull                       # ALWAYS first — refresh these deployment files
 # set the new CALLMAN_VERSION in .env, then:
 docker compose pull && docker compose up -d
+```
+
+**Option B — Helm:**
+
+```bash
+helm upgrade callman oci://ghcr.io/yurdtech/charts/callman \
+  --version <new chart version> -n callman -f my-values.yaml
+# or stay on the same chart and bump only the app image:
+#   helm upgrade callman ... --set backend.image.tag=<new version>
 ```
 
 > **`git pull` is part of every update, not optional.** This cloned folder
@@ -182,8 +266,9 @@ Migrations apply automatically. Details + rollback notes:
 ## Need help?
 
 Start with [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md). If you're still
-stuck, contact us with the output of `docker compose ps` and
-`docker compose logs` (never send your `.env` — it contains secrets).
+stuck, contact us with the output of `docker compose ps` + `docker compose logs`
+(Compose) or `kubectl -n callman get pods` + the failing pod's logs (Helm) —
+never send your `.env` or Secret contents, they contain credentials.
 
 - 📧 [info@yurdtech.com](mailto:info@yurdtech.com)
 - 📞 [+994 70 238 88 38](tel:+994702388838)
