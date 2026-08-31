@@ -1,0 +1,17 @@
+# CI: customer-managed Mongo/Redis, no bundled stores.
+mongo:
+  enabled: false
+redis:
+  enabled: false
+externalMongo:
+  uri: mongodb://callman:pw@mongo.bank.local:27017/callman?authSource=admin
+externalRedis:
+  url: redis://:pw@redis.bank.local:6379
+secrets:
+  values:
+    JWT_SECRET: ci-jwt-secret-0000000000000000000000001
+    JWT_REFRESH_SECRET: ci-jwt-refresh-000000000000000000002
+    SESSION_TOKEN_ENCRYPTION_SECRET: ci-session-secret-00000000000000003
+    CONNECTION_ENCRYPTION_KEY: ci-connection-key-00000000000000004
+    ADMIN_JWT_SECRET: ci-admin-jwt-000000000000000000000005
+    ADMIN_JWT_REFRESH_SECRET: ci-admin-refresh-0000000000000000006

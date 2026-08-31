@@ -1,0 +1,28 @@
+{{- if .Values.serviceMonitor.enabled }}
+# Requires the Prometheus Operator CRDs. Scrapes /metrics on the backend and
+# worker (ui-runner too when enabled). METRICS_ENABLED must stay true.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "callman.fullname" . }}
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "monitoring") | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "callman.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+    - port: health
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

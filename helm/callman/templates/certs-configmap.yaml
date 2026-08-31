@@ -1,0 +1,15 @@
+{{- if and .Values.certs.files (not .Values.certs.existingConfigMap) }}
+# Private-CA PEMs mounted at /certs in every app container (compose ./certs
+# parity) so URIs like ...&tlsCAFile=/certs/mongo-ca.pem work unchanged.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "callman.fullname" . }}-certs
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "config") | nindent 4 }}
+data:
+  {{- range $name, $pem := .Values.certs.files }}
+  {{ $name }}: |
+    {{- $pem | nindent 4 }}
+  {{- end }}
+{{- end }}

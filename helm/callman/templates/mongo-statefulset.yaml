@@ -1,0 +1,89 @@
+{{- if .Values.mongo.enabled }}
+# Bundled MongoDB (compose profile bundled-mongo). Standalone is sufficient —
+# the app uses no transactions. Root credentials are only applied by the
+# image on a FIRST boot with an empty volume (docs/TROUBLESHOOTING.md).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "callman.fullname" . }}-mongo
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mongo") | nindent 4 }}
+spec:
+  serviceName: {{ include "callman.fullname" . }}-mongo
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "mongo") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "mongo") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.storePodSecurityContext" (dict "root" $ "store" .Values.mongo) | nindent 6 }}
+      containers:
+        - name: mongo
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.mongo.image) }}
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          ports:
+            - name: mongo
+              containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: {{ .Values.mongo.auth.rootUsername | quote }}
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "callman.secretName" . }}
+                  key: MONGO_ROOT_PASSWORD
+            # mongosh (probes) needs a writable HOME under arbitrary UIDs.
+            - name: HOME
+              value: /tmp
+          startupProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+          {{- with .Values.mongo.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+      {{- with .Values.mongo.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mongo.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mongo.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.mongo.persistence.size }}
+        {{- with .Values.mongo.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+{{- end }}

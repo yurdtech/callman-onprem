@@ -175,3 +175,20 @@ restore — no re-activation needed.
 | Private CA certificates | `certs/` | Copy the folder |
 | Queued background jobs | Redis | Not needed — pending runs are re-queued or re-run |
 | The images themselves | Registry | Pull again by `CALLMAN_VERSION` |
+
+---
+
+## Backups on Kubernetes (Helm deployment)
+
+The model is identical — back up MongoDB and you have backed up Callman:
+
+- **Automatic pre-migration dumps** land on the `backups` PVC (mounted only by
+  the migrate Job; the PVC carries `helm.sh/resource-policy: keep`, so it
+  survives `helm uninstall`). To browse or restore, start a throwaway pod that
+  mounts the PVC — the exact command is in
+  [HELM-INSTALL.md](HELM-INSTALL.md) §5.
+- **Manual/scheduled dumps**: `kubectl -n callman exec <mongo pod> -- mongodump ...`
+  for the bundled store, or your DBA's own tooling for an external one.
+- A restore still requires the same `SESSION_TOKEN_ENCRYPTION_SECRET` and
+  `CONNECTION_ENCRYPTION_KEY` values (now in your Kubernetes Secret rather
+  than `.env`).

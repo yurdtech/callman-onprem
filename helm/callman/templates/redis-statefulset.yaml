@@ -1,0 +1,92 @@
+{{- if .Values.redis.enabled }}
+# Bundled Redis (compose profile bundled-redis) — exact flag parity:
+# appendonly + noeviction are REQUIRED by BullMQ, requirepass via env
+# indirection so the password lives in the Secret, not the pod spec.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "callman.fullname" . }}-redis
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "redis") | nindent 4 }}
+spec:
+  serviceName: {{ include "callman.fullname" . }}-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "redis") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.storePodSecurityContext" (dict "root" $ "store" .Values.redis) | nindent 6 }}
+      containers:
+        - name: redis
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.redis.image) }}
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          command:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --maxmemory-policy
+            - noeviction
+            - --requirepass
+            - $(REDIS_PASSWORD)
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "callman.secretName" . }}
+                  key: REDIS_PASSWORD
+          startupProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli --no-auth-warning -a \"$REDIS_PASSWORD\" ping"]
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli --no-auth-warning -a \"$REDIS_PASSWORD\" ping"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli --no-auth-warning -a \"$REDIS_PASSWORD\" ping"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          {{- with .Values.redis.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      {{- with .Values.redis.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.redis.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.redis.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size }}
+        {{- with .Values.redis.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+{{- end }}

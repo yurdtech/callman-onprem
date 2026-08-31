@@ -1,14 +1,27 @@
 # Callman — On-Prem Deployment
 
-Everything needed to run **Callman** on your own server with Docker.
+Everything needed to run **Callman** on your own infrastructure.
 
-This repository contains **only deployment files** — Docker Compose, a config
-template and documentation. No application source: the images are pre-built and
-versioned, and you pull them from our registry.
+This repository contains **only deployment files** — Docker Compose, a Helm
+chart, config templates and documentation. No application source: the images
+are pre-built and versioned, and you pull them from our registry.
 
 By default the stack is **all-in-one** — it brings its own MongoDB and Redis, so
 one command gives you a working install. You can point it at your company's
 existing databases instead, by editing `.env` only.
+
+## Two ways to install
+
+| | Docker Compose | Helm (Kubernetes / OpenShift) |
+| --- | --- | --- |
+| Best for | a single Linux VM | an existing cluster (banks: OpenShift) |
+| Guide | [docs/INSTALL.md](docs/INSTALL.md) — and the quick start below | [docs/HELM-INSTALL.md](docs/HELM-INSTALL.md) |
+| Config | `.env` file | `values.yaml` + a Kubernetes Secret |
+| Exposure / TLS | host ports, your reverse proxy | Route (OpenShift) or Ingress + cert-manager |
+| Scaling | `--scale worker=N` + cron autoscaler | `worker.replicaCount` / HPA |
+| Air-gapped installs | copy images manually | `scripts/helm-airgap-bundle.sh` |
+
+Both run the same images and the same feature set; pick one per environment.
 
 ---
 

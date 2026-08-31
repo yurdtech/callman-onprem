@@ -1,0 +1,23 @@
+{{- if .Values.migrate.backup.enabled }}
+# Pre-migration mongodump archives (callman-backup-<ISO>.archive.gz). RWO by
+# default and mounted only by the migrate Job; worker.mountBackups=true
+# additionally requires ReadWriteMany here (validated in _helpers.tpl).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "callman.fullname" . }}-backups
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "backups") | nindent 4 }}
+  annotations:
+    # Survives helm uninstall — backups outlive the release on purpose.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    {{- toYaml .Values.backup.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.persistence.size }}
+  {{- with .Values.backup.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}

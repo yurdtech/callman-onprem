@@ -1,0 +1,88 @@
+{{- if .Values.uiRunner.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "callman.fullname" . }}-ui-runner
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "ui-runner") | nindent 4 }}
+spec:
+  {{- if not .Values.uiRunner.hpa.enabled }}
+  replicas: {{ .Values.uiRunner.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "ui-runner") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "ui-runner") | nindent 8 }}
+      {{- with .Values.uiRunner.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: ui-runner
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.uiRunner.image) }}
+          command: ["node", "dist/ui-runner.js"]
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          ports:
+            - name: health
+              containerPort: {{ .Values.uiRunner.healthPort }}
+          {{- include "callman.sharedEnvFrom" . | nindent 10 }}
+          env:
+            - name: CALLMAN_WEB_DRIVER_NO_SANDBOX
+              value: "1"
+            {{- with .Values.uiRunner.extraEnv }}
+            {{- include "callman.extraEnv" . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 5
+          {{- with .Values.uiRunner.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # Chromium shared memory (compose shm_size: 2gb). In-memory
+            # emptyDir counts against the container memory limit.
+            - name: dshm
+              mountPath: /dev/shm
+            {{- include "callman.certsMount" . | nindent 12 }}
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.uiRunner.shmSize }}
+        {{- include "callman.certsVolume" . | nindent 8 }}
+      {{- with .Values.uiRunner.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.uiRunner.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.uiRunner.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "callman.fullname" . }}-admin
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "admin") | nindent 4 }}
+spec:
+  replicas: {{ .Values.admin.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "admin") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "admin") | nindent 8 }}
+      {{- with .Values.admin.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.admin.terminationGracePeriodSeconds }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: admin
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.admin.image) }}
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          ports:
+            - name: http
+              containerPort: 5100
+          # Same secret as the backend family (ADMIN_*, CALLMAN_MONGODB_URI,
+          # CONNECTION_ENCRYPTION_KEY live there; unknown keys are ignored) —
+          # compose parity: every service consumed the same .env.
+          envFrom:
+            - configMapRef:
+                name: {{ include "callman.fullname" . }}-admin-env
+            - secretRef:
+                name: {{ include "callman.secretName" . }}
+          {{- with .Values.admin.extraEnv }}
+          env:
+            {{- include "callman.extraEnv" . | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          {{- with .Values.admin.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "callman.certsMount" . | nindent 12 }}
+      volumes:
+        {{- include "callman.certsVolume" . | nindent 8 }}
+      {{- with .Values.admin.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admin.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admin.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
