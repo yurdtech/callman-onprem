@@ -63,8 +63,8 @@ mongo:
     size: 20Gi
     storageClass: ""
   resources: {}
-  # On OpenShift leave empty (SCC assigns fsGroup). On vanilla k8s set e.g.
-  # fsGroup: 999 if you run the official image as non-root.
+  # UID overrides. Defaults: OpenShift — unset (SCC assigns); vanilla k8s —
+  # runAsUser/fsGroup 999 (the image's mongodb user).
   podSecurityContext: {}
   nodeSelector: {}
   tolerations: []
@@ -262,9 +262,18 @@ serviceAccount:
   name: ""
   annotations: {}
 
-# Applied to every app pod. Left empty by default so OpenShift's restricted-v2
-# SCC can assign the UID/fsGroup range; on vanilla k8s set fsGroup if needed.
+# OpenShift handling. "" = auto-detect (the route.openshift.io API group on
+# the target cluster). On OpenShift no UIDs are pinned (the restricted-v2 SCC
+# assigns them); on vanilla k8s numeric runAsUser/fsGroup defaults are applied
+# (app images 1000, mongo/redis 999). Force with true/false if detection is
+# not possible (e.g. rendering manifests offline for an OpenShift cluster).
+openshift:
+  enabled: ""
+
+# Vanilla-k8s UID overrides for app pods (ignored on OpenShift unless set).
 podSecurityContext: {}
+#  runAsUser: 1000
+#  fsGroup: 1000
 
 networkPolicy:
   enabled: false

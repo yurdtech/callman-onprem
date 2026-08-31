@@ -32,14 +32,21 @@ jobs:
             helm template callman helm/callman -f "$f" > "/tmp/rendered/$(basename "$f").out"
           done
 
-      - name: securityContext audit (no pinned UIDs)
+      - name: securityContext audit (both postures)
         run: |
           set -e
-          if grep -h runAsUser /tmp/rendered/*.out; then
-            echo "runAsUser must never be pinned (OpenShift restricted-v2)" >&2
+          # OpenShift posture: no pinned UIDs anywhere (restricted-v2 SCC assigns them)
+          helm template callman helm/callman -f helm/callman/ci/default-values.yaml \
+            --api-versions route.openshift.io/v1 > /tmp/ocp.out
+          if grep runAsUser /tmp/ocp.out; then
+            echo "runAsUser must never be pinned on OpenShift (restricted-v2)" >&2
             exit 1
           fi
-          echo "OK: no runAsUser anywhere"
+          # Vanilla posture: numeric UIDs required (non-numeric image USER + root stores)
+          helm template callman helm/callman -f helm/callman/ci/default-values.yaml > /tmp/vanilla.out
+          grep -q "runAsUser: 1000" /tmp/vanilla.out || { echo "vanilla render must pin runAsUser 1000 for app pods" >&2; exit 1; }
+          grep -q "runAsUser: 999" /tmp/vanilla.out || { echo "vanilla render must pin runAsUser 999 for stores" >&2; exit 1; }
+          echo "OK: OpenShift unpinned, vanilla pinned"
 
       - name: validation guardrails still fail
         run: |
