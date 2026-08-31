@@ -131,16 +131,41 @@ with existingSecret the customer supplies MONGODB_URI/REDIS_URL keys instead
 {{- end -}}
 
 {{/*
-Security contexts. UIDs are never pinned so OpenShift's restricted-v2 SCC can
-assign an arbitrary UID; fsGroup only when explicitly configured.
+OpenShift detection. Auto: the route.openshift.io API group is present on the
+target cluster (helm install/upgrade sees real capabilities; bare
+`helm template` renders the vanilla path). Force with openshift.enabled.
+Returns "true" or "".
+*/}}
+{{- define "callman.isOpenShift" -}}
+{{- if eq (toString .Values.openshift.enabled) "true" -}}
+true
+{{- else if eq (toString .Values.openshift.enabled) "false" -}}
+{{- else if .Capabilities.APIVersions.Has "route.openshift.io/v1" -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+Security contexts — two postures from one helper:
+- OpenShift: UIDs are NEVER pinned; the restricted-v2 SCC assigns an
+  arbitrary UID + fsGroup from the namespace range (pinning would be
+  rejected by admission).
+- Vanilla k8s: the kubelet cannot verify runAsNonRoot for images with a
+  non-numeric USER (node/pwuser), and mongo/redis start as root — so a
+  numeric runAsUser/fsGroup is applied (app images use UID 1000).
 */}}
 {{- define "callman.podSecurityContext" -}}
 securityContext:
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
+  {{- if not (include "callman.isOpenShift" .) }}
+  runAsUser: {{ .Values.podSecurityContext.runAsUser | default 1000 }}
+  fsGroup: {{ .Values.podSecurityContext.fsGroup | default 1000 }}
+  {{- else }}
   {{- with .Values.podSecurityContext.fsGroup }}
   fsGroup: {{ . }}
+  {{- end }}
   {{- end }}
 {{- end -}}
 
@@ -153,8 +178,9 @@ securityContext:
 {{- end -}}
 
 {{/*
-Store pod security context: same non-root posture, but per-store fsGroup
-(mongo/redis official images need a writable data dir under arbitrary UIDs).
+Store pod security context (mongo/redis). Same two postures; on vanilla the
+official images run as their service user (UID 999 in both mongo:7 and
+redis:7-alpine) with fsGroup making the data volume writable.
 Call with (dict "root" $ "store" .Values.mongo)
 */}}
 {{- define "callman.storePodSecurityContext" -}}
@@ -162,9 +188,14 @@ securityContext:
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
+  {{- if not (include "callman.isOpenShift" .root) }}
+  runAsUser: {{ .store.podSecurityContext.runAsUser | default 999 }}
+  fsGroup: {{ .store.podSecurityContext.fsGroup | default 999 }}
+  {{- else }}
   {{- $fsGroup := .store.podSecurityContext.fsGroup | default .root.Values.podSecurityContext.fsGroup }}
   {{- with $fsGroup }}
   fsGroup: {{ . }}
+  {{- end }}
   {{- end }}
 {{- end -}}
 
