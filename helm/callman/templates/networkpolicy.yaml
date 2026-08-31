@@ -1,0 +1,42 @@
+{{- if .Values.networkPolicy.enabled }}
+# Conservative default set: stores accept traffic only from release pods;
+# app pods keep open egress (they call customer-configured targets: DBs,
+# Kafka, SOAP endpoints, LDAP — an allowlist is not knowable in advance).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "callman.fullname" . }}-mongo
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mongo") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "mongo") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 27017
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "callman.fullname" . }}-redis
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "redis") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "redis") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 6379
+{{- end }}

@@ -1,0 +1,24 @@
+{{- if .Values.admin.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "callman.fullname" . }}-admin
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "admin") | nindent 4 }}
+  {{- with .Values.admin.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.admin.route.host }}
+  host: {{ . | quote }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ include "callman.fullname" . }}-admin
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.admin.route.tls.termination }}
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

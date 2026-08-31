@@ -1,0 +1,277 @@
+# Callman Helm chart values.
+#
+# Key names mirror the docker-compose .env variables wherever one exists
+# (docs/HELM-INSTALL.md carries the full .env → values mapping table), so a
+# compose installation can be translated line by line.
+
+global:
+  # Airgap: prefix EVERY image with an internal registry. The source registry
+  # host is replaced, the repository path is kept (see callman.image helper):
+  #   registry.bank.local + ghcr.io/yurdtech/callman-backend
+  #     -> registry.bank.local/yurdtech/callman-backend
+  imageRegistry: ""
+  # Names of pre-created dockerconfigjson secrets (GHCR is private).
+  imagePullSecrets: []
+
+# Convenience for evaluation installs: render a dockerconfigjson pull secret
+# from inline credentials. Production/airgap installs pre-create their own
+# secret and list it under global.imagePullSecrets instead.
+imageCredentials:
+  create: false
+  registry: ghcr.io
+  username: ""
+  password: ""
+
+# ---------------------------------------------------------------------------
+# Secrets — two mutually exclusive paths, NO auto-generation.
+#
+# 1) existingSecret: name of a customer-managed Secret whose keys are the env
+#    names below (recommended for banks / Vault / SealedSecrets pipelines).
+#    Optional keys MONGODB_URI, REDIS_URL, CALLMAN_MONGODB_URI override the
+#    chart-constructed URIs.
+# 2) values: inline values -> the chart renders its own Secret and validates
+#    them at template time (>=32 chars, backend four mutually distinct,
+#    admin two distinct) — the preflight.sh equivalent.
+# ---------------------------------------------------------------------------
+secrets:
+  existingSecret: ""
+  values:
+    JWT_SECRET: ""
+    JWT_REFRESH_SECRET: ""
+    SESSION_TOKEN_ENCRYPTION_SECRET: ""
+    CONNECTION_ENCRYPTION_KEY: ""   # shared backend + admin, byte-identical
+    ADMIN_JWT_SECRET: ""
+    ADMIN_JWT_REFRESH_SECRET: ""
+    ADMIN_BOOTSTRAP_EMAIL: ""
+    ADMIN_BOOTSTRAP_PASSWORD: ""
+    MONGO_ROOT_PASSWORD: ""         # bundled mongo only
+    REDIS_PASSWORD: ""              # bundled redis only
+
+# ---------------------------------------------------------------------------
+# Data stores — bundled (compose profiles bundled-mongo / bundled-redis) or
+# external. Exactly one of {mongo.enabled, externalMongo.uri} must be set;
+# same for redis.
+# ---------------------------------------------------------------------------
+mongo:
+  enabled: true
+  image:
+    repository: mongo
+    tag: "7"
+  auth:
+    rootUsername: callman           # ≈ MONGO_ROOT_USERNAME
+  persistence:
+    size: 20Gi
+    storageClass: ""
+  resources: {}
+  # On OpenShift leave empty (SCC assigns fsGroup). On vanilla k8s set e.g.
+  # fsGroup: 999 if you run the official image as non-root.
+  podSecurityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+externalMongo:
+  # ≈ MONGODB_URI. Full URI including credentials; wins over the bundled store.
+  # Private-CA TLS: append &tls=true&tlsCAFile=/certs/<file> and provide the
+  # PEM via certs.* below.
+  uri: ""
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7-alpine
+  persistence:
+    size: 5Gi
+    storageClass: ""
+  resources: {}
+  podSecurityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+externalRedis:
+  # ≈ REDIS_URL. Must point at a noeviction-configured Redis 6+.
+  url: ""
+
+# ---------------------------------------------------------------------------
+# Application tier
+# ---------------------------------------------------------------------------
+backend:
+  image:
+    repository: ghcr.io/yurdtech/callman-backend
+    tag: ""                         # "" -> Chart.appVersion (≈ CALLMAN_VERSION)
+  port: 8080                        # ≈ CALLMAN_PORT
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  metricsEnabled: true              # ≈ METRICS_ENABLED
+  clientOrigin: ""                  # ≈ CLIENT_ORIGIN (CSV of extra CORS origins)
+  publicApiBaseUrl: ""              # ≈ PUBLIC_API_BASE_URL
+  mockPublicBaseUrl: ""             # ≈ MOCK_PUBLIC_BASE_URL
+  # Any other backend env var from docs/ENVIRONMENT.md (string values).
+  extraEnv: {}
+  terminationGracePeriodSeconds: 45
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  pdb:
+    enabled: false
+    minAvailable: 1
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    annotations: {}
+    tls: []                         # standard networking.k8s.io/v1 tls list
+  route:
+    enabled: false
+    host: ""
+    annotations: {}
+    tls:
+      termination: edge             # edge | reencrypt | passthrough
+
+worker:
+  replicaCount: 1
+  healthPort: 9090                  # ≈ WORKER_HEALTH_PORT
+  shutdownTimeoutMs: 30000          # ≈ SHUTDOWN_TIMEOUT_MS (drives grace period)
+  concurrency: 50                   # ≈ BULLMQ_WORKER_CONCURRENCY
+  # Mounting the backups PVC into workers (compose parity for operator-run
+  # mongodump) requires ReadWriteMany storage — see docs/HELM-INSTALL.md.
+  mountBackups: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1536Mi
+  extraEnv: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  pdb:
+    enabled: false
+    minAvailable: 1
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 75
+
+uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
+  enabled: false
+  image:
+    repository: ghcr.io/yurdtech/callman-ui-runner
+    tag: ""                         # "" -> Chart.appVersion
+  replicaCount: 1
+  healthPort: 9091                  # ≈ UITEST_HEALTH_PORT
+  concurrency: 2                    # ≈ UITEST_WORKER_CONCURRENCY (1-5)
+  runMaxDurationMs: 900000          # ≈ UITEST_RUN_MAX_DURATION_MS
+  # Chromium shared memory (compose shm_size: 2gb). Backed by an in-memory
+  # emptyDir that COUNTS against the container memory limit — keep
+  # resources.limits.memory >= shmSize + ~1Gi.
+  shmSize: 2Gi
+  resources:
+    requests:
+      memory: 1Gi
+    limits:
+      memory: 3Gi
+  extraEnv: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 75
+
+admin:
+  image:
+    repository: ghcr.io/yurdtech/callman-onprem-admin
+    # Pinned per chart release (≈ CALLMAN_ADMIN_VERSION) — the admin/backend
+    # pair below is what this chart version was tested with.
+    tag: "1.0.0"
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  dbWriteEnabled: false             # ≈ CALLMAN_DB_WRITE_ENABLED
+  corsOrigins: ""                   # ≈ CORS_ORIGINS (empty -> same-origin SPA only)
+  rateLimitMax: 300                 # ≈ RATE_LIMIT_MAX
+  # ≈ CALLMAN_BACKEND_API_URL. Empty -> in-cluster backend service URL.
+  backendApiUrl: ""
+  # ≈ CALLMAN_MONGODB_URI. Empty -> same URI as the backend.
+  mongodbUri: ""
+  extraEnv: {}
+  terminationGracePeriodSeconds: 30
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  ingress:
+    enabled: false
+    className: ""
+    host: ""
+    annotations: {}
+    tls: []
+  route:
+    enabled: false
+    host: ""
+    annotations: {}
+    tls:
+      termination: edge
+
+# ---------------------------------------------------------------------------
+# Migrations (one-shot Job per Helm revision) + pre-migration backup storage
+# ---------------------------------------------------------------------------
+migrate:
+  backup:
+    enabled: true                   # false ≈ SKIP_MIGRATION_BACKUP=1
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 86400
+  resources: {}
+
+backup:
+  persistence:
+    size: 10Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce               # ReadWriteMany required for worker.mountBackups
+
+# Private-CA PEMs mounted read-only at /certs in every app container, so URIs
+# like ...&tlsCAFile=/certs/mongo-ca.pem keep working (compose ./certs parity).
+certs:
+  existingConfigMap: ""
+  files: {}
+  #  mongo-ca.pem: |
+  #    -----BEGIN CERTIFICATE-----
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Applied to every app pod. Left empty by default so OpenShift's restricted-v2
+# SCC can assign the UID/fsGroup range; on vanilla k8s set fsGroup if needed.
+podSecurityContext: {}
+
+networkPolicy:
+  enabled: false
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels: {}
+
+commonLabels: {}

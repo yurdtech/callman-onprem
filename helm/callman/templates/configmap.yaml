@@ -1,0 +1,32 @@
+{{- include "callman.validateTopology" . -}}
+# Shared non-secret env for the backend family (backend, worker, migrate,
+# ui-runner). Compose parity: one .env consumed by every service — unknown
+# vars are ignored by each process's schema.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "callman.fullname" . }}-env
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "config") | nindent 4 }}
+data:
+  CALLMAN_EDITION: onprem
+  NODE_ENV: production
+  PORT: {{ .Values.backend.port | quote }}
+  WORKER_HEALTH_PORT: {{ .Values.worker.healthPort | quote }}
+  UITEST_HEALTH_PORT: {{ .Values.uiRunner.healthPort | quote }}
+  METRICS_ENABLED: {{ .Values.backend.metricsEnabled | quote }}
+  BULLMQ_WORKER_CONCURRENCY: {{ .Values.worker.concurrency | quote }}
+  SHUTDOWN_TIMEOUT_MS: {{ .Values.worker.shutdownTimeoutMs | quote }}
+  UITEST_WORKER_CONCURRENCY: {{ .Values.uiRunner.concurrency | quote }}
+  UITEST_RUN_MAX_DURATION_MS: {{ .Values.uiRunner.runMaxDurationMs | quote }}
+  # Empty string disables the Telegram reporter (a literal "false" would not).
+  TELEGRAM_ENABLED: ""
+  {{- with .Values.backend.clientOrigin }}
+  CLIENT_ORIGIN: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.backend.publicApiBaseUrl }}
+  PUBLIC_API_BASE_URL: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.backend.mockPublicBaseUrl }}
+  MOCK_PUBLIC_BASE_URL: {{ . | quote }}
+  {{- end }}

@@ -1,0 +1,25 @@
+# helm test: asserts the backend and admin panel report ready.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "callman.fullname" . }}-test-ready
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "test") | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  {{- include "callman.imagePullSecrets" . | nindent 2 }}
+  {{- include "callman.podSecurityContext" . | nindent 2 }}
+  containers:
+    - name: ready
+      image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
+      {{- include "callman.containerSecurityContext" . | nindent 6 }}
+      command:
+        - sh
+        - -c
+        - |
+          set -e
+          wget -qO- http://{{ include "callman.fullname" . }}-backend:{{ .Values.backend.port }}/health/ready
+          wget -qO- http://{{ include "callman.fullname" . }}-admin:5100/health/ready

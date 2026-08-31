@@ -1,0 +1,16 @@
+{{- if .Values.mongo.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "callman.fullname" . }}-mongo
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mongo") | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - name: mongo
+      port: 27017
+      targetPort: mongo
+  selector:
+    {{- include "callman.selectorLabels" (dict "root" $ "component" "mongo") | nindent 4 }}
+{{- end }}

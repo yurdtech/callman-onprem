@@ -1,0 +1,24 @@
+{{- if .Values.backend.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "callman.fullname" . }}-backend
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "backend") | nindent 4 }}
+  {{- with .Values.backend.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.backend.route.host }}
+  host: {{ . | quote }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ include "callman.fullname" . }}-backend
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.backend.route.tls.termination }}
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

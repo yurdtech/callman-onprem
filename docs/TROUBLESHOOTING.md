@@ -463,3 +463,34 @@ curl -i http://localhost:8080/version
 **Contact us:**
 - 📧 Email: [info@yurdtech.com](mailto:info@yurdtech.com)
 - 📞 Phone: [+994 70 238 88 38](tel:+994702388838)
+
+---
+
+## Kubernetes / Helm deployment
+
+**Symptom:** app pods CrashLoopBackOff for a minute right after
+`helm install`/`upgrade`.
+**Cause:** the migrate Job has not finished; backend/worker/admin refuse to
+boot with pending migrations (the compose start-order gate, enforced by the
+app).
+**Fix:** nothing — wait for `job/<release>-migrate-<revision>` to complete.
+If it never does, read its logs; a common cause is a wrong `MONGODB_URI` in
+the Secret.
+
+**Symptom:** bundled Mongo rejects the app's credentials after a password
+change.
+**Cause:** same drift as compose — the root credentials only apply on an
+empty data volume, and the PVC keeps the original ones.
+**Fix:** update the URI in the Secret to the ORIGINAL password, or wipe the
+`mongo-data` PVC to re-init (destroys data).
+
+**Symptom:** ui-runner pods OOMKilled.
+**Cause:** the in-memory `/dev/shm` (default 2Gi) counts against the
+container memory limit.
+**Fix:** raise `uiRunner.resources.limits.memory` (keep it ≥ shmSize + 1Gi).
+
+**Symptom:** enabling `worker.mountBackups` fails or pods stay Pending.
+**Cause:** the backups PVC is ReadWriteOnce; a Job pod and several worker
+pods on different nodes cannot share it.
+**Fix:** leave it disabled (the default — dumps are read via a throwaway
+pod), or provision `backup.persistence.accessModes: [ReadWriteMany]`.

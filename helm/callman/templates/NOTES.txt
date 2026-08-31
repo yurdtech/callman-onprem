@@ -1,0 +1,44 @@
+Callman {{ .Chart.AppVersion }} deployed (chart {{ .Chart.Version }}).
+
+Components:
+  backend      {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
+  worker       x{{ .Values.worker.replicaCount }}{{ if .Values.worker.hpa.enabled }} (HPA {{ .Values.worker.hpa.minReplicas }}-{{ .Values.worker.hpa.maxReplicas }}){{ end }}
+  admin panel  {{ include "callman.image" (dict "root" $ "image" .Values.admin.image) }}
+  ui-runner    {{ if .Values.uiRunner.enabled }}enabled{{ else }}disabled (uiRunner.enabled=true to opt in){{ end }}
+  mongodb      {{ if .Values.mongo.enabled }}bundled{{ else }}external{{ end }}
+  redis        {{ if .Values.redis.enabled }}bundled{{ else }}external{{ end }}
+
+1. Migrations run as a one-shot Job each revision. Until it completes, app
+   pods may CrashLoopBackOff briefly — that is the migration gate, not an
+   error. Watch it with:
+
+     kubectl -n {{ .Release.Namespace }} logs -f job/{{ include "callman.fullname" . }}-migrate-{{ .Release.Revision }}
+
+2. Reach the services:
+{{- if .Values.backend.route.enabled }}
+     Backend:  https://{{ .Values.backend.route.host | default "<route host>" }}
+{{- else if .Values.backend.ingress.enabled }}
+     Backend:  https://{{ .Values.backend.ingress.host }}
+{{- else }}
+     kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "callman.fullname" . }}-backend {{ .Values.backend.port }}:{{ .Values.backend.port }}
+{{- end }}
+{{- if .Values.admin.route.enabled }}
+     Admin:    https://{{ .Values.admin.route.host | default "<route host>" }}
+{{- else if .Values.admin.ingress.enabled }}
+     Admin:    https://{{ .Values.admin.ingress.host }}
+{{- else }}
+     kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "callman.fullname" . }}-admin 5100:5100
+{{- end }}
+
+3. First login: the ADMIN_BOOTSTRAP_EMAIL / ADMIN_BOOTSTRAP_PASSWORD account
+   is seeded only while the admin_users collection is empty. Log in and
+   change the password immediately.
+
+4. License: the platform runs READ-ONLY until a license certificate is pasted
+   in the admin panel (On-Prem -> License).
+
+5. Verify the installation:
+
+     helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+Docs: docs/HELM-INSTALL.md in the callman-onprem repository.

@@ -1,0 +1,13 @@
+# CI: bundled everything (the quick-start path).
+secrets:
+  values:
+    JWT_SECRET: ci-jwt-secret-0000000000000000000000001
+    JWT_REFRESH_SECRET: ci-jwt-refresh-000000000000000000002
+    SESSION_TOKEN_ENCRYPTION_SECRET: ci-session-secret-00000000000000003
+    CONNECTION_ENCRYPTION_KEY: ci-connection-key-00000000000000004
+    ADMIN_JWT_SECRET: ci-admin-jwt-000000000000000000000005
+    ADMIN_JWT_REFRESH_SECRET: ci-admin-refresh-0000000000000000006
+    ADMIN_BOOTSTRAP_EMAIL: admin@example.com
+    ADMIN_BOOTSTRAP_PASSWORD: ci-bootstrap-password-1
+    MONGO_ROOT_PASSWORD: ci-mongo-password
+    REDIS_PASSWORD: ci-redis-password

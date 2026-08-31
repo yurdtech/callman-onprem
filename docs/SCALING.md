@@ -254,3 +254,21 @@ already does) and has enough memory. See
 **Symptom:** the worker count keeps flapping up and down.
 **Cause:** scale-down cooldown too short for your traffic pattern.
 **Fix:** raise `SCALE_DOWN_COOLDOWN_SECONDS` (e.g. `600`).
+
+---
+
+## Scaling on Kubernetes (Helm deployment)
+
+Everything above applies unchanged — the queue, redlock and health gauges are
+the same. Only the mechanics differ:
+
+| compose | helm |
+| --- | --- |
+| `docker compose up -d --scale worker=N` | `helm upgrade ... --set worker.replicaCount=N` |
+| `scripts/autoscale-worker.sh` (cron/systemd) | `worker.hpa.enabled=true` (CPU-based HPA) |
+| `BULLMQ_WORKER_CONCURRENCY` in `.env` | `worker.concurrency` value |
+| ui-runner scaling | `uiRunner.replicaCount` / `uiRunner.hpa.enabled` |
+
+The queue-depth Prometheus gauges (`bullmq_jobs_waiting` etc.) can drive a
+custom-metrics HPA if your cluster has an adapter; the chart ships a CPU-based
+HPA as the portable default. See [HELM-INSTALL.md](HELM-INSTALL.md) §6.

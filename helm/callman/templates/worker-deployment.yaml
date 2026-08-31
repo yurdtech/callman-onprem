@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "callman.fullname" . }}-worker
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "worker") | nindent 4 }}
+spec:
+  {{- if not .Values.worker.hpa.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "worker") | nindent 8 }}
+      {{- with .Values.worker.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      # Must exceed SHUTDOWN_TIMEOUT_MS so the BullMQ drain finishes before
+      # the kubelet kills the pod — derived, not hardcoded.
+      terminationGracePeriodSeconds: {{ add (div (int .Values.worker.shutdownTimeoutMs) 1000) 15 }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: worker
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
+          command: ["node", "dist/worker.js"]
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          ports:
+            - name: health
+              containerPort: {{ .Values.worker.healthPort }}
+          {{- include "callman.sharedEnvFrom" . | nindent 10 }}
+          {{- with .Values.worker.extraEnv }}
+          env:
+            {{- include "callman.extraEnv" . | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 5
+          {{- with .Values.worker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if and .Values.worker.mountBackups .Values.migrate.backup.enabled }}
+            - name: backups
+              mountPath: /backups
+            {{- end }}
+            {{- include "callman.certsMount" . | nindent 12 }}
+      volumes:
+        {{- if and .Values.worker.mountBackups .Values.migrate.backup.enabled }}
+        - name: backups
+          persistentVolumeClaim:
+            claimName: {{ include "callman.fullname" . }}-backups
+        {{- end }}
+        {{- include "callman.certsVolume" . | nindent 8 }}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

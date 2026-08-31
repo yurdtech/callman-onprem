@@ -1,0 +1,48 @@
+# CI: every optional feature on — ui-runner, HPA, PDB, netpol, monitoring,
+# ingress, certs, airgap registry override, existingSecret path.
+global:
+  imageRegistry: registry.bank.local
+  imagePullSecrets: [bank-registry]
+secrets:
+  existingSecret: callman-secrets
+uiRunner:
+  enabled: true
+  hpa:
+    enabled: true
+worker:
+  replicaCount: 2
+  hpa:
+    enabled: true
+  pdb:
+    enabled: true
+backend:
+  replicaCount: 2
+  pdb:
+    enabled: true
+  ingress:
+    enabled: true
+    className: nginx
+    host: callman.bank.local
+    annotations:
+      cert-manager.io/cluster-issuer: internal-ca
+    tls:
+      - hosts: [callman.bank.local]
+        secretName: callman-tls
+admin:
+  replicaCount: 2
+  extraEnv:
+    RELEASE_REMINDERS_ENABLED: "false"
+  ingress:
+    enabled: true
+    className: nginx
+    host: callman-admin.bank.local
+certs:
+  files:
+    mongo-ca.pem: |
+      -----BEGIN CERTIFICATE-----
+      MIIBCzCBs6ADAgECAgEBMAoGCCqGSM49BAMCMA8xDTALBgNVBAMTBHRlc3QwHhcN
+      -----END CERTIFICATE-----
+networkPolicy:
+  enabled: true
+serviceMonitor:
+  enabled: true

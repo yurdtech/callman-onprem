@@ -1,0 +1,31 @@
+{{- if .Values.admin.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "callman.fullname" . }}-admin
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "admin") | nindent 4 }}
+  {{- with .Values.admin.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.admin.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ required "admin.ingress.host is required when admin.ingress.enabled" .Values.admin.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "callman.fullname" . }}-admin
+                port:
+                  name: http
+  {{- with .Values.admin.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

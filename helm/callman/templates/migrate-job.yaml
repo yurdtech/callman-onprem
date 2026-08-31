@@ -1,0 +1,57 @@
+# One migrations Job PER HELM REVISION (plain Job, deliberately NOT a Helm
+# hook: a pre-hook would run before the bundled Mongo/Redis exist, a post-hook
+# deadlocks with --wait because app pods self-guard on pending migrations).
+# The revision suffix defeats Job immutability on upgrade/rollback; the CLI is
+# idempotent and serialized by a Redis redlock. App pods that start before the
+# Job finishes exit on the pending-migration guard and CrashLoopBackOff
+# briefly — the compose service_completed_successfully gate, enforced by the
+# app instead of the orchestrator.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "callman.fullname" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "migrate") | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migrate.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "migrate") | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: migrate
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
+          command: ["node", "dist/migrations/cli.js", "up"]
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          {{- include "callman.sharedEnvFrom" . | nindent 10 }}
+          env:
+            {{- if .Values.migrate.backup.enabled }}
+            - name: MONGODB_BACKUP_DIR
+              value: /backups
+            {{- else }}
+            - name: SKIP_MIGRATION_BACKUP
+              value: "1"
+            {{- end }}
+          {{- with .Values.migrate.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.migrate.backup.enabled }}
+            - name: backups
+              mountPath: /backups
+            {{- end }}
+            {{- include "callman.certsMount" . | nindent 12 }}
+      volumes:
+        {{- if .Values.migrate.backup.enabled }}
+        - name: backups
+          persistentVolumeClaim:
+            claimName: {{ include "callman.fullname" . }}-backups
+        {{- end }}
+        {{- include "callman.certsVolume" . | nindent 8 }}

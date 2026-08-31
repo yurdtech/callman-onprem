@@ -1,0 +1,16 @@
+{{- if .Values.uiRunner.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "callman.fullname" . }}-ui-runner
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "ui-runner") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: health
+      port: {{ .Values.uiRunner.healthPort }}
+      targetPort: health
+  selector:
+    {{- include "callman.selectorLabels" (dict "root" $ "component" "ui-runner") | nindent 4 }}
+{{- end }}

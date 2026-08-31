@@ -1,0 +1,106 @@
+name: helm-chart
+
+on:
+  pull_request:
+    paths:
+      - "helm/**"
+      - ".github/workflows/helm.yml"
+  push:
+    tags:
+      - "chart-v*"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+
+      - name: helm lint (all ci values)
+        run: |
+          set -e
+          for f in helm/callman/ci/*.yaml; do
+            echo "== $f"
+            helm lint helm/callman -f "$f"
+          done
+
+      - name: helm template renders (all ci values)
+        run: |
+          set -e
+          mkdir -p /tmp/rendered
+          for f in helm/callman/ci/*.yaml; do
+            helm template callman helm/callman -f "$f" > "/tmp/rendered/$(basename "$f").out"
+          done
+
+      - name: securityContext audit (no pinned UIDs)
+        run: |
+          set -e
+          if grep -h runAsUser /tmp/rendered/*.out; then
+            echo "runAsUser must never be pinned (OpenShift restricted-v2)" >&2
+            exit 1
+          fi
+          echo "OK: no runAsUser anywhere"
+
+      - name: validation guardrails still fail
+        run: |
+          set -e
+          expect_fail() {
+            if helm template callman helm/callman -f helm/callman/ci/default-values.yaml "$@" > /dev/null 2>&1; then
+              echo "expected template failure for: $*" >&2
+              exit 1
+            fi
+          }
+          expect_fail --set secrets.values.JWT_SECRET=short
+          expect_fail --set secrets.values.JWT_REFRESH_SECRET=ci-jwt-secret-0000000000000000000000001
+          expect_fail --set externalMongo.uri=mongodb://x
+          expect_fail --set backend.ingress.enabled=true --set backend.ingress.host=h --set backend.route.enabled=true
+          expect_fail --set admin.replicaCount=2
+          echo "OK: all guardrails fire"
+
+  smoke:
+    # Full in-cluster smoke needs GHCR pull credentials for the app images;
+    # runs only when the repo secret is configured (skipped on forks).
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: helm/kind-action@v1
+      - name: kind smoke (bundled install)
+        env:
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        run: |
+          set -e
+          if [ -z "$GHCR_PULL_TOKEN" ]; then
+            echo "GHCR_PULL_TOKEN not configured — skipping in-cluster smoke"
+            exit 0
+          fi
+          kubectl create namespace callman
+          kubectl -n callman create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io --docker-username=yurdtech --docker-password="$GHCR_PULL_TOKEN"
+          helm install callman helm/callman -n callman \
+            -f helm/callman/ci/default-values.yaml \
+            --set 'global.imagePullSecrets[0]=ghcr-pull' \
+            --wait --timeout 10m
+          helm test callman -n callman
+
+  publish:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/chart-v')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: push chart to GHCR OCI
+        run: |
+          set -e
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          version="${GITHUB_REF_NAME#chart-v}"
+          grep -q "^version: ${version}$" helm/callman/Chart.yaml || {
+            echo "tag ${GITHUB_REF_NAME} does not match Chart.yaml version" >&2; exit 1;
+          }
+          helm package helm/callman -d dist
+          helm push "dist/callman-${version}.tgz" oci://ghcr.io/yurdtech/charts
