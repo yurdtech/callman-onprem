@@ -166,6 +166,7 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | `MONGODB_MIN_POOL_SIZE` | `10` | Mongo connection pool min (≤ max). |
 | `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. Raise this first under load; to add *more* worker containers, see [SCALING.md](SCALING.md). |
 | `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics` (incl. `bullmq_jobs_waiting`). Set `false` to disable. See [SCALING.md](SCALING.md). |
+| `CALLMAN_RELEASE_REMINDERS_ENABLED` | `true` | Release-calendar **in-app reminders** to desktop users, delivered by the backend worker from the admin panel's Release Calendar. This is a process-level kill switch only — the admin-facing on/off switch and the reminder rules live in the admin panel (Release Calendar → Notifications, channel "In-app (desktop users)"). Desktop users also see the calendar itself (profile menu → Release calendar). |
 | `WORKER_HEALTH_PORT` | `9090` | Port the worker serves its own health probes on, inside its container. Not published to the host; change only on a port conflict. |
 | `MONGODB_BACKUP_DIR` | `/backups` | Where the pre-migration `mongodump` is written (a volume is mounted here — leave as-is). See [BACKUP.md](BACKUP.md). |
 
