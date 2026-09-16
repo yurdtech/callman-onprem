@@ -14,6 +14,16 @@ docker compose logs <name>  # logs for a service:
 If you are setting up for the first time, run `preflight.sh` before anything
 else — most of the problems below are things it catches up front.
 
+> **About the logs.** Health probes (`/health/live`, `/health/ready`), Prometheus
+> scrapes (`/metrics`) and the `/ops/*` diagnostics are logged at `debug`, so
+> they do not appear at the default `LOG_LEVEL=info` — what you see is real
+> traffic, slow requests (`HTTP request slow`, ≥ `HTTP_LOG_SLOW_MS`) and errors.
+> Set `LOG_LEVEL=debug` in `.env` and `docker compose up -d backend` to see
+> every request while investigating. Container logs rotate at 20 MB × 5 files
+> per container (`x-logging` in `docker-compose.yml`). For a one-shot picture of
+> the whole deployment use `curl -s http://localhost:8080/ops/snapshot | jq` —
+> see [MONITORING.md](MONITORING.md).
+
 ---
 
 ## `docker compose pull` fails with `denied` / `unauthorized` / `manifest unknown`

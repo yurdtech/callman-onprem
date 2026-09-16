@@ -38,11 +38,23 @@ name: callman
 # reference it as /certs/<name>.pem from .env (Mongo `tlsCAFile=`). The
 # directory ships empty. (An LDAP CA does NOT go here — you paste it into the
 # admin panel; see docs/AUTH_SETUP.md.)
+# Container log rotation. Docker's default json-file driver is UNBOUNDED —
+# without this a busy backend fills the disk over months. 20 MB × 5 files =
+# 100 MB cap per container. Health probes and /metrics scrapes are logged at
+# `debug` by the backend (invisible at the default LOG_LEVEL=info), so what
+# remains is real traffic and errors. See docs/MONITORING.md.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 x-app: &app
   image: ghcr.io/yurdtech/callman-backend:${CALLMAN_VERSION:?set CALLMAN_VERSION in .env}
   env_file:
     - .env
   restart: unless-stopped
+  logging: *logging
   extra_hosts:
     - "host.docker.internal:host-gateway"
   volumes:
@@ -142,6 +154,9 @@ services:
     # (WORKER_HEALTH_PORT, default 9090). Without this override it would
     # inherit the image's probe against port 4000 and report "unhealthy"
     # forever while working perfectly.
+    # WORKER_HEALTH_PORT is deliberately NOT published to the host: the
+    # worker registers itself in Redis every 10 s and the backend lists the
+    # whole fleet on GET /ops/instances (see docs/MONITORING.md).
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/live"]
       interval: 30s
@@ -165,6 +180,7 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    logging: *logging
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # tini as PID 1 — reaps orphaned Chromium processes.
@@ -206,6 +222,7 @@ services:
     container_name: callman-mongo
     profiles: ["bundled-mongo"]
     restart: unless-stopped
+    logging: *logging
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-callman}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-}
@@ -227,6 +244,7 @@ services:
     container_name: callman-redis
     profiles: ["bundled-redis"]
     restart: unless-stopped
+    logging: *logging
     environment:
       # Also exposed as an env var (not just the --requirepass argument below)
       # so admin commands can authenticate from inside the container without
@@ -265,6 +283,7 @@ services:
     image: ghcr.io/yurdtech/callman-onprem-admin:${CALLMAN_ADMIN_VERSION:?set CALLMAN_ADMIN_VERSION in .env}
     container_name: callman-admin
     restart: unless-stopped
+    logging: *logging
     env_file:
       - .env
     extra_hosts:

@@ -1,6 +1,8 @@
 {{- if .Values.serviceMonitor.enabled }}
 # Requires the Prometheus Operator CRDs. Scrapes /metrics on the backend and
 # worker (ui-runner too when enabled). METRICS_ENABLED must stay true.
+# The admin panel's Service also exposes a port named `http` but serves no
+# /metrics, so the selector is pinned to the components that do.
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -15,6 +17,10 @@ spec:
     matchLabels:
       app.kubernetes.io/name: {{ include "callman.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [backend, worker, ui-runner]
   namespaceSelector:
     matchNames:
       - {{ .Release.Namespace }}
