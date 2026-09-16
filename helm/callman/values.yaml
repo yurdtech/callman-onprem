@@ -110,6 +110,7 @@ backend:
     limits:
       memory: 1Gi
   metricsEnabled: true              # ≈ METRICS_ENABLED
+  logLevel: info                    # ≈ LOG_LEVEL (debug|info|warn|error); probes/scrapes log at debug
   clientOrigin: ""                  # ≈ CLIENT_ORIGIN (CSV of extra CORS origins)
   publicApiBaseUrl: ""              # ≈ PUBLIC_API_BASE_URL
   mockPublicBaseUrl: ""             # ≈ MOCK_PUBLIC_BASE_URL

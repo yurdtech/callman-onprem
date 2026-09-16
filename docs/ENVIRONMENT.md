@@ -165,7 +165,11 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | `MONGODB_MAX_POOL_SIZE` | `100` | Mongo connection pool max. |
 | `MONGODB_MIN_POOL_SIZE` | `10` | Mongo connection pool min (≤ max). |
 | `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. Raise this first under load; to add *more* worker containers, see [SCALING.md](SCALING.md). |
-| `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics` (incl. `bullmq_jobs_waiting`). Set `false` to disable. See [SCALING.md](SCALING.md). |
+| `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics` (incl. `bullmq_jobs_waiting`) and the collectors behind `/ops/*`. Set `false` to disable. See [MONITORING.md](MONITORING.md). |
+| `LOG_LEVEL` | `info` | Minimum log level (`debug` / `info` / `warn` / `error`). Health probes, `/metrics` scrapes and `/ops/*` are logged at `debug`, so they are invisible by default; set `debug` only while investigating. |
+| `HTTP_LOG_SKIP_PATHS` | `/health,/health/live,/health/ready,/version,/api/system-info,/metrics,/ops/*` | Paths the request logger writes at `debug` instead of `info` (CSV; a trailing `*` makes it a prefix). |
+| `HTTP_LOG_SLOW_MS` | `2000` | Requests at or above this many ms are logged at `warn` (`HTTP request slow`) even when on the skip list; `0` disables. |
+| `MONGODB_COMMAND_METRICS_ENABLED` | `true` | MongoDB command metrics (`mongodb_commands_total`, `mongodb_command_duration_seconds`). Restart to change. |
 | `CALLMAN_RELEASE_REMINDERS_ENABLED` | `true` | Release-calendar **in-app reminders** to desktop users, delivered by the backend worker from the admin panel's Release Calendar. This is a process-level kill switch only — the admin-facing on/off switch and the reminder rules live in the admin panel (Release Calendar → Notifications, channel "In-app (desktop users)"). Desktop users also see the calendar itself (profile menu → Release calendar). |
 | `WORKER_HEALTH_PORT` | `9090` | Port the worker serves its own health probes on, inside its container. Not published to the host; change only on a port conflict. |
 | `MONGODB_BACKUP_DIR` | `/backups` | Where the pre-migration `mongodump` is written (a volume is mounted here — leave as-is). See [BACKUP.md](BACKUP.md). |

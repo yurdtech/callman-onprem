@@ -15,6 +15,7 @@ data:
   WORKER_HEALTH_PORT: {{ .Values.worker.healthPort | quote }}
   UITEST_HEALTH_PORT: {{ .Values.uiRunner.healthPort | quote }}
   METRICS_ENABLED: {{ .Values.backend.metricsEnabled | quote }}
+  LOG_LEVEL: {{ .Values.backend.logLevel | default "info" | quote }}
   BULLMQ_WORKER_CONCURRENCY: {{ .Values.worker.concurrency | quote }}
   SHUTDOWN_TIMEOUT_MS: {{ .Values.worker.shutdownTimeoutMs | quote }}
   UITEST_WORKER_CONCURRENCY: {{ .Values.uiRunner.concurrency | quote }}

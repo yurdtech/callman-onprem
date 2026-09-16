@@ -90,6 +90,12 @@ scale back down.
 > `bullmq_jobs_waiting`. Set `METRICS_ENABLED=false` in `.env` to turn `/metrics`
 > off.
 
+> **More detail:** `GET /ops/queues` returns every BullMQ state, whether the
+> queue is paused, the connected workers and the age of the oldest waiting job;
+> `GET /ops/instances` lists every backend / worker / ui-runner process with its
+> concurrency, active jobs and memory. The full DevOps surface (HTTP latency,
+> Mongo pool, Redis, licence, …) is documented in [MONITORING.md](MONITORING.md).
+
 ---
 
 ## Scaling manually
