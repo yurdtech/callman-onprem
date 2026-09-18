@@ -29,34 +29,51 @@ spec:
       containers:
         - name: worker
           image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
-          command: ["node", "dist/worker.js"]
+          # `args`, not `command`: keeps the image ENTRYPOINT (tini) as PID 1,
+          # so orphaned child processes are reaped and SIGTERM reaches Node.
+          args: ["node", "dist/worker.js"]
           {{- include "callman.containerSecurityContext" . | nindent 10 }}
           ports:
             - name: health
               containerPort: {{ .Values.worker.healthPort }}
           {{- include "callman.sharedEnvFrom" . | nindent 10 }}
-          {{- with .Values.worker.extraEnv }}
           env:
+            - name: NODE_OPTIONS
+              value: {{ printf "--max-old-space-size=%d" (int .Values.worker.heapMb) | quote }}
+            - name: MONGODB_MAX_POOL_SIZE
+              value: {{ .Values.worker.mongoPool.max | quote }}
+            - name: MONGODB_MIN_POOL_SIZE
+              value: {{ .Values.worker.mongoPool.min | quote }}
+            {{- with .Values.worker.extraEnv }}
             {{- include "callman.extraEnv" . | nindent 12 }}
-          {{- end }}
+            {{- end }}
+          # The health server binds before Mongo/migrations/schedule-sync run,
+          # so startup only waits for the process itself; the budget still
+          # covers a slow image pull + cold node (5 s × 60 = 5 min).
           startupProbe:
             httpGet:
               path: /health/live
               port: health
             periodSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 60
+          # Liveness is served from the same event loop the jobs run on. A
+          # sync script or a large report serialisation can hold the loop for
+          # seconds; only a loop blocked for ~2 minutes (6 × 20 s) is treated
+          # as a hung process.
           livenessProbe:
             httpGet:
               path: /health/live
               port: health
-            periodSeconds: 15
-            timeoutSeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /health/ready
               port: health
             periodSeconds: 10
             timeoutSeconds: 5
+            failureThreshold: 3
           {{- with .Values.worker.resources }}
           resources:
             {{- toYaml . | nindent 12 }}

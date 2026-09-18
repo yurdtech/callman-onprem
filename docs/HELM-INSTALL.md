@@ -150,8 +150,19 @@ The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 Worker scale-out is safe (shared BullMQ queue + per-schedule redlock — see
 [SCALING.md](SCALING.md)). `admin.replicaCount > 1` additionally requires
 `admin.extraEnv.RELEASE_REMINDERS_ENABLED: "false"` (the chart enforces it).
-UI-runner: budget ~2 GB memory per replica; its in-memory `/dev/shm`
-(`uiRunner.shmSize`, default 2Gi) counts against the container memory limit.
+UI-runner: budget ~4 GiB memory per replica at concurrency 2 (the chart
+default limit); its in-memory `/dev/shm` (`uiRunner.shmSize`, default 1Gi)
+counts against the container memory limit.
+
+Memory knobs (chart 0.2.0+): every Node container gets a V8 heap cap from
+`backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` (rendered as
+`NODE_OPTIONS=--max-old-space-size`) — keep it ~25% under the container's
+memory limit — and a per-replica Mongo pool from `*.mongoPool`. The worker
+runs at `worker.concurrency: 20` by default; raise it together with
+`worker.heapMb` and the memory limit. `worker.shutdownTimeoutMs` (120 s) and
+`uiRunner.drainTimeoutMs` (120 s; up to 900000 with backend ≥ 1.1) are the
+rollout drain budgets — the pods' `terminationGracePeriodSeconds` derive from
+them.
 
 ## 7. Airgap installation
 
@@ -230,9 +241,15 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `RATE_LIMIT_MAX` | `admin.rateLimitMax` |
 | `BULLMQ_WORKER_CONCURRENCY` | `worker.concurrency` |
 | `WORKER_HEALTH_PORT` | `worker.healthPort` |
-| `SHUTDOWN_TIMEOUT_MS` | `worker.shutdownTimeoutMs` (grace period derives from it) |
+| `SHUTDOWN_TIMEOUT_MS` | `worker.shutdownTimeoutMs` (worker grace period derives from it); `uiRunner.drainTimeoutMs` for the ui-runner |
+| `NODE_OPTIONS` (`--max-old-space-size`) | `backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` |
+| `MONGODB_MAX_POOL_SIZE` / `MONGODB_MIN_POOL_SIZE` | `backend.mongoPool` / `worker.mongoPool` / `uiRunner.mongoPool` |
+| `RATE_LIMIT_STORE` | fixed `redis` (Redis is always present) |
+| `UV_THREADPOOL_SIZE` | fixed `8` |
+| `BULLMQ_LOCK_DURATION_MS` | fixed `120000` |
 | `UITEST_WORKER_CONCURRENCY` | `uiRunner.concurrency` |
 | `UITEST_RUN_MAX_DURATION_MS` | `uiRunner.runMaxDurationMs` |
+| `UITEST_BROWSER_CHANNEL` | fixed `bundled` on the ui-runner |
 | `METRICS_ENABLED` | `backend.metricsEnabled` |
 | `CLIENT_ORIGIN` | `backend.clientOrigin` |
 | `PUBLIC_API_BASE_URL` | `backend.publicApiBaseUrl` |
@@ -251,6 +268,11 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
   credentials only apply to an **empty** volume (same drift as compose, see
   [TROUBLESHOOTING.md](TROUBLESHOOTING.md)); fix the URI or reset the PVC.
 - **UI-runner OOMKilled** — raise `uiRunner.resources.limits.memory`
-  (remember `/dev/shm` counts against it).
+  (remember `/dev/shm` counts against it) or lower `uiRunner.concurrency`.
+- **Worker / ui-runner restarts with nothing in the logs** — that is the
+  kernel OOM killer: check `kubectl describe pod` for `OOMKilled`, then raise
+  the memory limit AND the matching `heapMb` (or lower `worker.concurrency`).
+  A restart with `Uncaught exception` / `shutdown timed out` in the logs is a
+  code path, not memory — file it with the log line.
 - **Image pull errors on OpenShift** — confirm the pull secret is in the
   release namespace and listed under `global.imagePullSecrets`.

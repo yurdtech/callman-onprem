@@ -115,6 +115,10 @@ services:
       # below — so the URL you curl is the URL the app listens on.
       <<: *db-env
       PORT: ${CALLMAN_PORT:-8080}
+      # V8 heap cap. Node sizes its heap from the HOST's RAM, so without this
+      # a memory-limited container is OOM-killed before V8 collects. Keep
+      # ~25% below the container's memory limit (mem_limit / deploy.resources).
+      NODE_OPTIONS: ${BACKEND_NODE_OPTIONS:---max-old-space-size=768}
     ports:
       - "${CALLMAN_PORT:-8080}:${CALLMAN_PORT:-8080}"
     depends_on:
@@ -142,7 +146,10 @@ services:
     <<: *app
     command: ["node", "dist/worker.js"]
     init: true
-    environment: *db-env
+    environment:
+      <<: *db-env
+      # See backend: cap the heap below the container's memory limit.
+      NODE_OPTIONS: ${WORKER_NODE_OPTIONS:---max-old-space-size=1024}
     volumes:
       - ./certs:/certs:ro
       - backups:/backups
@@ -186,10 +193,18 @@ services:
     # tini as PID 1 — reaps orphaned Chromium processes.
     init: true
     # Chromium needs a real /dev/shm; the 64 MB Docker default crashes tabs.
-    shm_size: "2gb"
+    # The runner launches Chromium with --disable-dev-shm-usage, so 1 GB is
+    # plenty (it was 2 GB before that flag).
+    shm_size: "1gb"
     environment:
       <<: *db-env
       CALLMAN_WEB_DRIVER_NO_SANDBOX: "1"
+      # Browser runs take minutes: give in-flight runs time to finish on
+      # `docker compose up -d` / restart instead of the shared 30 s default
+      # (pair with `stop_grace_period` below).
+      SHUTDOWN_TIMEOUT_MS: ${UI_RUNNER_SHUTDOWN_TIMEOUT_MS:-120000}
+      NODE_OPTIONS: ${UI_RUNNER_NODE_OPTIONS:---max-old-space-size=768}
+    stop_grace_period: 150s
     volumes:
       - ./certs:/certs:ro
     depends_on:

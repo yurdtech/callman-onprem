@@ -30,16 +30,23 @@ spec:
       containers:
         - name: backend
           image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
-          command: ["node", "dist/server.js"]
+          # `args`, not `command`: keeps the image ENTRYPOINT (tini) as PID 1.
+          args: ["node", "dist/server.js"]
           {{- include "callman.containerSecurityContext" . | nindent 10 }}
           ports:
             - name: http
               containerPort: {{ .Values.backend.port }}
           {{- include "callman.sharedEnvFrom" . | nindent 10 }}
-          {{- with .Values.backend.extraEnv }}
           env:
+            - name: NODE_OPTIONS
+              value: {{ printf "--max-old-space-size=%d" (int .Values.backend.heapMb) | quote }}
+            - name: MONGODB_MAX_POOL_SIZE
+              value: {{ .Values.backend.mongoPool.max | quote }}
+            - name: MONGODB_MIN_POOL_SIZE
+              value: {{ .Values.backend.mongoPool.min | quote }}
+            {{- with .Values.backend.extraEnv }}
             {{- include "callman.extraEnv" . | nindent 12 }}
-          {{- end }}
+            {{- end }}
           # Absorbs the first-install window while the migrate Job is still
           # running (the pending-migration self-guard exits the process).
           startupProbe:

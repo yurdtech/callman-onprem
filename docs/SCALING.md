@@ -36,13 +36,20 @@ Rules of thumb:
 
 - Parallel browser runs = **replicas × `UITEST_WORKER_CONCURRENCY`** (default
   2 per replica; 1–5 allowed). One browser session uses ~400–800 MB RSS —
-  budget **~2 GB RAM per replica** and keep concurrency low rather than high.
+  budget **~2.5 GB RAM per replica** (2 browsers + the Node heap, capped at
+  768 MB by the compose `NODE_OPTIONS`) and keep concurrency low rather than
+  high.
 - `scripts/autoscale-worker.sh` is hardcoded to the **worker** service and its
   queue math (hundreds of cheap jobs per worker) — do **not** point it at
   `ui-runner`.
-- Long-lived browser containers slowly accumulate memory; a periodic restart
-  (`docker compose restart ui-runner`, e.g. nightly via cron) is a cheap
-  hygiene measure.
+- Since backend 1.1 the runner runs as a proper PID 1 (`tini`) that reaps
+  crashed Chromium helper processes, launches Chromium with
+  `--disable-dev-shm-usage` (so `shm_size` is 1 GB, not 2) and bounds
+  `browser.close()`; the "restart it nightly" hygiene is no longer needed,
+  though still harmless.
+- Rolling restarts: the runner drains in-flight browser runs for
+  `SHUTDOWN_TIMEOUT_MS` (compose sets 120 s for this service, paired with
+  `stop_grace_period`), so `docker compose up -d` no longer kills a run mid-way.
 
 ## Why running many workers is safe
 
@@ -271,10 +278,21 @@ the same. Only the mechanics differ:
 | compose | helm |
 | --- | --- |
 | `docker compose up -d --scale worker=N` | `helm upgrade ... --set worker.replicaCount=N` |
-| `scripts/autoscale-worker.sh` (cron/systemd) | `worker.hpa.enabled=true` (CPU-based HPA) |
-| `BULLMQ_WORKER_CONCURRENCY` in `.env` | `worker.concurrency` value |
+| `scripts/autoscale-worker.sh` (cron/systemd) | `worker.hpa.enabled=true` (`worker.hpa.metric: cpu` or `queue`) |
+| `BULLMQ_WORKER_CONCURRENCY` in `.env` | `worker.concurrency` value (chart default 20) |
+| `NODE_OPTIONS=--max-old-space-size` | `backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` |
+| `MONGODB_MAX_POOL_SIZE` | `backend.mongoPool` / `worker.mongoPool` / `uiRunner.mongoPool` (per replica) |
 | ui-runner scaling | `uiRunner.replicaCount` / `uiRunner.hpa.enabled` |
 
-The queue-depth Prometheus gauges (`bullmq_jobs_waiting` etc.) can drive a
-custom-metrics HPA if your cluster has an adapter; the chart ships a CPU-based
-HPA as the portable default. See [HELM-INSTALL.md](HELM-INSTALL.md) §6.
+Scenario runs are I/O-bound, so CPU is a poor scaling signal for the worker.
+With `worker.hpa.metric: queue` the HPA scales on `bullmq_jobs_waiting`
+(target `worker.hpa.targetWaitingJobsPerReplica`, default 10) — this needs a
+metrics adapter that serves the gauge through the External Metrics API
+(prometheus-adapter with a rule for `bullmq_jobs_waiting`); `cpu` stays the
+portable default. See [HELM-INSTALL.md](HELM-INSTALL.md) §6.
+
+Worker memory on k8s is bounded by `worker.concurrency` (20), the V8 heap cap
+(`worker.heapMb`, 1024 for the 1536Mi limit) and the worker's own heap-aware
+admission guard, which defers picking up jobs while the heap is above 85% of
+that cap (`worker_heap_backpressure_total` in `/metrics` counts those
+deferrals — a non-zero rate means: raise the limit or lower concurrency).
