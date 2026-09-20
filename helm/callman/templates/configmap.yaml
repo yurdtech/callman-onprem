@@ -20,6 +20,18 @@ data:
   SHUTDOWN_TIMEOUT_MS: {{ .Values.worker.shutdownTimeoutMs | quote }}
   UITEST_WORKER_CONCURRENCY: {{ .Values.uiRunner.concurrency | quote }}
   UITEST_RUN_MAX_DURATION_MS: {{ .Values.uiRunner.runMaxDurationMs | quote }}
+  # Redis is always present in this chart (bundled or external); the login /
+  # error-report rate limiters default to Mongo buckets otherwise, which is
+  # two extra Mongo round-trips per login.
+  RATE_LIMIT_STORE: redis
+  # libuv thread pool (bcrypt, crypto, DNS, zlib). Node's default 4 is the
+  # bottleneck during a login burst; 8 is safe at the pods' CPU requests.
+  UV_THREADPOOL_SIZE: "8"
+  # BullMQ job lock: renewed at half this interval. 120 s (code default 60 s)
+  # halves the lock-renewal traffic and, together with the stalled-job
+  # tolerance in the worker, keeps a single long GC pause / sync script from
+  # turning a healthy run into a `failed` report.
+  BULLMQ_LOCK_DURATION_MS: "120000"
   # Empty string disables the Telegram reporter (a literal "false" would not).
   TELEGRAM_ENABLED: ""
   {{- with .Values.backend.clientOrigin }}

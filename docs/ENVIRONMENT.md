@@ -164,7 +164,13 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | `RATE_LIMIT_LOGIN_WINDOW_MS` | `900000` | Login throttle window (ms, default 15 min). |
 | `MONGODB_MAX_POOL_SIZE` | `100` | Mongo connection pool max. |
 | `MONGODB_MIN_POOL_SIZE` | `10` | Mongo connection pool min (≤ max). |
-| `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. Raise this first under load; to add *more* worker containers, see [SCALING.md](SCALING.md). |
+| `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. Concurrency is the only memory backpressure on the worker — at 50, keep the container above 2 GB or lower it to 20 (the Helm chart's default). To add *more* worker containers, see [SCALING.md](SCALING.md). |
+| `NODE_OPTIONS` | compose: `--max-old-space-size=768` (backend, ui-runner), `1024` (worker) | V8 heap cap per container (`BACKEND_NODE_OPTIONS` / `WORKER_NODE_OPTIONS` / `UI_RUNNER_NODE_OPTIONS` in `.env` override). Node sizes its heap from the HOST's RAM, so without it a memory-limited container is OOM-killed before V8 collects. Keep ~25% under the container's memory limit. |
+| `WORKER_HEAP_HIGH_WATERMARK` | `0.85` | Above this fraction of the heap cap the worker pauses picking up new jobs for a few seconds (nothing fails). |
+| `SCRIPT_WORKER_POOL_SIZE` | `2` | Warm script threads per worker; every scenario script runs there, off the worker's event loop, capped at `SCRIPT_WORKER_HEAP_MB` (128) each. |
+| `SCENARIO_MAX_RESPONSE_BYTES` | `10485760` | Largest HTTP response a request node buffers; bigger responses fail the node. |
+| `SCENARIO_REPORT_RETENTION_DAYS` | `0` (keep forever) | Auto-delete scenario run reports older than this. Applied by the `migrate` step on every start; `0` never deletes. `UITEST_RESULT_RETENTION_DAYS` and `NOTIFICATION_RETENTION_DAYS` work the same way. |
+| `UI_RUNNER_SHUTDOWN_TIMEOUT_MS` | `120000` | How long in-flight browser runs may finish when the ui-runner container stops (compose `stop_grace_period` is 150 s). |
 | `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics` (incl. `bullmq_jobs_waiting`) and the collectors behind `/ops/*`. Set `false` to disable. See [MONITORING.md](MONITORING.md). |
 | `LOG_LEVEL` | `info` | Minimum log level (`debug` / `info` / `warn` / `error`). Health probes, `/metrics` scrapes and `/ops/*` are logged at `debug`, so they are invisible by default; set `debug` only while investigating. |
 | `HTTP_LOG_SKIP_PATHS` | `/health,/health/live,/health/ready,/version,/api/system-info,/metrics,/ops/*` | Paths the request logger writes at `debug` instead of `info` (CSV; a trailing `*` makes it a prefix). |

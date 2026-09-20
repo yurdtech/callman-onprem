@@ -22,12 +22,18 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      # Browser runs take minutes; the grace period must exceed the runner's
+      # own drain budget (uiRunner.drainTimeoutMs → SHUTDOWN_TIMEOUT_MS below)
+      # or the kubelet SIGKILLs mid-run on every rollout.
+      terminationGracePeriodSeconds: {{ add (div (int .Values.uiRunner.drainTimeoutMs) 1000) 30 }}
       {{- include "callman.imagePullSecrets" . | nindent 6 }}
       {{- include "callman.podSecurityContext" . | nindent 6 }}
       containers:
         - name: ui-runner
           image: {{ include "callman.image" (dict "root" $ "image" .Values.uiRunner.image) }}
-          command: ["node", "dist/ui-runner.js"]
+          # `args`, not `command`: the image's ENTRYPOINT (tini) stays PID 1 and
+          # reaps the Chromium helper processes a crashed tab leaves behind.
+          args: ["node", "dist/ui-runner.js"]
           {{- include "callman.containerSecurityContext" . | nindent 10 }}
           ports:
             - name: health
@@ -36,6 +42,20 @@ spec:
           env:
             - name: CALLMAN_WEB_DRIVER_NO_SANDBOX
               value: "1"
+            # Container-level env wins over the shared ConfigMap's
+            # SHUTDOWN_TIMEOUT_MS (which is sized for API-scenario runs).
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: {{ .Values.uiRunner.drainTimeoutMs | quote }}
+            - name: NODE_OPTIONS
+              value: {{ printf "--max-old-space-size=%d" (int .Values.uiRunner.heapMb) | quote }}
+            - name: MONGODB_MAX_POOL_SIZE
+              value: {{ .Values.uiRunner.mongoPool.max | quote }}
+            - name: MONGODB_MIN_POOL_SIZE
+              value: {{ .Values.uiRunner.mongoPool.min | quote }}
+            # The Playwright image ships Chromium, not Google Chrome — skip the
+            # doomed `channel: chrome` launch attempt every run used to pay.
+            - name: UITEST_BROWSER_CHANNEL
+              value: bundled
             {{- with .Values.uiRunner.extraEnv }}
             {{- include "callman.extraEnv" . | nindent 12 }}
             {{- end }}
@@ -44,26 +64,29 @@ spec:
               path: /health/live
               port: health
             periodSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 60
           livenessProbe:
             httpGet:
               path: /health/live
               port: health
-            periodSeconds: 15
-            timeoutSeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /health/ready
               port: health
             periodSeconds: 10
             timeoutSeconds: 5
+            failureThreshold: 3
           {{- with .Values.uiRunner.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-            # Chromium shared memory (compose shm_size: 2gb). In-memory
-            # emptyDir counts against the container memory limit.
+            # Chromium shared memory. In-memory emptyDir counts against the
+            # container memory limit (the runner also launches Chromium with
+            # --disable-dev-shm-usage, so this no longer needs to be 2Gi).
             - name: dshm
               mountPath: /dev/shm
             {{- include "callman.certsMount" . | nindent 12 }}

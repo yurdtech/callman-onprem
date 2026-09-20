@@ -61,8 +61,13 @@ after it fires, the run appears in the flow's **History** with a
 - **Scale under load:** `docker compose up -d --scale ui-runner=2` —
   parallel browser runs = replicas × `UITEST_WORKER_CONCURRENCY`. Budget
   ~2 GB RAM per replica. Full guidance: [SCALING.md](SCALING.md); every setting: [ENVIRONMENT.md](ENVIRONMENT.md).
-- **Hygiene:** long-lived browser containers slowly accumulate memory — a
-  nightly `docker compose restart ui-runner` (cron) is cheap insurance.
+- **Hygiene:** from backend 1.1 the runner reaps crashed Chromium helper
+  processes itself (`tini` PID 1), so memory no longer creeps up over days; a
+  nightly `docker compose restart ui-runner` is harmless but no longer needed.
+- **Restarts and upgrades:** in-flight browser runs get `SHUTDOWN_TIMEOUT_MS`
+  (120 s for this service in docker-compose.yml, `uiRunner.drainTimeoutMs` on
+  Helm) to finish before the process exits — a run longer than that is
+  reported as failed by the next boot.
 - **Retention:** server run reports auto-delete after
   `UITEST_REPORT_RETENTION_DAYS` (default 90). Failure screenshots are
   size-capped by `UITEST_FAILURE_SCREENSHOT_MAX_BYTES` (`0` disables them).
@@ -77,8 +82,8 @@ after it fires, the run appears in the flow's **History** with a
 | `docker compose pull` says `denied` / `manifest unknown` for `callman-ui-runner` | Your registry token may not cover the (newer) ui-runner package — re-run `docker login ghcr.io` with the token we gave you; if it persists, contact us so we grant the package to your token. |
 | `docker compose pull` says `no matching manifest for linux/arm64` | You are on an ARM host (Apple Silicon, Graviton) and this runner version shipped amd64-only (fixed from 1.0.2 — multi-arch). Until you update, add a `docker-compose.override.yml` with:<br>`services:`<br>`  ui-runner:`<br>`    platform: linux/amd64`<br>then `docker compose pull` again — it runs under emulation (on macOS enable *Use Rosetta* in Docker Desktop). Delete the override once on a multi-arch version. |
 | Desktop shows "No UI test runner is available…" (503) | The runner isn't running (profile not enabled, container down) or died >30 s ago. Check `docker compose ps` and `docker compose logs ui-runner`. |
-| `ui-runner` is `unhealthy` or restarts | Usually RAM. Check `docker stats`; lower `UITEST_WORKER_CONCURRENCY` to `1`, scale replicas instead, or give the host more memory. |
-| Runs fail with a browser/sandbox launch error | The container ships with the correct flags (`CALLMAN_WEB_DRIVER_NO_SANDBOX=1`, `shm_size: 2gb` are set in docker-compose.yml) — if you overrode compose settings, restore them. |
+| `ui-runner` is `unhealthy` or restarts | Usually RAM. Check `docker stats`; lower `UITEST_WORKER_CONCURRENCY` to `1`, scale replicas instead, or give the host more memory. Keep `NODE_OPTIONS=--max-old-space-size` (compose default 768) below the container's memory limit minus ~700 MB per concurrent browser. |
+| Runs fail with a browser/sandbox launch error | The container ships with the correct flags (`CALLMAN_WEB_DRIVER_NO_SANDBOX=1` — which also adds `--disable-dev-shm-usage` — `UITEST_BROWSER_CHANNEL=bundled`, `shm_size: 1gb` are set in docker-compose.yml) — if you overrode compose settings, restore them. |
 | A run is `failed` with "exceeded the … minute limit" | The flow ran longer than `UITEST_RUN_MAX_DURATION_MS` (or the schedule's own max-runtime). Raise the limit or split the flow. |
 
 More general issues: [TROUBLESHOOTING.md](TROUBLESHOOTING.md).

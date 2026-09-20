@@ -27,7 +27,7 @@ spec:
       containers:
         - name: migrate
           image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
-          command: ["node", "dist/migrations/cli.js", "up"]
+          args: ["node", "dist/migrations/cli.js", "up"]
           {{- include "callman.containerSecurityContext" . | nindent 10 }}
           {{- include "callman.sharedEnvFrom" . | nindent 10 }}
           env:

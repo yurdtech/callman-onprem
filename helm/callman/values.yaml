@@ -109,6 +109,18 @@ backend:
       memory: 512Mi
     limits:
       memory: 1Gi
+  # V8 old-space cap (NODE_OPTIONS=--max-old-space-size). Node sizes its heap
+  # from the NODE's RAM, not the container's limit, so without this the
+  # kernel OOM-kills the pod (silently — no log line) before V8 ever runs a
+  # full GC. Keep ~25% of resources.limits.memory free for native memory,
+  # buffers and the Mongo/Redis drivers.
+  heapMb: 768
+  # Mongo connection pool PER REPLICA. The code default (100) is sized for a
+  # single PM2 host; on k8s every API replica, worker and runner pod opens
+  # its own pool against one Mongo, so keep these small.
+  mongoPool:
+    max: 20
+    min: 2
   metricsEnabled: true              # ≈ METRICS_ENABLED
   logLevel: info                    # ≈ LOG_LEVEL (debug|info|warn|error); probes/scrapes log at debug
   clientOrigin: ""                  # ≈ CLIENT_ORIGIN (CSV of extra CORS origins)
@@ -140,8 +152,20 @@ backend:
 worker:
   replicaCount: 1
   healthPort: 9090                  # ≈ WORKER_HEALTH_PORT
-  shutdownTimeoutMs: 30000          # ≈ SHUTDOWN_TIMEOUT_MS (drives grace period)
-  concurrency: 50                   # ≈ BULLMQ_WORKER_CONCURRENCY
+  # ≈ SHUTDOWN_TIMEOUT_MS — how long in-flight scenario runs may finish on a
+  # rollout before the process force-exits; terminationGracePeriodSeconds is
+  # derived from it (+15 s). 120 s covers the 99th-percentile run.
+  shutdownTimeoutMs: 120000
+  # ≈ BULLMQ_WORKER_CONCURRENCY. Concurrency is the ONLY backpressure on the
+  # worker's memory: 50 parallel runs that each stream multi-MB responses
+  # through loop nodes do not fit a 1.5 GiB pod. 20 keeps throughput for
+  # I/O-bound runs while the heap-watermark guard (WORKER_HEAP_HIGH_WATERMARK)
+  # defers pickup when memory gets tight. Raise together with heapMb/limits.
+  concurrency: 20
+  heapMb: 1024                      # NODE_OPTIONS=--max-old-space-size (see backend.heapMb)
+  mongoPool:
+    max: 30                         # ≈ concurrency + headroom for schedule sync
+    min: 2
   # Mounting the backups PVC into workers (compose parity for operator-run
   # mongodump) requires ReadWriteMany storage — see docs/HELM-INSTALL.md.
   mountBackups: false
@@ -163,7 +187,15 @@ worker:
     enabled: false
     minReplicas: 1
     maxReplicas: 5
+    # "cpu"   — scale on CPU utilisation (works out of the box).
+    # "queue" — scale on BullMQ queue depth (`bullmq_jobs_waiting`, exported
+    #           on every worker's /metrics). Requires a metrics adapter that
+    #           serves it through the External Metrics API (prometheus-adapter)
+    #           — see docs/SCALING.md. Scenario runs are I/O-bound, so queue
+    #           depth is the honest signal; CPU rarely moves.
+    metric: cpu
     targetCPUUtilizationPercentage: 75
+    targetWaitingJobsPerReplica: 10
 
 uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
   enabled: false
@@ -174,20 +206,36 @@ uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
   healthPort: 9091                  # ≈ UITEST_HEALTH_PORT
   concurrency: 2                    # ≈ UITEST_WORKER_CONCURRENCY (1-5)
   runMaxDurationMs: 900000          # ≈ UITEST_RUN_MAX_DURATION_MS
-  # Chromium shared memory (compose shm_size: 2gb). Backed by an in-memory
-  # emptyDir that COUNTS against the container memory limit — keep
-  # resources.limits.memory >= shmSize + ~1Gi.
-  shmSize: 2Gi
+  # ≈ SHUTDOWN_TIMEOUT_MS for THIS pod (overrides the shared ConfigMap value):
+  # how long in-flight browser runs may finish on a rollout. Browser runs
+  # take minutes, not seconds — with the shared 30 s every `helm upgrade`
+  # killed every run in flight. terminationGracePeriodSeconds is derived
+  # (+30 s). Backend >= 1.1 accepts up to 900000 (= runMaxDurationMs);
+  # older images cap it at 120000.
+  drainTimeoutMs: 120000
+  heapMb: 768                       # Node heap only — Chromium is separate
+  mongoPool:
+    max: 5
+    min: 1
+  # Chromium shared memory. Backed by an in-memory emptyDir that COUNTS
+  # against the container memory limit. The runner launches Chromium with
+  # --disable-dev-shm-usage (backend >= 1.1), so 1Gi is plenty; keep
+  # resources.limits.memory >= shmSize + heapMb + ~700Mi per concurrent browser.
+  shmSize: 1Gi
   resources:
     requests:
+      cpu: 500m                     # required for the CPU HPA to compute a ratio
       memory: 1Gi
     limits:
-      memory: 3Gi
+      memory: 4Gi
   extraEnv: {}
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []
   affinity: {}
+  pdb:
+    enabled: false
+    minAvailable: 1
   hpa:
     enabled: false
     minReplicas: 1

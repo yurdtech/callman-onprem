@@ -6,7 +6,7 @@ description: >-
   alternative to the docker-compose deployment in this repository.
 type: application
 # Chart version: bumped for any template/values change, independent of app versions.
-version: 0.1.1
+version: 0.2.0
 # appVersion = CALLMAN_VERSION: default image tag for backend / worker / migrate
 # / ui-runner. The admin panel image is pinned separately in values.yaml
 # (admin.image.tag) — each chart release ships a known-good pair.

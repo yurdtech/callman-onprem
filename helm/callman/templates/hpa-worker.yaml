@@ -13,10 +13,33 @@ spec:
   minReplicas: {{ .Values.worker.hpa.minReplicas }}
   maxReplicas: {{ .Values.worker.hpa.maxReplicas }}
   metrics:
+    {{- if eq (toString .Values.worker.hpa.metric) "queue" }}
+    # Queue depth (jobs waiting to be picked up), served through the External
+    # Metrics API by a metrics adapter (prometheus-adapter) from the
+    # `bullmq_jobs_waiting{queue="scenario-runs"}` gauge every worker exports.
+    # AverageValue: the adapter's value divided by the current replica count
+    # is compared to the target, so N waiting jobs per replica adds a pod.
+    - type: External
+      external:
+        metric:
+          name: bullmq_jobs_waiting
+          selector:
+            matchLabels:
+              queue: scenario-runs
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.worker.hpa.targetWaitingJobsPerReplica | quote }}
+    {{- else }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
           averageUtilization: {{ .Values.worker.hpa.targetCPUUtilizationPercentage }}
+    {{- end }}
+  behavior:
+    # Scenario runs are long; scale down slowly so a lull between schedule
+    # bursts does not evict a pod that is still draining work.
+    scaleDown:
+      stabilizationWindowSeconds: 300
 {{- end }}
