@@ -22,10 +22,12 @@ and keep answering while the deployment is unlicensed or in read-only mode.
 
 ### Docker Compose
 
-Only the backend publishes a port (`CALLMAN_PORT`, default `8080`). The worker
-and the UI runner serve their own `/metrics` on `WORKER_HEALTH_PORT` (9090) /
-`UITEST_HEALTH_PORT` (9091) **inside the Compose network** — they are not
-published to the host on purpose.
+The backend publishes `CALLMAN_PORT` (default `8080`), and the storage gateway
+publishes `CALLMAN_STORAGE_PORT` (default `8081`) because clients download large
+files from it directly. Every process also serves its own `/metrics` on a health
+port **inside the Compose network**, not published to the host on purpose:
+worker `WORKER_HEALTH_PORT` (9090), UI runner `UITEST_HEALTH_PORT` (9091),
+storage gateway `CALLMAN_STORAGE_HEALTH_PORT` (9092).
 
 - Scrape the backend at `http://<host>:8080/metrics`.
 - To scrape workers too, run Prometheus **inside** the Compose network
@@ -74,7 +76,7 @@ load and failures to a specific process.
 Health probes and scrapes are counted too (under their own route), they are
 just not *logged*.
 
-### Node.js process (backend, worker, ui-runner)
+### Node.js process (backend, worker, ui-runner, storage)
 
 From prom-client's default collector: `process_cpu_*_seconds_total`,
 `process_resident_memory_bytes`, `nodejs_heap_size_*_bytes`,
@@ -90,7 +92,7 @@ Added by Callman:
 | `build_info` | gauge (=1) | `version`, `git_sha`, `edition`, `node_version` | Which build is running. |
 | `worker_instance_info` | gauge (=1) | `instance_id`, `version` | Legacy per-process identity gauge (kept for existing dashboards). |
 
-### MongoDB driver (backend, worker, ui-runner)
+### MongoDB driver (backend, worker, ui-runner, storage)
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
@@ -116,7 +118,7 @@ connections opened during connect are not seen) and aggregate every server
 of a replica set. The authoritative server-side view is
 `serverStatus.connections` on `GET /ops/dependencies`.
 
-### Redis (backend, worker, ui-runner)
+### Redis (backend, worker, ui-runner, storage)
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
@@ -146,7 +148,7 @@ Queues: `scenario-runs` (`BULLMQ_QUEUE_NAME`) and `ui-test-runs`
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `worker_instances` | gauge | `role` = `api` / `worker` / `ui-runner` | Processes heartbeating in Redis right now. Drops when a container dies (within 30 s) or is stopped cleanly (immediately). |
+| `worker_instances` | gauge | `role` = `api` / `worker` / `ui-runner` / `storage` | Processes heartbeating in Redis right now. Drops when a container dies (within 30 s) or is stopped cleanly (immediately). |
 | `license_status_info` | gauge | `status` | 1 for the current status (`active`, `expiring`, `expired_grace`, `expired`, `unlicensed`, `not_required`), 0 otherwise. |
 | `license_expires_timestamp_seconds` | gauge | — | Unix time the certificate expires. `(license_expires_timestamp_seconds - time()) / 86400` = days left. |
 | `license_seats_max` / `license_seats_used` | gauge | — | Seats allowed by the certificate / user accounts counted against it (60 s). |
@@ -223,7 +225,7 @@ up as `{ "ok": false, "error": "…" }` inside an otherwise complete document.
 | `/ops/process` | pid, uptime, Node version, memory (`rss`, heap, external), CPU utilization since the previous call, event-loop utilization and delay percentiles (`p50`, `p99`, `max` in ms), active handle counts by type, `logLevel`. | none |
 | `/ops/dependencies` | **mongo**: `readyState`, host, database, pool (`connectionsInUse` / `connectionsTotal` / `maxPoolSize`), `pingMs`, `dbStats` (collections, objects, data / storage / index size), `serverStatus` (version, uptime, `connections.current/available`, `opcounters`, resident memory). **redis[]**: per client status, `pingMs`, `INFO` subset (version, uptime, clients, memory, evicted keys). **kafkaPool**, **postgresSessions**. | as above |
 | `/ops/queues` | Per queue: every BullMQ state count, `paused`, connected workers (id, address, age, idle), `oldestWaitingAgeMs`, rate limiter, configured concurrency. | BullMQ |
-| `/ops/instances` | Every backend / worker / ui-runner process heartbeating in Redis: role, version, git sha, hostname, pid, started / last beat, queue, concurrency, `activeJobs`, `rssBytes`, `heapUsedBytes`, `eventLoopUtilization`, health port. | Redis `SCAN` |
+| `/ops/instances` | Every backend / worker / ui-runner / storage process heartbeating in Redis: role, version, git sha, hostname, pid, started / last beat, queue, concurrency, `activeJobs`, `rssBytes`, `heapUsedBytes`, `eventLoopUtilization`, health port. | Redis `SCAN` |
 | `/ops/http` | Rolling **1 / 5 / 15 minute** windows computed in-process from the last 50 000 requests: total, rps, error rate, status classes, `p50/p95/p99`, and the top routes with per-route percentiles. `coveredSeconds` tells you how much of the window the buffer actually holds. | none |
 | `/ops/config` | The **effective, non-secret** configuration (ports, pool sizes, concurrency, timeouts, retention, feature switches) plus `derived` booleans (`redisConfigured`, `bullBoardEnabled`, `telegramConfigured`). Never a URI, secret, token or password — a unit test rejects such keys. | none |
 | `/ops/license` | Status, read-only flag, warning level, days remaining, validity window, company, seats max / used, rejection reason. | Mongo (60 s cached) |
@@ -259,7 +261,7 @@ Install the **Infinity** datasource, point it at
 
 | Endpoint | Where | Checks | Used by |
 |---|---|---|---|
-| `GET /health/live` | backend `:8080`, worker `:9090`, ui-runner `:9091` | process answers | Docker `healthcheck`, K8s liveness / startup |
+| `GET /health/live` | backend `:8080`, worker `:9090`, ui-runner `:9091`, storage `:9092` | process answers | Docker `healthcheck`, K8s liveness / startup |
 | `GET /health/ready` | same | Mongo `readyState` + Redis `PING` (503 when degraded) | K8s readiness, `helm test` |
 | `GET /health` | backend | queue counts + build info | `scripts/autoscale-worker.sh` (`.data.queue.waiting/.active` — this shape is frozen), humans |
 | `GET /version` | backend | build info | release tooling |

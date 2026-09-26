@@ -373,6 +373,24 @@ if [[ ",$profiles," == *",ui-runner,"* ]]; then
   fi
 fi
 
+# ── Storage gateway (optional profile) ──
+# It streams and stores nothing locally, so RAM and disk are not the risk here.
+# The two things that actually break a deployment are a missing public URL (every
+# download link would come out relative) and a reverse proxy that still has its
+# 1 MB body limit.
+if [[ ",$profiles," == *",storage,"* ]]; then
+  ok "storage profile enabled (large files handled by the storage gateway)"
+  if [[ -z "$(env_get CALLMAN_STORAGE_PUBLIC_URL)" ]]; then
+    warn "storage profile is enabled but CALLMAN_STORAGE_PUBLIC_URL is not set"
+    info "Set it to the address users reach the gateway on, e.g."
+    info "  CALLMAN_STORAGE_PUBLIC_URL=https://callman.yourcompany.local"
+    info "Without it download links are returned relative. See docs/STORAGE.md."
+  fi
+  info "Reverse proxy: route /storage/ to the gateway and disable the body limit"
+  info "  (nginx: client_max_body_size 0; proxy_request_buffering off;)"
+  info "Connect your S3 / MinIO / FileNet in the admin panel under Storage."
+fi
+
 if [[ ! -d "$COMPOSE_DIR/certs" ]]; then
   warn "certs/ directory is missing — recreate it if you need a private CA"
 fi
@@ -384,7 +402,12 @@ port_in_use() {
   (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1
 }
 
-for pair in "CALLMAN_PORT:8080:backend API" "CALLMAN_ADMIN_PORT:5100:admin panel"; do
+port_checks=("CALLMAN_PORT:8080:backend API" "CALLMAN_ADMIN_PORT:5100:admin panel")
+if [[ ",$profiles," == *",storage,"* ]]; then
+  port_checks+=("CALLMAN_STORAGE_PORT:8081:storage gateway")
+fi
+
+for pair in "${port_checks[@]}"; do
   var="${pair%%:*}"; rest="${pair#*:}"; default="${rest%%:*}"; label="${rest#*:}"
   p="$(env_get "$var")"; p="${p:-$default}"
   if port_in_use "$p"; then

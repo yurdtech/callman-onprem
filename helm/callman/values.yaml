@@ -242,6 +242,75 @@ uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
     maxReplicas: 3
     targetCPUUtilizationPercentage: 75
 
+storage:                            # ≈ COMPOSE_PROFILES storage
+  # The gateway for LARGE files (mobile build artifacts, recordings). It is a
+  # CONNECTOR: files go to the S3 / MinIO / FileNet connected in the admin panel
+  # under Storage, so they stay in your infrastructure and your backup regime.
+  # Runs from backend.image — no browser, so no second image to pull.
+  enabled: false
+  replicaCount: 1                   # stateless, so scale freely (unless localVolume)
+  port: 8081                        # ≈ CALLMAN_STORAGE_PORT
+  healthPort: 9092                  # ≈ CALLMAN_STORAGE_HEALTH_PORT
+  # The address users and CI reach the gateway on, e.g.
+  # https://callman.yourbank.local — no trailing slash, no /storage path.
+  # Callman puts it in every download link, which is how your provider's own
+  # endpoint and credentials never reach a client. REQUIRED in practice.
+  publicUrl: ""
+  maxUploadBytes: 524288000         # 500 MB; raise the ingress body size to match
+  # ≈ SHUTDOWN_TIMEOUT_MS for THIS pod: how long in-flight transfers may finish
+  # on a rollout. terminationGracePeriodSeconds is derived (+30 s).
+  drainTimeoutMs: 120000
+  heapMb: 512                       # streams, so this stays small
+  mongoPool:
+    max: 5
+    min: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  ingress:
+    enabled: false
+    className: ""
+    host: ""                        # may be the SAME host as backend.ingress
+    path: /storage
+    annotations: {}
+    # ⚠ With the nginx ingress controller you MUST disable the body limit (its
+    # default is 1 MB) and raise the timeouts, or large uploads fail with 413
+    # before reaching Callman:
+    #   nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    #   nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    #   nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    #   nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    tls: []
+  route:                            # OpenShift; mutually exclusive with ingress
+    enabled: false
+    host: ""
+    # Large transfers need a longer router timeout, e.g.
+    #   haproxy.router.openshift.io/timeout: 1h
+    annotations: {}
+    tls:
+      termination: edge             # edge | reencrypt | passthrough
+  localVolume:
+    # ONLY for the "Local volume" provider, the fallback before an object store
+    # is connected. Leave false and connect real storage instead.
+    enabled: false
+    mountPath: /var/lib/callman/files
+    size: 50Gi
+    storageClass: ""
+    # RWO caps the gateway at one replica; ReadWriteMany unlocks scaling.
+    accessModes:
+      - ReadWriteOnce
+  extraEnv: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  pdb:
+    enabled: false
+    minAvailable: 1
+
 admin:
   image:
     repository: ghcr.io/yurdtech/callman-onprem-admin

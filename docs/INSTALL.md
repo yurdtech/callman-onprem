@@ -25,8 +25,11 @@ as containers on one server.
 - **2 GB RAM** and **5 GB free disk** minimum for the all-in-one stack (more
   for heavy use). Enabling the optional **UI-test runner** (`ui-runner`
   profile — scheduled web UI tests in a headless browser) adds **~2 GB disk**
-  for its image and **~2 GB RAM per replica** on top of that.
-- Ports **8080** and **5100** free (both configurable).
+  for its image and **~2 GB RAM per replica** on top of that. The optional
+  **storage gateway** (`storage` profile — large files, kept in storage you
+  own) needs no extra image and ~100 MB RAM.
+- Ports **8080** and **5100** free (both configurable), plus **8081** if you
+  enable the storage gateway.
 
 **From us, before you begin:**
 
@@ -335,6 +338,12 @@ start on the new version. Confirm with `curl http://localhost:8080/version`.
 > scheduled web UI tests executed on this server in a headless browser. It is
 > off by default and enabled with one `.env` line; see
 > [UI-RUNNER.md](UI-RUNNER.md).
+
+> Since backend **1.1.0** an optional **storage gateway** is available, for
+> features that produce large files (mobile build artifacts, recordings). It
+> keeps nothing itself — you connect your own S3 / MinIO / FileNet in the admin
+> panel under **Storage** — and it runs from the image you already pulled. Off
+> by default; see [STORAGE.md](STORAGE.md).
 
 ### Rollback note
 

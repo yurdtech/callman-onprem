@@ -1,5 +1,5 @@
-# CI: every optional feature on — ui-runner, HPA, PDB, netpol, monitoring,
-# ingress, certs, airgap registry override, existingSecret path.
+# CI: every optional feature on — ui-runner, storage gateway, HPA, PDB, netpol,
+# monitoring, ingress, certs, airgap registry override, existingSecret path.
 global:
   imageRegistry: registry.bank.local
   imagePullSecrets: [bank-registry]
@@ -9,6 +9,24 @@ uiRunner:
   enabled: true
   hpa:
     enabled: true
+storage:
+  enabled: true
+  replicaCount: 2                   # stateless, so >1 needs no shared volume
+  publicUrl: https://callman.bank.local
+  pdb:
+    enabled: true
+  ingress:
+    enabled: true
+    className: nginx
+    host: callman.bank.local        # same host as the backend, different path
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    tls:
+      - hosts: [callman.bank.local]
+        secretName: callman-tls
 worker:
   replicaCount: 2
   hpa:

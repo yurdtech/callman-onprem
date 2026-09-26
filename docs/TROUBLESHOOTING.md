@@ -227,6 +227,34 @@ restarts, browser launch errors, run time limit) at the end of
 
 ---
 
+## "No storage provider is active" / large files won't upload
+
+**Cause:** one of three things, in order of likelihood.
+
+1. **No provider is connected or activated.** Large files go to storage *you*
+   own; Callman does not guess. Open the admin panel → **Storage**, add your S3 /
+   MinIO (or a Local volume to try it out), press **Test connection**, then
+   **Set as active**.
+2. **The `storage` profile is not enabled**, so the gateway is not running:
+   ```bash
+   grep COMPOSE_PROFILES .env       # must include: storage
+   docker compose ps                # callman-storage should be healthy
+   docker compose logs storage | tail -20
+   ```
+3. **The upload never reaches Callman.** If it fails at ~1 MB or returns `413`,
+   that is your reverse proxy's body limit, not Callman — see
+   [STORAGE.md](STORAGE.md#route-it-through-your-reverse-proxy).
+
+A fourth, less obvious one: "the active storage provider is not usable —
+stored credentials could not be decrypted" means the admin panel and the backend
+have **different** `CONNECTION_ENCRYPTION_KEY` values. They must be identical.
+
+The storage gateway has its own troubleshooting table (provider errors, proxy
+limits, interrupted uploads, checksum mismatches) at the end of
+[STORAGE.md](STORAGE.md).
+
+---
+
 ## I set `MONGODB_URI` / `REDIS_URL` but Callman still uses the bundled database
 
 **Symptom:** you pointed `.env` at your company database, restarted, and

@@ -1,0 +1,112 @@
+{{- if .Values.storage.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "callman.fullname" . }}-storage
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
+spec:
+  replicas: {{ .Values.storage.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "storage") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "storage") | nindent 8 }}
+      {{- with .Values.storage.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      # A download in flight can be hundreds of MB; give transfers time to
+      # finish on a rollout instead of handing clients a truncated file.
+      terminationGracePeriodSeconds: {{ add (div (int .Values.storage.drainTimeoutMs) 1000) 30 }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: storage
+          # Same image as the backend — the gateway carries no browser, so it
+          # needs no image of its own.
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
+          # `args`, not `command`: the image's ENTRYPOINT (tini) stays PID 1.
+          args: ["node", "dist/storage-server.js"]
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.storage.port }}
+            - name: health
+              containerPort: {{ .Values.storage.healthPort }}
+          {{- include "callman.sharedEnvFrom" . | nindent 10 }}
+          env:
+            # Container-level env wins over the shared ConfigMap's
+            # SHUTDOWN_TIMEOUT_MS (which is sized for API-scenario runs).
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: {{ .Values.storage.drainTimeoutMs | quote }}
+            # Nothing is buffered whole, so the heap stays small on purpose.
+            - name: NODE_OPTIONS
+              value: {{ printf "--max-old-space-size=%d" (int .Values.storage.heapMb) | quote }}
+            - name: MONGODB_MAX_POOL_SIZE
+              value: {{ .Values.storage.mongoPool.max | quote }}
+            - name: MONGODB_MIN_POOL_SIZE
+              value: {{ .Values.storage.mongoPool.min | quote }}
+            {{- if eq .Values.storage.localVolume.enabled true }}
+            - name: STORAGE_SPILL_DIR
+              value: {{ .Values.storage.localVolume.mountPath | quote }}
+            {{- end }}
+            {{- with .Values.storage.extraEnv }}
+            {{- include "callman.extraEnv" . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.storage.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.storage.localVolume.enabled }}
+            # ONLY for the "Local volume" storage provider. With S3 / MinIO /
+            # FileNet nothing is written here.
+            - name: files
+              mountPath: {{ .Values.storage.localVolume.mountPath }}
+            {{- end }}
+            {{- include "callman.certsMount" . | nindent 12 }}
+      volumes:
+        {{- if .Values.storage.localVolume.enabled }}
+        - name: files
+          persistentVolumeClaim:
+            claimName: {{ include "callman.fullname" . }}-storage-files
+        {{- end }}
+        {{- include "callman.certsVolume" . | nindent 8 }}
+      {{- with .Values.storage.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.storage.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.storage.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

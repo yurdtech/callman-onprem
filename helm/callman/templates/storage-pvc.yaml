@@ -1,0 +1,28 @@
+{{- if and .Values.storage.enabled .Values.storage.localVolume.enabled }}
+# Files for the "Local volume" storage provider — the fallback that exists so a
+# fresh install works before an object store is connected. It is NOT the
+# recommended target: it makes the gateway stateful and takes the files out of
+# the customer's own backup regime. Connect S3 / MinIO / FileNet in the admin
+# panel and leave `storage.localVolume.enabled=false`.
+#
+# RWO by default, which caps the gateway at ONE replica — the chart validates
+# that pairing. ReadWriteMany here is what unlocks scaling with this provider.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "callman.fullname" . }}-storage-files
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
+  annotations:
+    # Survives helm uninstall — user files must outlive the release.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    {{- toYaml .Values.storage.localVolume.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.localVolume.size }}
+  {{- with .Values.storage.localVolume.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}

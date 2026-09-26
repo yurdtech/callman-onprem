@@ -1,0 +1,19 @@
+{{- if .Values.storage.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "callman.fullname" . }}-storage
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.storage.port }}
+      targetPort: http
+    - name: health
+      port: {{ .Values.storage.healthPort }}
+      targetPort: health
+  selector:
+    {{- include "callman.selectorLabels" (dict "root" $ "component" "storage") | nindent 4 }}
+{{- end }}

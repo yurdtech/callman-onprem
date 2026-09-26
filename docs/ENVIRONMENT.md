@@ -48,7 +48,7 @@ here is set in `.env` — **`docker-compose.yml` is never edited**.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `COMPOSE_PROFILES` | ✅ | `bundled-mongo,bundled-redis` | Which bundled databases to run. Remove `bundled-mongo` to use your own MongoDB, `bundled-redis` for your own Redis, or leave it empty for both. Add `ui-runner` to also run the UI-test runner (scheduled web UI tests in a headless browser — see below). |
+| `COMPOSE_PROFILES` | ✅ | `bundled-mongo,bundled-redis` | Which bundled databases to run. Remove `bundled-mongo` to use your own MongoDB, `bundled-redis` for your own Redis, or leave it empty for both. Add `ui-runner` to also run the UI-test runner (scheduled web UI tests in a headless browser), and/or `storage` to run the storage gateway for large files — both described below. |
 
 ### UI-test runner (optional, profile `ui-runner`)
 
@@ -63,6 +63,37 @@ the app just answers "UI runner unavailable" to schedule/run requests.
 | `UITEST_RUN_MAX_DURATION_MS` | — | `900000` | Per-run time limit (ms). A run over the limit is stopped and reported failed. |
 | `UITEST_REPORT_RETENTION_DAYS` | — | `90` | How long server run reports are kept. |
 | `UITEST_FAILURE_SCREENSHOT_MAX_BYTES` | — | `300000` | Failure screenshot size budget; `0` disables screenshots. |
+
+### Storage gateway (optional, profile `storage`)
+
+Handles **large files** — mobile build artifacts, screen recordings, oversized
+imports. It is a connector, not a store: the files go to the S3 / MinIO /
+FileNet you connect in the admin panel under **Storage**, so they stay in your
+own infrastructure and your own backup regime. It runs from the same image as
+the backend, so there is nothing extra to pull, and it holds no state, so it is
+safe to scale and adds nothing to back up.
+
+Full guide, including connecting a provider and switching between them:
+[`STORAGE.md`](./STORAGE.md).
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `CALLMAN_STORAGE_PORT` | — | `8081` | The port the gateway listens on and is published on. Clients download hundreds of MB from it directly, which is why it is not proxied through the API. |
+| `CALLMAN_STORAGE_PUBLIC_URL` | ⚠️ | unset | The address your users and CI reach the gateway on, e.g. `https://callman.yourbank.local` — no trailing slash, no `/storage` path. Callman puts it in every upload/download link, which is how your provider's endpoint and credentials never reach a client. Unset works only when clients talk to the published port directly. |
+| `STORAGE_MAX_UPLOAD_BYTES` | — | `524288000` (500 MB) | Largest single file anyone may upload. Rejected from the request headers, so an oversized upload costs one round trip. **Raise your reverse proxy's body limit to match** or the proxy cuts the upload before it reaches Callman. |
+| `CALLMAN_STORAGE_HEALTH_PORT` | — | `9092` | Health/metrics port, internal to the Compose network (not published) — like the worker's 9090 and the UI runner's 9091. |
+| `STORAGE_SPILL_DIR` | — | `/tmp` | Scratch space for providers that cannot accept a stream and need the whole file first. A transfer buffer, not a cache — files are deleted as soon as the upload completes. Size it for (concurrent uploads × largest file). |
+| `STORAGE_PROVIDER_CACHE_TTL_SECONDS` | — | `60` | How long a provider's settings are reused before being re-read. A change in the admin panel therefore takes effect within a minute; that delay is harmless, because every file records which provider holds it and a replaced provider keeps serving reads. |
+| `STORAGE_UPLOAD_CLAIM_STALE_MS` | — | `1800000` (30 min) | How long an interrupted upload blocks a retry of the same file. Longer than the slowest plausible upload, so a transfer still in flight is never taken over. |
+
+⚠️ `CONNECTION_ENCRYPTION_KEY` must be **the same value** in the backend and the
+admin panel: the panel encrypts your storage credentials with it and the gateway
+decrypts them. A mismatch shows up as "the active storage provider is not
+usable" naming the key.
+
+For an S3/MinIO endpoint with a privately-signed certificate, put the CA bundle
+in `certs/` and set `NODE_EXTRA_CA_CERTS=/certs/<bundle>.pem` — Node trusts it
+process-wide, and one bundle can hold several CAs.
 
 ### Bundled MongoDB + Redis (default)
 
