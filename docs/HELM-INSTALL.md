@@ -145,6 +145,7 @@ The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 | `docker compose up -d --scale worker=3` | `--set worker.replicaCount=3` |
 | `scripts/autoscale-worker.sh` (cron) | `worker.hpa.enabled=true` (CPU-based) |
 | ui-runner replicas | `uiRunner.replicaCount` / `uiRunner.hpa.enabled` |
+| storage gateway replicas | `storage.replicaCount` (stateless — no shared volume needed) |
 | `BULLMQ_WORKER_CONCURRENCY` | `worker.concurrency` |
 
 Worker scale-out is safe (shared BullMQ queue + per-schedule redlock — see
@@ -163,6 +164,41 @@ runs at `worker.concurrency: 20` by default; raise it together with
 `uiRunner.drainTimeoutMs` (120 s; up to 900000 with backend ≥ 1.1) are the
 rollout drain budgets — the pods' `terminationGracePeriodSeconds` derive from
 them.
+
+### Storage gateway
+
+The gateway is stateless, so `storage.replicaCount` scales without any shared
+volume — the one exception being the *Local volume* provider, where every replica
+must mount the same PVC and `storage.localVolume.accessModes` must therefore
+include `ReadWriteMany` (the chart refuses the unsafe pairing).
+
+Exposing it needs one deliberate step, because the defaults of every ingress
+controller are wrong for large files. With the nginx controller:
+
+```yaml
+storage:
+  enabled: true
+  publicUrl: https://callman.bank.local     # what clients see; required
+  ingress:
+    enabled: true
+    className: nginx
+    host: callman.bank.local                # may be the backend's host
+    annotations:
+      # The controller's default body limit is 1 MB — a build artifact would be
+      # rejected with 413 before it reached Callman.
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+```
+
+On OpenShift use `storage.route` instead (the chart rejects both at once) and
+raise the router timeout with
+`haproxy.router.openshift.io/timeout: 1h` in `storage.route.annotations`.
+
+Where the files actually go is **not** chart configuration: connect your S3 /
+MinIO / FileNet in the admin panel under **Storage**. See
+[STORAGE.md](STORAGE.md).
 
 ## 7. Airgap installation
 
@@ -225,6 +261,7 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `COMPOSE_PROFILES=bundled-mongo` | `mongo.enabled: true` |
 | `COMPOSE_PROFILES=bundled-redis` | `redis.enabled: true` |
 | `COMPOSE_PROFILES=ui-runner` | `uiRunner.enabled: true` |
+| `COMPOSE_PROFILES=storage` | `storage.enabled: true` (+ `storage.publicUrl`, required) |
 | `MONGO_ROOT_USERNAME` | `mongo.auth.rootUsername` |
 | `MONGO_ROOT_PASSWORD` | Secret key `MONGO_ROOT_PASSWORD` |
 | `REDIS_PASSWORD` | Secret key `REDIS_PASSWORD` |
@@ -241,22 +278,26 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `RATE_LIMIT_MAX` | `admin.rateLimitMax` |
 | `BULLMQ_WORKER_CONCURRENCY` | `worker.concurrency` |
 | `WORKER_HEALTH_PORT` | `worker.healthPort` |
-| `SHUTDOWN_TIMEOUT_MS` | `worker.shutdownTimeoutMs` (worker grace period derives from it); `uiRunner.drainTimeoutMs` for the ui-runner |
-| `NODE_OPTIONS` (`--max-old-space-size`) | `backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` |
-| `MONGODB_MAX_POOL_SIZE` / `MONGODB_MIN_POOL_SIZE` | `backend.mongoPool` / `worker.mongoPool` / `uiRunner.mongoPool` |
+| `SHUTDOWN_TIMEOUT_MS` | `worker.shutdownTimeoutMs` (worker grace period derives from it); `uiRunner.drainTimeoutMs` for the ui-runner; `storage.drainTimeoutMs` for the gateway |
+| `NODE_OPTIONS` (`--max-old-space-size`) | `backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` / `storage.heapMb` |
+| `MONGODB_MAX_POOL_SIZE` / `MONGODB_MIN_POOL_SIZE` | `backend.mongoPool` / `worker.mongoPool` / `uiRunner.mongoPool` / `storage.mongoPool` |
 | `RATE_LIMIT_STORE` | fixed `redis` (Redis is always present) |
 | `UV_THREADPOOL_SIZE` | fixed `8` |
 | `BULLMQ_LOCK_DURATION_MS` | fixed `120000` |
 | `UITEST_WORKER_CONCURRENCY` | `uiRunner.concurrency` |
 | `UITEST_RUN_MAX_DURATION_MS` | `uiRunner.runMaxDurationMs` |
 | `UITEST_BROWSER_CHANNEL` | fixed `bundled` on the ui-runner |
+| `CALLMAN_STORAGE_PORT` | `storage.port` |
+| `CALLMAN_STORAGE_HEALTH_PORT` | `storage.healthPort` |
+| `CALLMAN_STORAGE_PUBLIC_URL` | `storage.publicUrl` (required when `storage.enabled`) |
+| `STORAGE_MAX_UPLOAD_BYTES` | `storage.maxUploadBytes` |
 | `METRICS_ENABLED` | `backend.metricsEnabled` |
 | `CLIENT_ORIGIN` | `backend.clientOrigin` |
 | `PUBLIC_API_BASE_URL` | `backend.publicApiBaseUrl` |
 | `MOCK_PUBLIC_BASE_URL` | `backend.mockPublicBaseUrl` |
 | `SKIP_MIGRATION_BACKUP` | `migrate.backup.enabled: false` |
 | `MONGODB_BACKUP_DIR` | fixed `/backups` on the backups PVC |
-| any other [ENVIRONMENT.md](ENVIRONMENT.md) var | `backend.extraEnv` / `worker.extraEnv` / `uiRunner.extraEnv` / `admin.extraEnv` |
+| any other [ENVIRONMENT.md](ENVIRONMENT.md) var | `backend.extraEnv` / `worker.extraEnv` / `uiRunner.extraEnv` / `storage.extraEnv` / `admin.extraEnv` |
 
 ## 11. Troubleshooting quick hits
 

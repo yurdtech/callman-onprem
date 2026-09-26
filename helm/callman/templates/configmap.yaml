@@ -1,7 +1,7 @@
 {{- include "callman.validateTopology" . -}}
 # Shared non-secret env for the backend family (backend, worker, migrate,
-# ui-runner). Compose parity: one .env consumed by every service — unknown
-# vars are ignored by each process's schema.
+# ui-runner, storage). Compose parity: one .env consumed by every service —
+# unknown vars are ignored by each process's schema.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -20,6 +20,16 @@ data:
   SHUTDOWN_TIMEOUT_MS: {{ .Values.worker.shutdownTimeoutMs | quote }}
   UITEST_WORKER_CONCURRENCY: {{ .Values.uiRunner.concurrency | quote }}
   UITEST_RUN_MAX_DURATION_MS: {{ .Values.uiRunner.runMaxDurationMs | quote }}
+  {{- if .Values.storage.enabled }}
+  # Storage gateway. Set even on the other pods so the API can build download
+  # links pointing at the gateway (compose parity: one shared env).
+  CALLMAN_STORAGE_PORT: {{ .Values.storage.port | quote }}
+  CALLMAN_STORAGE_HEALTH_PORT: {{ .Values.storage.healthPort | quote }}
+  STORAGE_MAX_UPLOAD_BYTES: {{ .Values.storage.maxUploadBytes | quote }}
+  {{- with .Values.storage.publicUrl }}
+  CALLMAN_STORAGE_PUBLIC_URL: {{ . | quote }}
+  {{- end }}
+  {{- end }}
   # Redis is always present in this chart (bundled or external); the login /
   # error-report rate limiters default to Mongo buckets otherwise, which is
   # two extra Mongo round-trips per login.

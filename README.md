@@ -175,6 +175,7 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/BACKUP.md`](docs/BACKUP.md) | Backing up and restoring your data |
 | [`docs/AUTH_SETUP.md`](docs/AUTH_SETUP.md) | How people sign in — email + password, or your corporate LDAP / Active Directory (configured in the admin panel) |
 | [`docs/UI-RUNNER.md`](docs/UI-RUNNER.md) | Optional UI-test runner: scheduled web UI tests in a headless browser |
+| [`docs/STORAGE.md`](docs/STORAGE.md) | Where Callman keeps large files: connect your own S3 / MinIO / FileNet, and the optional storage gateway |
 | [`docs/SCALING.md`](docs/SCALING.md) | Watch the job backlog and add worker containers under load |
 | [`docs/MONITORING.md`](docs/MONITORING.md) | DevOps monitoring: Prometheus `/metrics` catalog, the `/ops/*` JSON diagnostics API, log levels and rotation |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common errors and how to fix them |
@@ -198,6 +199,11 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
   flows** on a schedule, in a headless browser on this server. Separate,
   larger image; enabled with one `.env` line — see
   [docs/UI-RUNNER.md](docs/UI-RUNNER.md).
+- **storage** *(optional, off by default)* — the gateway for **large files**
+  (mobile build artifacts, recordings). It stores nothing itself: you connect
+  your own S3 / MinIO / FileNet in the admin panel under **Storage**. Same image
+  as the backend, enabled with one `.env` line — see
+  [docs/STORAGE.md](docs/STORAGE.md).
 - **mongo / redis** — the bundled data stores, unless you brought your own.
 
 ---

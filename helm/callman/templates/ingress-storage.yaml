@@ -1,0 +1,40 @@
+{{- if and .Values.storage.enabled .Values.storage.ingress.enabled }}
+# The storage gateway on its own path, so it can share the backend's hostname:
+# two Ingress objects may name the same host and the controller merges their
+# paths. `/storage` is a prefix the API never serves, which is why the gateway
+# does not live under `/api`.
+#
+# ⚠ Large uploads need the controller's body limit OFF and its timeouts raised.
+# With nginx that means these annotations (see storage.ingress.annotations in
+# values.yaml); the controller's 1 MB default rejects a build artifact with a 413
+# before it ever reaches Callman.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "callman.fullname" . }}-storage
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
+  {{- with .Values.storage.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.storage.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ required "storage.ingress.host is required when storage.ingress.enabled" .Values.storage.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.storage.ingress.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "callman.fullname" . }}-storage
+                port:
+                  name: http
+  {{- with .Values.storage.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

@@ -39,3 +39,17 @@ spec:
     matchLabels:
       {{- include "callman.selectorLabels" (dict "root" $ "component" "ui-runner") | nindent 6 }}
 {{- end }}
+{{- if and .Values.storage.enabled .Values.storage.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "callman.fullname" . }}-storage
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.storage.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "storage") | nindent 6 }}
+{{- end }}

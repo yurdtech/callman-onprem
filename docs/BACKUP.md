@@ -6,6 +6,17 @@ jobs and cache, and is rebuilt automatically; it does not need backing up.
 
 So: **back up MongoDB, and you have backed up Callman.**
 
+**One exception, if you enabled the storage gateway** (profile `storage`, see
+[STORAGE.md](STORAGE.md)): large files — mobile build artifacts, recordings —
+are deliberately kept outside MongoDB, in the S3 / MinIO / FileNet **you**
+connected. MongoDB still holds the record of every file (name, size, checksum,
+which provider holds it), so a MongoDB-only restore leaves Callman knowing about
+files it can no longer fetch. Those bytes are covered by **your** storage's
+backup policy, not by anything here. The one case where that lands back on this
+host is the *Local volume* provider — then the `storage_local` Docker volume
+must be backed up too. That is the main reason to point storage at real object
+storage rather than a local volume.
+
 ---
 
 ## What we do for you
@@ -87,8 +98,11 @@ users and their encrypted credentials.
 **1. Stop everything that writes:**
 
 ```bash
-docker compose stop backend worker admin
+docker compose stop backend worker admin storage
 ```
+
+(`storage` is only present if you enabled that profile; naming it when it is not
+running is harmless.)
 
 **2. Restore into MongoDB.**
 
@@ -165,6 +179,13 @@ Going forward again re-applies the migrations normally.
 The license certificate lives in the database, so it comes across with the
 restore — no re-activation needed.
 
+If the `storage` profile is enabled, also check the admin panel under
+**Storage**: the provider settings come across with the database, but the new
+host must be able to reach that S3 / MinIO / FileNet, and any CA bundle in
+`certs/` must be copied too. Press **Test connection** to confirm before users
+do. A *Local volume* provider additionally needs its `storage_local` volume
+restored, or Callman will know about files whose bytes stayed behind.
+
 ---
 
 ## What is *not* in a MongoDB backup
@@ -175,6 +196,8 @@ restore — no re-activation needed.
 | Private CA certificates | `certs/` | Copy the folder |
 | Queued background jobs | Redis | Not needed — pending runs are re-queued or re-run |
 | The images themselves | Registry | Pull again by `CALLMAN_VERSION` |
+| **Large files** (build artifacts, recordings) — only if the `storage` profile is enabled | Your own S3 / MinIO / FileNet | Your storage's own backup policy. MongoDB keeps the file records, so restoring MongoDB alone leaves Callman pointing at bytes that must still be there. |
+| **Large files on a *Local volume* provider** | `storage_local` Docker volume on this host | `docker run --rm -v callman_storage_local:/data -v "$PWD":/out alpine tar czf /out/storage-files.tar.gz -C /data .` — and restore it the same way. Prefer connecting real object storage instead. |
 
 ---
 

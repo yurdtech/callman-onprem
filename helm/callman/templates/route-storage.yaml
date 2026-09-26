@@ -1,0 +1,30 @@
+{{- if and .Values.storage.enabled .Values.storage.route.enabled }}
+# OpenShift Route for the storage gateway. A Route has no body-size limit of its
+# own, but the cluster's HAProxy router does apply timeouts — for large transfers
+# set them per route, e.g.
+#   haproxy.router.openshift.io/timeout: 1h
+# in storage.route.annotations.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "callman.fullname" . }}-storage
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
+  {{- with .Values.storage.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.storage.route.host }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.storage.ingress.path }}
+  to:
+    kind: Service
+    name: {{ include "callman.fullname" . }}-storage
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.storage.route.tls.termination }}
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

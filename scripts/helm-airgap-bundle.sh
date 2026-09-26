@@ -29,6 +29,8 @@ chart_version="$(awk '/^version:/ {print $2}' "$chart_dir/Chart.yaml")"
 app_version="$(awk '/^appVersion:/ {gsub(/"/,"",$2); print $2}' "$chart_dir/Chart.yaml")"
 admin_version="$(awk '/tag:/ && seen {gsub(/"/,"",$2); print $2; exit} /^admin:/ {seen=1}' "$chart_dir/values.yaml")"
 
+# The storage gateway needs no entry: it runs from callman-backend with a
+# different command, which is why it earned no image of its own.
 images=(
   "ghcr.io/yurdtech/callman-backend:${app_version}"
   "ghcr.io/yurdtech/callman-ui-runner:${app_version}"

@@ -283,6 +283,23 @@ bad values file fails to render with an actionable message.
 {{- fail "worker.mountBackups with worker.replicaCount > 1 requires backup.persistence.accessModes to include ReadWriteMany" -}}
 {{- end -}}
 {{- end -}}
+{{- if .Values.storage.enabled -}}
+{{- if and .Values.storage.ingress.enabled .Values.storage.route.enabled -}}
+{{- fail "storage.ingress.enabled and storage.route.enabled are mutually exclusive (Ingress for vanilla k8s, Route for OpenShift)" -}}
+{{- end -}}
+{{- if .Values.storage.localVolume.enabled -}}
+{{- if and (gt (int .Values.storage.replicaCount) 1) (not (has "ReadWriteMany" .Values.storage.localVolume.accessModes)) -}}
+{{- fail "storage.localVolume with storage.replicaCount > 1 requires storage.localVolume.accessModes to include ReadWriteMany — every replica must see the same files" -}}
+{{- end -}}
+{{- else -}}
+{{/* Without a local volume the gateway is a pure connector, so it needs a
+     provider to connect to — and a public URL, or every download link it hands
+     out is relative and unusable from another host. */}}
+{{- if not .Values.storage.publicUrl -}}
+{{- fail "storage.publicUrl is required when storage.enabled: it is the address clients reach the gateway on, and Callman embeds it in every download link (e.g. https://callman.example.local)" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{/*

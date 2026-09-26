@@ -224,6 +224,62 @@ services:
       retries: 5
       start_period: 30s
 
+  # Storage gateway — the HTTP surface for LARGE files (mobile build
+  # artifacts, screen recordings, oversized imports). Opt-in: add `storage`
+  # to COMPOSE_PROFILES in .env.
+  #
+  # It is a CONNECTOR, not a store. Files go to whichever provider you
+  # connect in the admin panel under Storage (your S3 / MinIO / FileNet), so
+  # the bytes stay in your own infrastructure and inside your own backup
+  # regime. The container itself is stateless — nothing to back up, and safe
+  # to scale. It runs from the SAME image as backend/worker with a different
+  # command; unlike ui-runner it needs no browser, so there is no second
+  # image to pull. See docs/STORAGE.md.
+  #
+  # Why its own container at all: a 300 MB upload streamed through the API
+  # process would occupy it for minutes, and the API runs with a 768 MB heap.
+  storage:
+    <<: *app
+    container_name: callman-storage
+    profiles: ["storage"]
+    command: ["node", "dist/storage-server.js"]
+    init: true
+    environment:
+      <<: *db-env
+      CALLMAN_STORAGE_PORT: ${CALLMAN_STORAGE_PORT:-8081}
+      # Nothing is buffered whole, so this stays small on purpose.
+      NODE_OPTIONS: ${STORAGE_NODE_OPTIONS:---max-old-space-size=512}
+    ports:
+      # Published because clients download hundreds of MB from it directly.
+      # Put it behind your reverse proxy as `/storage/*` → this port, and
+      # raise the proxy's body limit (nginx: `client_max_body_size 0;
+      # proxy_request_buffering off;`) or large uploads are cut off before
+      # they reach the container.
+      - "${CALLMAN_STORAGE_PORT:-8081}:${CALLMAN_STORAGE_PORT:-8081}"
+    volumes:
+      - ./certs:/certs:ro
+      # ONLY used by the "Local volume" provider, which exists so a fresh
+      # install works before you connect a real object store. With S3 / MinIO
+      # / FileNet nothing is written here and this mount is inert. Keep it:
+      # removing it would silently lose files if someone selects Local.
+      - storage_local:/var/lib/callman/files
+    depends_on:
+      <<: *db-depends
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_STORAGE_HEALTH_PORT||9092)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # ── Bundled data stores (optional) ─────────────────────────────────
   # Enabled by COMPOSE_PROFILES in .env (default: both on). Remove a
   # profile there to use your own database instead — see
@@ -336,3 +392,7 @@ volumes:
   mongo_data:
   redis_data:
   backups:
+  # Only written by the storage gateway's "Local volume" provider. Empty — and
+  # excluded from every backup consideration — when storage points at your own
+  # S3 / MinIO / FileNet, which is the recommended setup. See docs/BACKUP.md.
+  storage_local:
