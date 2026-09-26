@@ -324,6 +324,13 @@ The `migrate` service runs first (taking a backup), applies the new schema
 migrations automatically, and only then do the backend, worker and admin panel
 start on the new version. Confirm with `curl http://localhost:8080/version`.
 
+> The upgrade that introduces the desktop's **Scheduled runs** view builds
+> new indexes on the UI-test schedule and report collections. On a server with
+> a long UI-test history the `migrate` step therefore takes noticeably longer
+> than usual — let it finish (`docker compose logs -f migrate`); the backend
+> waits for it by design. Nothing needs to be set: the view's tuning knobs all
+> have safe defaults (see [ENVIRONMENT.md](ENVIRONMENT.md), `SCHEDULE_MONITOR_*`).
+
 > Since backend **1.0.1** an optional **UI-test runner** is available —
 > scheduled web UI tests executed on this server in a headless browser. It is
 > off by default and enabled with one `.env` line; see
