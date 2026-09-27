@@ -355,3 +355,33 @@ Parse a k8s quantity (2Gi, 512Mi, 1073741824) into bytes for comparisons.
 {{- else -}}{{- $q | float64 | int64 -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Transfer annotations for the surfaces that carry LARGE files, merged with whatever
+the operator set (theirs wins).
+
+They are defaulted rather than documented because the sizes are a property of the
+product, not of the deployment: the admin panel carries desktop installer uploads
+of up to 2 GB, and the backend serves those installers to every desktop. Left to
+the defaults, an OpenShift router cuts both off after 30 seconds and an nginx
+ingress rejects the upload at 1 MB — so an operator who changes nothing would find
+that release uploads simply do not work, with no hint as to why.
+
+Unknown annotations are ignored by other controllers, so naming both nginx and
+HAProxy keys costs nothing.
+
+  mode "upload"   both directions: body limit off AND long timeouts (admin panel)
+  mode "download" timeouts only: nothing large is uploaded here (backend, storage)
+*/}}
+{{- define "callman.ingressTransferAnnotations" -}}
+{{- $mode := .mode -}}
+{{- $defaults := dict
+      "nginx.ingress.kubernetes.io/proxy-read-timeout" "1800"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout" "1800"
+      "haproxy.router.openshift.io/timeout" "1h" -}}
+{{- if eq $mode "upload" -}}
+{{- $_ := set $defaults "nginx.ingress.kubernetes.io/proxy-body-size" "0" -}}
+{{- $_ := set $defaults "nginx.ingress.kubernetes.io/proxy-request-buffering" "off" -}}
+{{- end -}}
+{{- toYaml (merge (deepCopy (default (dict) .annotations)) $defaults) -}}
+{{- end -}}

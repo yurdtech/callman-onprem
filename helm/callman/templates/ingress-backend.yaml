@@ -5,10 +5,8 @@ metadata:
   name: {{ include "callman.fullname" . }}-backend
   labels:
     {{- include "callman.labels" (dict "root" $ "component" "backend") | nindent 4 }}
-  {{- with .Values.backend.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- include "callman.ingressTransferAnnotations" (dict "annotations" .Values.backend.ingress.annotations "mode" "download") | nindent 4 }}
 spec:
   {{- with .Values.backend.ingress.className }}
   ingressClassName: {{ . }}

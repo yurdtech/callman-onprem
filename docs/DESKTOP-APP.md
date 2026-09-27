@@ -44,7 +44,9 @@ Three settings, all in `.env`, all checked by `scripts/preflight.sh`:
 PUBLIC_API_BASE_URL=https://callman.yourcompany.local
 
 # Your company slug, exactly as it appears in the delivered build-manifest.json.
-# This is what refuses another customer's build.
+# The second half of the foreign-build check — PUBLIC_API_BASE_URL above already
+# refuses a build made for another deployment, since a build carries the API
+# address it was built against. This catches the rest.
 ONPREM_COMPANY_SLUG=yourcompany
 
 # An installer upload is a single HTTP request of up to 2 GB. The 2-minute
@@ -66,8 +68,12 @@ location / {
 ```
 
 The backend vhost needs the same, because that is where the desktops download
-from. On Kubernetes the equivalent annotations are commented in
-`helm/callman/values.yaml` under both `admin.ingress` and `storage.ingress`.
+from.
+
+**On Kubernetes there is nothing to do** — the chart sets these annotations on the
+admin, backend and storage Ingresses and Routes itself. It has to: an OpenShift
+router cuts every transfer off after 30 seconds by default, and no symptom points
+at that. Your own `*.route.annotations` / `*.ingress.annotations` still win.
 
 **Storage must be connected** (admin panel → **Storage**). The installers go
 wherever your other large files go. A 200-seat deployment serving a 200 MB update
