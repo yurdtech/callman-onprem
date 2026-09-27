@@ -15,6 +15,13 @@ The gateway is **opt-in**. Until you enable it, nothing about your deployment
 changes; features that need large files simply report that storage is not
 configured.
 
+> **Desktop installers live here too.** Since desktop auto-update arrived, the
+> installers your administrator uploads are kept in this same storage and served
+> from it to every desktop in the deployment — see
+> [`DESKTOP-APP.md`](./DESKTOP-APP.md). They are the largest and most
+> frequently-read thing Callman will store, and they are the reason the sizing
+> and provider-choice notes below matter more than they used to.
+
 ## Requirements
 
 - Callman backend **1.1.0 or newer** (`CALLMAN_VERSION`).
@@ -145,7 +152,11 @@ So the procedure is simply: add the new provider → **Test connection** → **S
 as active**. Nothing else. Within a minute new uploads land on the new provider.
 
 Keep the old provider connected (read-only) as long as files still reference it.
-Callman refuses to delete a provider that is still in use, and tells you so.
+Callman refuses to delete a provider that is still in use, and tells you so —
+**including the desktop installers**, which are counted in that usage figure. Do
+not disconnect a provider that still holds a published release: a desktop
+part-way through downloading it would fail, and so would anyone installing by
+hand.
 Copying the historical files across is a separate, optional step that a later
 version automates.
 
@@ -161,6 +172,23 @@ version automates.
 - **Size limits:** `STORAGE_MAX_UPLOAD_BYTES` (default 500 MB) is refused from
   the request headers, so an oversized upload costs one round trip rather than a
   half-transferred file. If you raise it, raise the proxy's body limit too.
+  Desktop installers have their own, larger ceiling
+  (`DESKTOP_RELEASE_MAX_ARTIFACT_BYTES`, 2 GiB) because a signed macOS disk image
+  is legitimately far bigger than anything else here.
+- **Sizing for desktop updates:** publishing a release means roughly
+  `seats × installer size` leaving this storage within the polling hour — 200
+  seats and a 200 MB build is about 40 GB. Windows updates are full downloads,
+  not incremental. Prefer **MinIO or S3** for this: CMIS/FileNet cannot serve a
+  byte range at all, so a download interrupted at 90% restarts from zero.
+- **The *Local volume* provider and desktop releases:** it works, but the files
+  are touched by more than the gateway now — the API process writes them (the
+  panel uploads through it) and serves them (the desktops' update feed reads
+  through it). So **every app container must see the same directory**. Compose
+  does that for you: the volume is mounted into all of them. On Kubernetes the
+  claim is mounted by the API Deployment as well as the gateway, which means
+  `storage.localVolume.accessModes` **must include `ReadWriteMany`** — the chart
+  refuses to render otherwise and tells you to use S3/MinIO if RWX is not
+  available to you.
 - **Retention:** Callman deletes what it no longer needs through the provider's
   delete API. Your own bucket lifecycle rules still apply on top — if you set
   one, make sure it is not shorter than what your teams expect to keep.

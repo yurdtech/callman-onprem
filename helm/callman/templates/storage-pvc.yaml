@@ -5,8 +5,12 @@
 # the customer's own backup regime. Connect S3 / MinIO / FileNet in the admin
 # panel and leave `storage.localVolume.enabled=false`.
 #
-# RWO by default, which caps the gateway at ONE replica — the chart validates
-# that pairing. ReadWriteMany here is what unlocks scaling with this provider.
+# ⚠ ReadWriteMany is REQUIRED with this provider now, not just for scaling: the
+# API Deployment mounts this claim as well as the gateway, because desktop release
+# artifacts are written and served by the API process (panel uploads in, desktops'
+# update feed reads out). With RWO the two pods cannot both mount it unless they
+# land on the same node, and a release uploaded to one would be invisible to the
+# other. Connect S3 / MinIO instead if RWX is not available.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

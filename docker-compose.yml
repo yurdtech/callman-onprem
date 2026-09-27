@@ -59,6 +59,18 @@ x-app: &app
     - "host.docker.internal:host-gateway"
   volumes:
     - ./certs:/certs:ro
+    # The "Local volume" storage provider's files, shared by EVERY app container.
+    #
+    # It is not only the storage gateway that touches them any more: desktop
+    # release artifacts are written and served by the API process itself (the
+    # panel uploads through it, and the desktops' update feed reads through it),
+    # so the API must see the same directory the gateway does. Without this mount
+    # the API would write into its own container filesystem — the upload would
+    # appear to succeed, the bytes would vanish on the next restart, and a second
+    # API replica would serve 404s for files the first one "has".
+    #
+    # Inert for S3 / MinIO / FileNet, and inert in the worker. Keep it.
+    - storage_local:/var/lib/callman/files
 
 # DB/cache connection strings.
 #
@@ -95,6 +107,8 @@ services:
     command: ["node", "dist/migrations/cli.js", "up"]
     restart: "no"
     environment: *db-env
+    # Overrides the shared mounts on purpose: this job needs the backup volume and
+    # touches no storage provider, so the local-files mount is not repeated.
     volumes:
       - ./certs:/certs:ro
       - backups:/backups
@@ -238,6 +252,11 @@ services:
   #
   # Why its own container at all: a 300 MB upload streamed through the API
   # process would occupy it for minutes, and the API runs with a 768 MB heap.
+  # Large files go to whatever storage the admin connected in the panel — and
+  # since desktop auto-update arrived, that includes the desktop installers every
+  # machine in the deployment updates from. No extra volume or service for them:
+  # the release upload goes admin panel → backend → this same provider.
+  # See docs/DESKTOP-APP.md.
   storage:
     <<: *app
     container_name: callman-storage

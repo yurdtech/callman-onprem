@@ -72,8 +72,26 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
+            {{- if and .Values.storage.enabled .Values.storage.localVolume.enabled }}
+            # The "Local volume" provider's files. The API needs them too, not
+            # just the gateway: desktop release artifacts are written and served
+            # by THIS process (the admin panel uploads through it, the desktops'
+            # update feed reads through it). Without the mount the API writes into
+            # its own pod filesystem — the upload looks successful, the bytes go
+            # when the pod does, and another replica serves 404s for them.
+            #
+            # This is why the PVC needs ReadWriteMany with this provider: two
+            # Deployments mount it. See storage.localVolume.accessModes.
+            - name: files
+              mountPath: {{ .Values.storage.localVolume.mountPath }}
+            {{- end }}
             {{- include "callman.certsMount" . | nindent 12 }}
       volumes:
+        {{- if and .Values.storage.enabled .Values.storage.localVolume.enabled }}
+        - name: files
+          persistentVolumeClaim:
+            claimName: {{ include "callman.fullname" . }}-storage-files
+        {{- end }}
         {{- include "callman.certsVolume" . | nindent 8 }}
       {{- with .Values.backend.nodeSelector }}
       nodeSelector:

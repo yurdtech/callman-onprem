@@ -222,13 +222,42 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | `BULL_BOARD_USERNAME` | _(unset)_ | Set **both** to enable the `/admin/queues` dashboard (basic-auth). Disabled when unset. |
 | `BULL_BOARD_PASSWORD` | _(unset)_ | — |
 
-### Public URLs (optional — only if you expose the API publicly)
+### Public URLs
 
 | Variable | Default | Description |
 |---|---|---|
-| `PUBLIC_API_BASE_URL` | _(unset)_ | Absolute public URL of this backend, used to build links it hands to clients. |
+| `PUBLIC_API_BASE_URL` | _(unset)_ | **Set this.** The absolute URL your users' desktops reach this backend on — scheme included, no trailing slash. See the warning below. |
 | `MOCK_PUBLIC_BASE_URL` | `http://localhost:4000` | Base URL embedded in generated Mock-API URLs — set to your public URL if you use Mock APIs. |
 | `CLIENT_ORIGIN` | _(unset)_ | Comma-separated browser origins allowed by CORS. |
+
+> ⚠️ **`PUBLIC_API_BASE_URL` stopped being optional when desktop auto-update
+> arrived.** It is what every desktop is told to fetch its updates from, so a
+> wrong value sends the whole fleet at the wrong host. Leaving it unset is worse
+> than it looks: the backend then falls back to the scheme and host of the
+> incoming request, and behind a reverse proxy that does not forward
+> `X-Forwarded-Proto` that yields `http://` — which the macOS updater refuses.
+
+### Desktop auto-update
+
+Your administrator uploads the installers we deliver in the admin panel
+(**Desktop Releases → Upload a build**), and every Callman desktop in the
+deployment then updates itself from your own storage. The full runbook is
+[`DESKTOP-APP.md`](./DESKTOP-APP.md).
+
+| Variable | Default | Description |
+|---|---|---|
+| `ONPREM_COMPANY_SLUG` | _(unset)_ | **Set this.** Your company slug, exactly as it appears in the delivered `build-manifest.json`. It is the only thing that stops another customer's build being published here — and a build carries the API URL it was made for baked in, so the wrong one silently repoints every desktop. |
+| `HTTP_REQUEST_TIMEOUT_MS` | `120000` | **Raise to `1800000`.** Node applies this to the WHOLE request, body included, so at the default a 400 MB installer upload is cut off after two minutes with a 408 — most of the way through the progress bar. The upload endpoint refuses up front when this is too small for the file, naming the value to set. |
+| `DESKTOP_RELEASE_MAX_ARTIFACT_BYTES` | `2147483648` (2 GiB) | Per-installer ceiling, checked against the size the build's own update file declares before a byte moves. |
+| `RATE_LIMIT_DESKTOP_FEED_MAX_PER_USER` | `120` | Update checks per user per window. Keyed on the user, not the IP — a few hundred desktops behind one NAT share an address. The installer download itself is not throttled. |
+| `RATE_LIMIT_DESKTOP_FEED_WINDOW_MS` | `3600000` (1 h) | Window for the above. The desktop polls hourly. |
+
+> ⚠️ **Your reverse proxy needs two changes**, and they are the most likely
+> cause of a failed first upload. The admin panel now carries installer uploads
+> of up to 2 GB, so its own vhost needs `client_max_body_size 0;`,
+> `proxy_request_buffering off;` and `proxy_read_timeout 1800s;` — nginx's 1 MB
+> default rejects an installer with a 413 before Callman ever sees it. The
+> backend vhost needs the same, because the desktops download from it.
 
 ### Error reporting (Telegram) — usually OFF on-prem
 
