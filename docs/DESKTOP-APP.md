@@ -70,10 +70,22 @@ from. On Kubernetes the equivalent annotations are commented in
 `helm/callman/values.yaml` under both `admin.ingress` and `storage.ingress`.
 
 **Storage must be connected** (admin panel → **Storage**). The installers go
-wherever your other large files go — your S3/MinIO, FileNet, or the local volume.
-A 200-seat deployment serving a 200 MB update means roughly 40 GB leaving that
-store within the polling hour, so prefer a local volume or MinIO over CMIS, which
-cannot resume a partial download at all.
+wherever your other large files go. A 200-seat deployment serving a 200 MB update
+means roughly 40 GB leaving that store within the polling hour, so prefer
+**MinIO or S3**: CMIS/FileNet cannot resume a partial download at all, so one
+interrupted at 90% starts again from zero.
+
+The *Local volume* provider also works, with one requirement: every Callman
+container has to see the same directory, because the API process — not only the
+storage gateway — writes and serves these files. Compose handles that. On
+Kubernetes the volume must be `ReadWriteMany`; the chart refuses to install
+otherwise and says so.
+
+**The storage service itself needs nothing special when you upgrade.** It runs the
+same image as the backend, so `CALLMAN_VERSION` → `docker compose pull` →
+`up -d` updates it with everything else, and it holds no state of its own to
+migrate. Nor does it have to be running for desktop releases: those go through the
+API. What matters is that a provider is *connected*.
 
 ---
 

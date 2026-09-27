@@ -288,8 +288,14 @@ bad values file fails to render with an actionable message.
 {{- fail "storage.ingress.enabled and storage.route.enabled are mutually exclusive (Ingress for vanilla k8s, Route for OpenShift)" -}}
 {{- end -}}
 {{- if .Values.storage.localVolume.enabled -}}
-{{- if and (gt (int .Values.storage.replicaCount) 1) (not (has "ReadWriteMany" .Values.storage.localVolume.accessModes)) -}}
-{{- fail "storage.localVolume with storage.replicaCount > 1 requires storage.localVolume.accessModes to include ReadWriteMany — every replica must see the same files" -}}
+{{/* RWX is required whatever the replica count, because the claim is mounted by
+     TWO Deployments: the gateway and the API. The API is in there because desktop
+     release artifacts are written and served by it — the admin panel uploads
+     through the API and the desktops' update feed reads through it. With RWO the
+     two pods can only both mount the claim when they happen to land on the same
+     node, and a release uploaded to one would be invisible to the other. */}}
+{{- if not (has "ReadWriteMany" .Values.storage.localVolume.accessModes) -}}
+{{- fail "storage.localVolume requires storage.localVolume.accessModes to include ReadWriteMany — the API and the gateway both mount it (the API writes and serves desktop release artifacts). Use S3/MinIO instead if ReadWriteMany is unavailable." -}}
 {{- end -}}
 {{- else -}}
 {{/* Without a local volume the gateway is a pure connector, so it needs a

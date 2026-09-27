@@ -311,6 +311,12 @@ storage:                            # ≈ COMPOSE_PROFILES storage
   localVolume:
     # ONLY for the "Local volume" provider, the fallback before an object store
     # is connected. Leave false and connect real storage instead.
+    #
+    # ⚠ `accessModes` must be ReadWriteMany when this is on. The claim is mounted
+    # by the API Deployment as well as the gateway, because desktop release
+    # artifacts are written and served by the API process. With ReadWriteOnce the
+    # two pods can only both mount it on the same node, and a release uploaded to
+    # one would be invisible to the other.
     enabled: false
     mountPath: /var/lib/callman/files
     size: 50Gi

@@ -178,9 +178,17 @@ version automates.
 - **Sizing for desktop updates:** publishing a release means roughly
   `seats × installer size` leaving this storage within the polling hour — 200
   seats and a 200 MB build is about 40 GB. Windows updates are full downloads,
-  not incremental. Prefer a **local volume or MinIO** for this: CMIS/FileNet
-  cannot serve a byte range at all, so a download interrupted at 90% restarts
-  from zero.
+  not incremental. Prefer **MinIO or S3** for this: CMIS/FileNet cannot serve a
+  byte range at all, so a download interrupted at 90% restarts from zero.
+- **The *Local volume* provider and desktop releases:** it works, but the files
+  are touched by more than the gateway now — the API process writes them (the
+  panel uploads through it) and serves them (the desktops' update feed reads
+  through it). So **every app container must see the same directory**. Compose
+  does that for you: the volume is mounted into all of them. On Kubernetes the
+  claim is mounted by the API Deployment as well as the gateway, which means
+  `storage.localVolume.accessModes` **must include `ReadWriteMany`** — the chart
+  refuses to render otherwise and tells you to use S3/MinIO if RWX is not
+  available to you.
 - **Retention:** Callman deletes what it no longer needs through the provider's
   delete API. Your own bucket lifecycle rules still apply on top — if you set
   one, make sure it is not shorter than what your teams expect to keep.
