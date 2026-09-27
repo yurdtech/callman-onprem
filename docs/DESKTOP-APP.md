@@ -16,6 +16,7 @@ A folder per version, named after your company and that version, containing:
 | File | What it is |
 |---|---|
 | `Callman-<company>-<version>-x64.exe`, `…-arm64.exe` | the Windows installers |
+| `Callman-<company>-<version>.exe` | one Windows installer covering both architectures — handy to hand to a person, but the panel does not upload it (the per-architecture ones are what updates use) |
 | `Callman-<company>-<version>-arm64.dmg`, `…-x64.dmg` | the macOS installers a person runs |
 | `Callman-<company>-<version>-arm64.zip`, `…-x64.zip` | what the automatic update installs on macOS — **not** for installing by hand |
 | `latest.yml`, `latest-mac.yml` | describe the release: which file, how big, and its checksum |
@@ -112,7 +113,29 @@ the release list at any time.
 
 ---
 
-## 4. The first release is different — read this
+## 4. Getting an installer back
+
+The panel keeps every build you upload, and **Desktop Releases → Uploaded
+builds** lists them with their files. Expand a release and press Download on any
+file to pull it back to your own machine.
+
+That is the answer to "I need to install this on one more laptop and I no longer
+have the folder you sent us". Nothing had to be kept on your side: the installers
+have been in your own storage since you uploaded them, including for releases you
+published months ago.
+
+Two notes:
+
+- The file comes through your browser tab, so a 200 MB installer occupies that
+  much memory while it saves. The size is shown next to each button.
+- A release uploaded before you switched storage provider still downloads — the
+  old provider keeps serving reads (see [`STORAGE.md`](./STORAGE.md)). Do not
+  disconnect it while anything still references it; the panel tells you when
+  something does.
+
+---
+
+## 5. The first release is different — read this
 
 Every desktop installed **before** this feature existed has no updater inside it.
 No server-side change can reach those machines: the code that would do the
@@ -131,7 +154,7 @@ After that one install, every future release arrives on its own.
 
 ---
 
-## 5. Checking it works
+## 6. Checking it works
 
 From a machine that can reach the backend, with any user's access token:
 
@@ -162,7 +185,7 @@ downloaded, **Restart to update**.
 
 ---
 
-## 6. When something is wrong
+## 7. When something is wrong
 
 **Nobody sees the update.**
 Check `PUBLIC_API_BASE_URL` first — it is what the desktops were told to poll.
@@ -206,7 +229,7 @@ may be downloading it at that moment.
 
 ---
 
-## 7. If you would rather not have automatic updates
+## 8. If you would rather not have automatic updates
 
 Tell us, and we will build with the updater left out. Those builds behave exactly
 as before: you distribute the installers, each user runs them. Nothing in the
