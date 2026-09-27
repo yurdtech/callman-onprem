@@ -246,18 +246,24 @@ deployment then updates itself from your own storage. The full runbook is
 
 | Variable | Default | Description |
 |---|---|---|
-| `ONPREM_COMPANY_SLUG` | _(unset)_ | **Set this.** Your company slug, exactly as it appears in the delivered `build-manifest.json`. It is the only thing that stops another customer's build being published here — and a build carries the API URL it was made for baked in, so the wrong one silently repoints every desktop. |
+| `ONPREM_COMPANY_SLUG` | _(unset)_ | Your company slug, exactly as it appears in the delivered `build-manifest.json`. The **second half** of the foreign-build check: because a build also carries the API address it was made for, `PUBLIC_API_BASE_URL` alone already refuses a build belonging to another deployment. This adds the company name on top, which is what catches the case where two deployments answer on the same host. Worth setting. |
 | `HTTP_REQUEST_TIMEOUT_MS` | `120000` | **Raise to `1800000`.** Node applies this to the WHOLE request, body included, so at the default a 400 MB installer upload is cut off after two minutes with a 408 — most of the way through the progress bar. The upload endpoint refuses up front when this is too small for the file, naming the value to set. |
 | `DESKTOP_RELEASE_MAX_ARTIFACT_BYTES` | `2147483648` (2 GiB) | Per-installer ceiling, checked against the size the build's own update file declares before a byte moves. |
 | `RATE_LIMIT_DESKTOP_FEED_MAX_PER_USER` | `120` | Update checks per user per window. Keyed on the user, not the IP — a few hundred desktops behind one NAT share an address. The installer download itself is not throttled. |
 | `RATE_LIMIT_DESKTOP_FEED_WINDOW_MS` | `3600000` (1 h) | Window for the above. The desktop polls hourly. |
 
-> ⚠️ **Your reverse proxy needs two changes**, and they are the most likely
-> cause of a failed first upload. The admin panel now carries installer uploads
-> of up to 2 GB, so its own vhost needs `client_max_body_size 0;`,
+> ⚠️ **Your reverse proxy needs two changes if you run Compose**, and they are
+> the most likely cause of a failed first upload. The admin panel carries installer
+> uploads of up to 2 GB, so its own vhost needs `client_max_body_size 0;`,
 > `proxy_request_buffering off;` and `proxy_read_timeout 1800s;` — nginx's 1 MB
-> default rejects an installer with a 413 before Callman ever sees it. The
-> backend vhost needs the same, because the desktops download from it.
+> default rejects an installer with a 413 before Callman ever sees it, and the
+> backend vhost needs the timeouts too because the desktops download from it.
+>
+> On **Kubernetes the chart does this for you**: the admin, backend and storage
+> Ingresses and OpenShift Routes carry the body-limit and timeout annotations by
+> default (an OpenShift router otherwise cuts every transfer off after 30
+> seconds). Anything you put in `*.ingress.annotations` / `*.route.annotations`
+> overrides them.
 
 ### Error reporting (Telegram) — usually OFF on-prem
 

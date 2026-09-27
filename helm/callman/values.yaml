@@ -131,10 +131,12 @@ backend:
   publicApiBaseUrl: ""
   mockPublicBaseUrl: ""             # ≈ MOCK_PUBLIC_BASE_URL
   # ── Desktop auto-update (see docs/DESKTOP-APP.md) ────────────────────────
-  # ≈ ONPREM_COMPANY_SLUG. SET IT: the only check that stops ANOTHER customer's
-  # desktop build being published into this deployment. A build carries the
-  # server address it was made for baked in, so the wrong one silently repoints
-  # every desktop.
+  # ≈ ONPREM_COMPANY_SLUG. The SECOND half of the foreign-build check. The first
+  # half is `publicApiBaseUrl` above: a build carries the API address it was made
+  # for, so with that set a build belonging to another deployment is already
+  # refused. This adds the company name on top, which matters when two
+  # deployments answer on the same host. Worth setting; not load-bearing on its
+  # own. Must match `company` in the delivered build-manifest.json.
   onpremCompanySlug: ""
   # ≈ HTTP_REQUEST_TIMEOUT_MS. Node applies it to the whole request INCLUDING
   # the body, so the 120000 default cuts an installer upload off part-way.
@@ -291,20 +293,14 @@ storage:                            # ≈ COMPOSE_PROFILES storage
     className: ""
     host: ""                        # may be the SAME host as backend.ingress
     path: /storage
+    # The chart sets the body-limit and timeout annotations for you; anything here
+    # overrides them.
     annotations: {}
-    # ⚠ With the nginx ingress controller you MUST disable the body limit (its
-    # default is 1 MB) and raise the timeouts, or large uploads fail with 413
-    # before reaching Callman:
-    #   nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    #   nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-    #   nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    #   nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     tls: []
   route:                            # OpenShift; mutually exclusive with ingress
     enabled: false
     host: ""
-    # Large transfers need a longer router timeout, e.g.
-    #   haproxy.router.openshift.io/timeout: 1h
+    # `haproxy.router.openshift.io/timeout: 1h` is set for you; override here.
     annotations: {}
     tls:
       termination: edge             # edge | reencrypt | passthrough
@@ -363,22 +359,16 @@ admin:
     enabled: false
     className: ""
     host: ""
+    # The chart already sets the body-limit and timeout annotations this surface
+    # needs — it carries desktop installer uploads of up to 2 GB. Anything you put
+    # here WINS over them; you do not need to repeat them.
     annotations: {}
-    # ⚠ The admin panel now carries DESKTOP INSTALLER UPLOADS (up to 2 GB each,
-    # tens of minutes on a LAN), so it needs the same treatment as the storage
-    # ingress below. With the nginx controller its 1 MB default body limit
-    # rejects an installer with a 413 before Callman sees it, and its 60 s
-    # timeouts cut a healthy transfer in half:
-    #   nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    #   nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-    #   nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    #   nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     tls: []
   route:
     enabled: false
     host: ""
-    # Installer uploads need a longer router timeout, e.g.
-    #   haproxy.router.openshift.io/timeout: 1h
+    # Same: `haproxy.router.openshift.io/timeout: 1h` is set for you. Override it
+    # here if your uploads need longer than an hour.
     annotations: {}
     tls:
       termination: edge

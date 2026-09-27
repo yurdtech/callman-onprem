@@ -4,20 +4,19 @@
 # paths. `/storage` is a prefix the API never serves, which is why the gateway
 # does not live under `/api`.
 #
-# ⚠ Large uploads need the controller's body limit OFF and its timeouts raised.
-# With nginx that means these annotations (see storage.ingress.annotations in
-# values.yaml); the controller's 1 MB default rejects a build artifact with a 413
-# before it ever reaches Callman.
+# Large uploads need the controller's body limit OFF and its timeouts raised —
+# the chart sets those annotations itself now (see
+# `callman.ingressTransferAnnotations`), because the 1 MB nginx default rejects a
+# build artifact with a 413 before it ever reaches Callman and an operator has no
+# way to guess that from the symptom. `storage.ingress.annotations` overrides them.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "callman.fullname" . }}-storage
   labels:
     {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
-  {{- with .Values.storage.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- include "callman.ingressTransferAnnotations" (dict "annotations" .Values.storage.ingress.annotations "mode" "upload") | nindent 4 }}
 spec:
   {{- with .Values.storage.ingress.className }}
   ingressClassName: {{ . }}

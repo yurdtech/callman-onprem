@@ -10,10 +10,8 @@ metadata:
   name: {{ include "callman.fullname" . }}-storage
   labels:
     {{- include "callman.labels" (dict "root" $ "component" "storage") | nindent 4 }}
-  {{- with .Values.storage.route.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- include "callman.ingressTransferAnnotations" (dict "annotations" .Values.storage.route.annotations "mode" "upload") | nindent 4 }}
 spec:
   {{- with .Values.storage.route.host }}
   host: {{ . | quote }}
