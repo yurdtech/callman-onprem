@@ -198,6 +198,7 @@ restored, or Callman will know about files whose bytes stayed behind.
 | The images themselves | Registry | Pull again by `CALLMAN_VERSION` |
 | **Large files** (build artifacts, recordings) — only if the `storage` profile is enabled | Your own S3 / MinIO / FileNet | Your storage's own backup policy. MongoDB keeps the file records, so restoring MongoDB alone leaves Callman pointing at bytes that must still be there. |
 | **Large files on a *Local volume* provider** | `storage_local` Docker volume on this host | `docker run --rm -v callman_storage_local:/data -v "$PWD":/out alpine tar czf /out/storage-files.tar.gz -C /data .` — and restore it the same way. Prefer connecting real object storage instead. |
+| **Desktop installers** (the uploaded releases every desktop auto-updates from) | The same storage as your other large files | The same policy. Restoring MongoDB without them leaves a published release whose files are gone: desktops fail to download, and anyone installing by hand fails too. If that happens, upload the delivered folder again — see [DESKTOP-APP.md](DESKTOP-APP.md). |
 
 ---
 

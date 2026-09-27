@@ -238,6 +238,11 @@ services:
   #
   # Why its own container at all: a 300 MB upload streamed through the API
   # process would occupy it for minutes, and the API runs with a 768 MB heap.
+  # Large files go to whatever storage the admin connected in the panel — and
+  # since desktop auto-update arrived, that includes the desktop installers every
+  # machine in the deployment updates from. No extra volume or service for them:
+  # the release upload goes admin panel → backend → this same provider.
+  # See docs/DESKTOP-APP.md.
   storage:
     <<: *app
     container_name: callman-storage

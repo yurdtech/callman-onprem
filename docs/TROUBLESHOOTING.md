@@ -255,6 +255,37 @@ limits, interrupted uploads, checksum mismatches) at the end of
 
 ---
 
+## Desktop app: nobody gets the update / an upload fails
+
+Desktop auto-update has its own runbook with the full list:
+**[DESKTOP-APP.md](DESKTOP-APP.md)**. The four causes that account for almost
+every case:
+
+1. **`PUBLIC_API_BASE_URL` is unset or wrong.** It is the address every desktop
+   was told to fetch updates from. Unset, the backend guesses it from each
+   request, and behind a proxy that does not forward `X-Forwarded-Proto` that
+   yields `http://` — which the macOS updater refuses. `scripts/preflight.sh`
+   warns about both.
+2. **The reverse proxy in front of the ADMIN panel still has its body limit.**
+   An upload that dies at ~1 MB or returns `413` is nginx, not Callman:
+   `client_max_body_size 0; proxy_request_buffering off; proxy_read_timeout
+   1800s;`.
+3. **`HTTP_REQUEST_TIMEOUT_MS` is still the 2-minute default.** Node applies it
+   to the whole request including the body, so an installer upload is cut off
+   part-way. Set `1800000`. The upload endpoint refuses up front when it is too
+   small and names the value to set.
+4. **The machine's build predates auto-update.** No server change can reach
+   those — the updater is not in them. Each needs ONE manual install of an
+   auto-updating build (profile menu → Update → Download → Install & Quit), and
+   everything after that arrives on its own.
+
+"Update failed" inside the app is not always a failure: a release that has not
+been published yet, a dropped VPN and a token being refreshed are all shown as
+*Up to date* by design. A message that does appear means something else — usually
+a checksum mismatch, which is fixed by re-uploading that one file.
+
+---
+
 ## I set `MONGODB_URI` / `REDIS_URL` but Callman still uses the bundled database
 
 **Symptom:** you pointed `.env` at your company database, restarted, and

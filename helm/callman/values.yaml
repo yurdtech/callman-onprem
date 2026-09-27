@@ -124,8 +124,24 @@ backend:
   metricsEnabled: true              # ≈ METRICS_ENABLED
   logLevel: info                    # ≈ LOG_LEVEL (debug|info|warn|error); probes/scrapes log at debug
   clientOrigin: ""                  # ≈ CLIENT_ORIGIN (CSV of extra CORS origins)
-  publicApiBaseUrl: ""              # ≈ PUBLIC_API_BASE_URL
+  # ≈ PUBLIC_API_BASE_URL. SET IT once desktop auto-update is in use: it is the
+  # address every desktop is told to fetch updates from. Empty means the backend
+  # guesses it from each request, and behind an ingress that does not forward
+  # X-Forwarded-Proto that yields http:// — which the macOS updater refuses.
+  publicApiBaseUrl: ""
   mockPublicBaseUrl: ""             # ≈ MOCK_PUBLIC_BASE_URL
+  # ── Desktop auto-update (see docs/DESKTOP-APP.md) ────────────────────────
+  # ≈ ONPREM_COMPANY_SLUG. SET IT: the only check that stops ANOTHER customer's
+  # desktop build being published into this deployment. A build carries the
+  # server address it was made for baked in, so the wrong one silently repoints
+  # every desktop.
+  onpremCompanySlug: ""
+  # ≈ HTTP_REQUEST_TIMEOUT_MS. Node applies it to the whole request INCLUDING
+  # the body, so the 120000 default cuts an installer upload off part-way.
+  # QUOTED deliberately: Helm parses a bare 1800000 as a float64 and renders it
+  # as "1.8e+06" in the ConfigMap. The backend's coercion happens to accept that,
+  # but an operator reading `kubectl get cm` should not have to.
+  httpRequestTimeoutMs: "1800000"
   # Any other backend env var from docs/ENVIRONMENT.md (string values).
   extraEnv: {}
   terminationGracePeriodSeconds: 45
@@ -342,10 +358,21 @@ admin:
     className: ""
     host: ""
     annotations: {}
+    # ⚠ The admin panel now carries DESKTOP INSTALLER UPLOADS (up to 2 GB each,
+    # tens of minutes on a LAN), so it needs the same treatment as the storage
+    # ingress below. With the nginx controller its 1 MB default body limit
+    # rejects an installer with a 413 before Callman sees it, and its 60 s
+    # timeouts cut a healthy transfer in half:
+    #   nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    #   nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    #   nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    #   nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     tls: []
   route:
     enabled: false
     host: ""
+    # Installer uploads need a longer router timeout, e.g.
+    #   haproxy.router.openshift.io/timeout: 1h
     annotations: {}
     tls:
       termination: edge

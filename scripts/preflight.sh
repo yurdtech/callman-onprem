@@ -391,6 +391,44 @@ if [[ ",$profiles," == *",storage,"* ]]; then
   info "Connect your S3 / MinIO / FileNet in the admin panel under Storage."
 fi
 
+# ── Desktop auto-update ──
+# Every desktop in the deployment fetches its updates from this backend, so the
+# three settings below decide whether a rollout works at all. All warnings, not
+# errors: a deployment that never uploads a desktop build is perfectly fine
+# without them.
+public_api_url="$(env_get PUBLIC_API_BASE_URL)"
+if [[ -z "$public_api_url" ]]; then
+  warn "PUBLIC_API_BASE_URL is not set — desktop auto-update will not work reliably"
+  info "It is the address desktops fetch updates from. Unset, the backend guesses it"
+  info "from each request, and behind a proxy that does not forward X-Forwarded-Proto"
+  info "that yields http:// — which the macOS updater refuses."
+  info "  PUBLIC_API_BASE_URL=https://callman.yourcompany.local"
+elif [[ "$public_api_url" != https://* && "$public_api_url" != http://localhost* && "$public_api_url" != http://127.* ]]; then
+  warn "PUBLIC_API_BASE_URL is not https — macOS will refuse to auto-update over plain HTTP"
+  info "  current: $public_api_url"
+fi
+
+if [[ -z "$(env_get ONPREM_COMPANY_SLUG)" ]]; then
+  warn "ONPREM_COMPANY_SLUG is not set — any company's desktop build could be published here"
+  info "Set it to your slug from the delivered build-manifest.json. It is the only"
+  info "check that stops another customer's build (which carries THEIR server address)"
+  info "from being published into this deployment."
+  info "  ONPREM_COMPANY_SLUG=acme"
+fi
+
+req_timeout="$(env_get HTTP_REQUEST_TIMEOUT_MS)"
+if [[ -z "$req_timeout" ]]; then
+  req_timeout=120000
+fi
+if [[ "$req_timeout" =~ ^[0-9]+$ ]] && (( req_timeout < 600000 )); then
+  warn "HTTP_REQUEST_TIMEOUT_MS=$req_timeout is too small for installer uploads"
+  info "Node applies it to the whole request INCLUDING the body, so an installer"
+  info "upload is cut off part-way with a 408. Set 1800000 (30 min) and restart."
+fi
+info "Uploading desktop builds also needs the reverse proxy's body limit OFF on the"
+info "  ADMIN vhost (nginx: client_max_body_size 0; proxy_request_buffering off;"
+info "  proxy_read_timeout 1800s;). See docs/DESKTOP-APP.md."
+
 if [[ ! -d "$COMPOSE_DIR/certs" ]]; then
   warn "certs/ directory is missing — recreate it if you need a private CA"
 fi

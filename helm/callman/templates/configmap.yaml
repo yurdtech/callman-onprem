@@ -53,3 +53,9 @@ data:
   {{- with .Values.backend.mockPublicBaseUrl }}
   MOCK_PUBLIC_BASE_URL: {{ . | quote }}
   {{- end }}
+  {{- with .Values.backend.onpremCompanySlug }}
+  ONPREM_COMPANY_SLUG: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.backend.httpRequestTimeoutMs }}
+  HTTP_REQUEST_TIMEOUT_MS: {{ . | quote }}
+  {{- end }}
