@@ -138,6 +138,34 @@ kubectl -n callman run backup-shell --rm -it --image=mongo:7 \
 The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 `helm uninstall`.
 
+### Upgrading to chart 0.2.0 (app 1.0.5)
+
+Read this before running the upgrade; one item can stop the chart rendering.
+
+- ⚠️ **`storage.localVolume` now requires `ReadWriteMany`.** The claim is mounted
+  by the backend Deployment as well as the storage gateway, because desktop
+  release artifacts are written and served by the API process. With
+  `ReadWriteOnce` the chart **fails to render** and tells you so. Either switch
+  `storage.localVolume.accessModes` to `[ReadWriteMany]`, or — better — connect
+  S3/MinIO in the admin panel and leave `storage.localVolume.enabled=false`.
+  Nothing to do if you never enabled the local volume.
+- **Desktop auto-update arrives.** Your admins upload the installers we deliver in
+  **Desktop Releases → Upload a build**, and every desktop then updates itself
+  from your own storage. See [`DESKTOP-APP.md`](./DESKTOP-APP.md). Two values are
+  worth setting, both optional in the sense that the chart renders without them:
+  - `backend.publicApiBaseUrl` — **effectively required.** It is the address every
+    desktop is told to fetch updates from; unset, the backend guesses it per
+    request and behind a router that does not forward `X-Forwarded-Proto` that
+    yields `http://`, which the macOS updater refuses.
+  - `backend.onpremCompanySlug` — the company name in the build we deliver, as a
+    second guard against publishing another customer's build.
+- **Nothing to do about proxy limits.** The admin, backend and storage Ingresses
+  and Routes now carry the body-limit and timeout annotations themselves — an
+  OpenShift router otherwise cuts a release upload off after 30 seconds. Your own
+  `*.route.annotations` / `*.ingress.annotations` still override them.
+- `backend.httpRequestTimeoutMs` defaults to 30 minutes, which is what an
+  installer upload needs. Override only if yours take longer.
+
 ## 6. Scaling
 
 | compose | helm |
