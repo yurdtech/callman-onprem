@@ -10,7 +10,7 @@ version: 0.2.0
 # appVersion = CALLMAN_VERSION: default image tag for backend / worker / migrate
 # / ui-runner. The admin panel image is pinned separately in values.yaml
 # (admin.image.tag) — each chart release ships a known-good pair.
-appVersion: "1.0.4"
+appVersion: "1.0.5"
 keywords:
   - callman
   - api-testing
