@@ -14,7 +14,10 @@ to QA without anyone passing files around:
    verifies its checksum, boots the device if needed, installs and launches the
    app.
 
-Builds are grouped in **folders**. By default the folder is the platform
+Builds belong to your **on-prem groups**, not to a workspace. A build published
+into a group is visible to that group's members (and to approvers of its parent
+group), exactly like scenarios. A build published to **Everyone** is visible to
+every on-prem user. Inside a group, builds are arranged in **folders**. By default the folder is the platform
 (`android`, `ios`); a pipeline can choose its own, such as `android/release` or
 `ios/feature-login`. Every build shows its version, build number, app id, size,
 sha256, branch and commit, a link back to the pipeline run, release notes and
@@ -36,38 +39,32 @@ who published it.
 
 No new `.env` settings are needed.
 
-## Create a CI token
+## Create a build token (admin panel)
 
-The pipeline authenticates with a **workspace CI token** that carries the
-**`builds:publish`** scope. A workspace owner creates it once:
+Only an **on-prem admin** creates the tokens pipelines use. Workspace CI tokens
+and personal tokens do **not** work for builds.
 
-- In the desktop: **Workspace Settings → CI Tokens → New token**, tick
-  **Publish app builds**.
-- Or over the API with your own session:
+1. Admin panel → **Build tokens** → **New token**.
+2. Give it a name (e.g. `android-ci`) and pick the **groups** its builds may go
+   to. Tick **Everyone (no group)** if builds should be visible to all on-prem
+   users. A group-restricted admin can pick only their own groups.
+3. Choose an expiry and create it. The token (`cm_bld_…`) is shown **once**:
+   store it as a secret in your CI system (`CALLME_TOKEN`).
 
-  ```bash
-  curl -X POST https://callman.yourbank.local/api/api-tokens \
-    -H "Authorization: Bearer <your access token>" \
-    -H "x-workspace-id: <workspace id>" \
-    -H "Content-Type: application/json" \
-    -d '{"name":"mobile-ci","scopes":["builds:publish"],"expiresInDays":365}'
-  ```
+A token can target several groups. The pipeline then picks one per upload with
+`--group "<Group>"`, `--group "<Parent>/<Subgroup>"` or `--group everyone`. With a
+single target, `--group` is not needed. `callme build whoami` prints the
+token's targets. Revoke a token on the same page; it stops working within 30
+seconds.
 
-The token is shown **once** — store it as a secret in your CI system
-(`CALLME_TOKEN`). It is bound to that one workspace. With `builds:publish` it
-can upload app builds, publish, list and delete them; it **cannot** upload any
-other kind of file, read other files, or touch the rest of the workspace. A
-token that should only list builds (a dashboard, a release script) needs just
-`builds:read`.
-
-Every pipeline needs four variables:
+Every pipeline needs these variables:
 
 | Variable | Value |
 |---|---|
 | `CALLME_API_URL` | `https://callman.yourbank.local` — the address users reach Callman on |
 | `CALLME_STORAGE_URL` | Only if the gateway is **not** behind the same hostname on `/storage/` (e.g. `http://callman-host:8081`). Otherwise leave it unset. |
-| `CALLME_TOKEN` | The CI token (secret) |
-| `CALLME_WORKSPACE_ID` | The workspace id |
+| `CALLME_TOKEN` | The build token from the admin panel (secret) |
+| `CALLME_BUILD_GROUP` | Optional — the group to publish into (same as `--group`); required only when the token has several targets |
 
 ## Pipeline examples
 
@@ -86,7 +83,7 @@ jobs:
     env:
       CALLME_API_URL: https://callman.yourbank.local
       CALLME_TOKEN: ${{ secrets.CALLME_TOKEN }}
-      CALLME_WORKSPACE_ID: ${{ vars.CALLME_WORKSPACE_ID }}
+      CALLME_BUILD_GROUP: Mobile/Android
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -108,7 +105,7 @@ jobs:
     env:
       CALLME_API_URL: https://callman.yourbank.local
       CALLME_TOKEN: ${{ secrets.CALLME_TOKEN }}
-      CALLME_WORKSPACE_ID: ${{ vars.CALLME_WORKSPACE_ID }}
+      CALLME_BUILD_GROUP: Mobile/iOS
     steps:
       - uses: actions/checkout@v4
       - run: |
@@ -126,10 +123,10 @@ publish-android:
   image: node:20
   variables:
     CALLME_API_URL: https://callman.yourbank.local
-    # CALLME_TOKEN and CALLME_WORKSPACE_ID: masked CI/CD variables
+    # CALLME_TOKEN: masked CI/CD variable (build token from the admin panel)
   script:
     - npm i -g callme-cli
-    - callme build publish app/build/outputs/apk/debug/app-debug.apk --folder android/$CI_COMMIT_REF_SLUG
+    - callme build publish app/build/outputs/apk/debug/app-debug.apk --group "Mobile/Android" --folder android/$CI_COMMIT_REF_SLUG
   needs: [assemble-debug]
 ```
 
@@ -140,17 +137,16 @@ stage('Publish build') {
   environment {
     CALLME_API_URL      = 'https://callman.yourbank.local'
     CALLME_TOKEN        = credentials('callme-ci-token')
-    CALLME_WORKSPACE_ID = '<workspace id>'
   }
   steps {
     sh 'npm i -g callme-cli'
-    sh 'callme build publish app/build/outputs/apk/release/app-release.apk --folder android/release'
+    sh 'callme build publish app/build/outputs/apk/release/app-release.apk --group everyone --folder android/release'
   }
 }
 ```
 
 Publishing is **idempotent**: re-running a job with the same file into the same
-folder returns the existing build (`duplicate: true`) instead of creating a
+group and folder returns the existing build (`duplicate: true`) instead of creating a
 second one, so CI retries are safe.
 
 ## Folders
@@ -188,12 +184,14 @@ on Kubernetes `nginx.ingress.kubernetes.io/proxy-body-size`).
 
 | Symptom | Cause / fix |
 |---|---|
+| `403 APP_BUILD_TOKEN_REQUIRED` | The pipeline used a workspace CI token or a personal token. Create a **build token** in the admin panel. |
+| `400 APP_BUILD_GROUP_REQUIRED` | The token targets several groups. Add `--group "<path>"`; the error lists the allowed groups. |
+| `403 APP_BUILD_GROUP_NOT_ALLOWED` | The group is not one of the token's targets (or `everyone` is not allowed). Ask the admin to add it, or use another token. |
+| `400 APP_BUILD_GROUP_AMBIGUOUS` | Two groups share that name. Use the full `Parent/Subgroup` path. |
+| `401 AUTH_TOKEN_INVALID` | The build token was revoked, expired, or mistyped. |
+| A tester doesn't see a build | They are not a member of the build's group (or an approver of its parent group). Add them to the group in the admin panel; it can take up to a minute to show. |
 | `404` from `/api/app-builds`, or the CLI says "App builds are available only on Callman on-prem" | The backend is not running as on-prem, or it is a version without app builds. Check `CALLMAN_EDITION=onprem` and `CALLMAN_VERSION`. |
 | `No storage provider is active…` | The storage gateway is on but no provider is set as active. Admin panel → **Storage**. |
-| `403 PAT_SCOPE_MISSING` | The CI token lacks `builds:publish` (or `builds:read` for listing). Scopes are fixed at creation — create a new token. |
-| `403 PAT_ROUTE_FORBIDDEN` on `/storage/files` | A CI token tried something other than uploading a build (listing or downloading files). That is not allowed for CI tokens. |
-| `403 STORAGE_KIND_FORBIDDEN_FOR_TOKEN` | A CI token tried to upload a file that is not an app build. Use `callme build publish`. |
-| `403 WORKSPACE_ACCESS_DENIED` | `CALLME_WORKSPACE_ID` is not the workspace the token was created in. |
 | `413` / upload fails at exactly 1 MB | Your reverse proxy's body limit, or the file is bigger than `STORAGE_MAX_UPLOAD_BYTES`. |
 | `409 APP_BUILD_FILE_NOT_READY` | The upload did not finish before the build was published. Re-run the job — uploads restart from the beginning. |
 | `422 STORAGE_CHECKSUM_MISMATCH` ("bytes do not match the declared sha256") | The file changed or was corrupted in transit. Nothing was stored; the CLI retries once by itself. |
