@@ -22,6 +22,11 @@ configured.
 > frequently-read thing Callman will store, and they are the reason the sizing
 > and provider-choice notes below matter more than they used to.
 
+> **Mobile app builds live here too.** Android/iOS builds that your CI publishes
+> with `callme build publish` are stored in this same storage, and testers
+> install them from the desktop's **Builds** page — see
+> [`APP-BUILDS.md`](./APP-BUILDS.md).
+
 ## Requirements
 
 - Callman backend **1.1.0 or newer** (`CALLMAN_VERSION`).
