@@ -135,6 +135,16 @@ kubectl -n callman run backup-shell --rm -it --image=mongo:7 \
 # inside: mongorestore --uri="$MONGODB_URI" --archive=/backups/callman-backup-<stamp>.archive.gz --gzip --drop
 ```
 
+- **Old Oracle (11g).** The release that adds it moves the backend images
+  from Alpine to Debian slim: values do not change, the first pull is ~60–80 MB
+  larger (so is the airgap `images.tar`). The Oracle client itself is installed
+  from the admin panel (see
+  [ENVIRONMENT.md](ENVIRONMENT.md#connecting-to-old-oracle-databases)), not
+  from the chart. After **Apply now** the backend, worker and ui-runner pods
+  exit one by one and Kubernetes starts them again, so their restart count goes
+  up by one — expected, not a crash loop. No PVC is needed; on OpenShift the
+  client directory is writable by the assigned UID.
+
 The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 `helm uninstall`.
 

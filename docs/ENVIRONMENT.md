@@ -289,11 +289,34 @@ required).
 
 ### Connecting to old Oracle databases
 
-Not supported by this image yet (it speaks to Oracle 12.1+ only). Old-Oracle
-(Thick-mode) support is planned for a future release. You may see a benign
-`Oracle Thick mode not enabled — staying in Thin mode` line in the logs;
-it does not affect anything unless you use an Oracle data source on a very
-old server.
+Callman connects to Oracle **12.1 and newer** without any setup. Older
+servers (**11.2 / 11g**) need the Oracle **Instant Client**, which Oracle's
+license does not let us ship inside the image. Install it once from the
+admin panel:
+
+1. **Admin panel → On-Prem → Database drivers.**
+2. Click **Download from Oracle** (the server needs internet access), or
+   download the *Instant Client Basic Light* zip for your servers yourself
+   (Linux x86-64 or ARM64, version 19) and upload it. Upload the Windows
+   and macOS (Intel) packages too if your users run old-Oracle scenarios
+   in the desktop app — the app then installs it from your server instead
+   of from oracle.com.
+3. Click **Apply now.** The backend, workers and UI-test runner restart one
+   by one (running jobs finish first) and come back with the client. The
+   page shows each process as *thick* once it is active.
+
+Users change nothing: connections stay the same and simply start working.
+Nothing needs to be set in `.env`; the variables below are optional.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ORACLE_CLIENT_RELOAD_POLL_MS` | `30000` | How often each service checks whether a new client was applied. `0` turns the automatic restart off — restart the services yourself after **Apply now**. |
+| `ORACLE_CLIENT_MAX_PACKAGE_BYTES` | `250000000` | Largest Instant Client package the admin panel accepts. |
+| `ORACLE_CLIENT_PROVISION` | _(unset)_ | `0` stops the services from installing the client at start (Oracle 12.1+ only). |
+
+Oracle 10g and older are not supported. Until a client is installed you may
+see a benign `Oracle Thick mode not enabled — staying in Thin mode` line in
+the logs; it only matters if you use a very old Oracle server.
 
 ---
 
