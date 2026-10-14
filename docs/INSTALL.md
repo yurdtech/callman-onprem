@@ -345,6 +345,15 @@ start on the new version. Confirm with `curl http://localhost:8080/version`.
 > panel under **Storage** — and it runs from the image you already pulled. Off
 > by default; see [STORAGE.md](STORAGE.md).
 
+> The release that adds **old Oracle (11g) support** moves the backend,
+> worker and storage images from Alpine to **Debian (slim)**. Nothing in your
+> `.env` or compose files changes and your data stays where it is, but the
+> first `docker compose pull` after it downloads about 60–80 MB more than
+> usual (and the offline `images.tar` grows by the same). Rolling back to an
+> older version works as usual. To actually connect to Oracle 11g, install
+> the Oracle client once in the admin panel — see
+> [ENVIRONMENT.md › Connecting to old Oracle databases](ENVIRONMENT.md#connecting-to-old-oracle-databases).
+
 ### Rollback note
 
 To roll back, set the previous `CALLMAN_VERSION` and `docker compose up -d`

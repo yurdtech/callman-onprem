@@ -286,6 +286,27 @@ a checksum mismatch, which is fixed by re-uploading that one file.
 
 ---
 
+## Oracle: "This Oracle database is older than 12.1" / `NJS-138`
+
+The database is Oracle 11g (or older than 12.1) and no Oracle client is
+installed yet. Install it once in the admin panel (**On-Prem → Database
+drivers → Download from Oracle** or upload the zip, then **Apply now**) — see
+[ENVIRONMENT.md](ENVIRONMENT.md#connecting-to-old-oracle-databases).
+
+If a client is installed and it still fails, check the page's process table:
+
+- **A process still shows *thin*.** It has not restarted since **Apply now**
+  (automatic restart is off when `ORACLE_CLIENT_RELOAD_POLL_MS=0`):
+  `docker compose restart backend worker` (and `ui-runner` if
+  you run it).
+- **A process shows an error.** It is usually the wrong package: the servers
+  need the **Linux** zip for their CPU (x86-64 or ARM64), *Basic* or *Basic
+  Light*. `docker compose logs backend | grep -i oracle` shows the
+  reason.
+- **Oracle 10g or older** is not supported by any current Oracle client.
+
+---
+
 ## I set `MONGODB_URI` / `REDIS_URL` but Callman still uses the bundled database
 
 **Symptom:** you pointed `.env` at your company database, restarted, and
