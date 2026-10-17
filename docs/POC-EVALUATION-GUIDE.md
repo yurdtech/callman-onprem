@@ -6,7 +6,7 @@ how to exercise it, the evidence worth keeping, and the limits we know about —
 [PILOT-QUICKSTART.md](PILOT-QUICKSTART.md); network and egress: [NETWORK.md](NETWORK.md).
 
 Versions this guide describes: backend and desktop with the "ABB readiness" changes,
-`callman-core` 1.38.0, `callme-cli` 1.9.0, `callman-mcp` 0.7.0. Older builds differ where noted.
+`callman-core` 1.38.0, `callme-cli` 1.9.1, `callman-mcp` 0.7.1. Older builds differ where noted.
 
 ## Admin panel (users, groups, roles, tokens, workspaces)
 - **Run:** create a group, add users, flag an approver; log into the panel as `analyst`, `admin`
@@ -36,7 +36,7 @@ Versions this guide describes: backend and desktop with the "ABB readiness" chan
   not a request tab: build one scenario (Request → Database → Redis → Kafka → Assertion) and run it.
 - **Capture:** the run report of that scenario (all four checks in one report) and the request's results in
   the Test results tab. The same request through `callme run` gives the same DB/Redis verdict from CLI
-  1.9.0 / core 1.38.0.
+  1.9.1 / core 1.38.0.
 - **Know:** a single request cannot carry a Kafka check. Contracts are path rules (type, range, enum, format,
   …); a full JSON Schema is a script call or the scenario request node's Schema tab.
 
