@@ -21,10 +21,13 @@ paste into the form.
 > Everything works **air-gapped** — Callman talks to *your* directory server,
 > never to the internet.
 
-> **The admin panel has its own separate login** (`ADMIN_BOOTSTRAP_EMAIL` /
-> `ADMIN_BOOTSTRAP_PASSWORD`) and is **not** affected by anything on this
-> screen. So even a completely broken directory configuration can always be
-> fixed from the panel — you cannot lock yourself out of the fix.
+> **The admin panel keeps its own local login** (`ADMIN_BOOTSTRAP_EMAIL` /
+> `ADMIN_BOOTSTRAP_PASSWORD`, plus any admin you gave a password). Local
+> passwords never depend on this screen, so even a completely broken
+> directory configuration can always be fixed from the panel — you cannot lock
+> yourself out of the fix. The panel *can additionally* sign admins in through
+> the LDAP connection configured here — see
+> [section 8](#8-signing-in-to-the-admin-panel-with-ldap).
 
 ---
 
@@ -174,7 +177,7 @@ the message. Beyond that:
 | Test: "has no `mail` value" | That user has no email in the directory; Callman uses it as the account email. |
 | A specific user cannot log in | The filter does not match them. Test with their username. |
 | All directory logins fail after a working setup | The directory is unreachable, or the service account password expired or changed. |
-| Nobody can log in at all | Open the admin panel (its login is separate and unaffected) and re-enable email and password login. |
+| Nobody can log in at all | Open the admin panel with a local-password admin (those logins do not use LDAP) and re-enable email and password login. |
 
 Saved settings not taking effect? Give it 30 seconds. A desktop app that is
 already open may take up to 5 minutes to notice, or restart it.
@@ -188,3 +191,36 @@ already open may take up to 5 minutes to notice, or restart it.
   reworking this screen.
 - **Directory group → Callman role mapping** — all directory users currently
   receive the standard role.
+
+---
+
+## 8. Signing in to the admin panel with LDAP
+
+The admin panel can use **the same LDAP connection** as above for its own
+sign-in, so administrators do not need a separate panel password. Nothing is
+configured twice, and the panel never creates accounts from the directory.
+
+- **Add the administrator first.** Under **Admin Users → New admin** enter the
+  email, an optional username and a role. Leave the password **empty** for an
+  LDAP-only admin ("leave empty = LDAP only").
+- They then sign in on the panel's normal login page (**Email or username** +
+  their directory password). The directory is searched with your user filter
+  using what they typed, the admin's username, then the admin's email — set the
+  admin's username to their directory login (`jdoe`), or use a mail-based
+  filter. Admins that also have a local password can use either.
+- A directory user who is **not** an admin sees: *"Your directory account is
+  valid, but you have not been added to this panel. Ask an administrator to
+  add you under Admin Users."* (shown only after the directory accepted their
+  password). Other failures are the generic "Invalid credentials".
+- The first LDAP sign-in pins the admin to that directory identity; another
+  directory entry with the same email cannot take over. If a person's
+  directory account is recreated, use **Edit → Unlink the linked directory
+  account**.
+- Needs LDAP enabled on this screen **and** `CONNECTION_ENCRYPTION_KEY` set on
+  the admin panel to the same value as the Callman backend. Otherwise panel LDAP
+  sign-in is off and local passwords keep working.
+- The panel always keeps at least one active `super_admin` **with a local
+  password** (it refuses to demote, disable or delete the last one), so a
+  directory outage cannot lock everyone out. Failed sign-ins are rate-limited
+  per user and IP before they reach the directory, to protect directory
+  accounts from lock-outs.
