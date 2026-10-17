@@ -10,6 +10,11 @@ as containers on one server.
 
 ---
 
+> **Air-gapped host?** Build an offline bundle on a connected machine with
+> `scripts/compose-airgap-bundle.sh` and load it with `scripts/compose-airgap-load.sh`;
+> network needs are in [NETWORK.md](NETWORK.md), and the first hour after install is in
+> [PILOT-QUICKSTART.md](PILOT-QUICKSTART.md).
+
 ## 0. Before you start
 
 **A 64-bit Linux server** with:
@@ -349,7 +354,7 @@ start on the new version. Confirm with `curl http://localhost:8080/version`.
 > worker and storage images from Alpine to **Debian (slim)**. Nothing in your
 > `.env` or compose files changes and your data stays where it is, but the
 > first `docker compose pull` after it downloads about 60–80 MB more than
-> usual (and the offline `images.tar` grows by the same). Rolling back to an
+> usual (and the offline bundle grows by the same). Rolling back to an
 > older version works as usual. To actually connect to Oracle 11g, install
 > the Oracle client once in the admin panel — see
 > [ENVIRONMENT.md › Connecting to old Oracle databases](ENVIRONMENT.md#connecting-to-old-oracle-databases).

@@ -143,9 +143,9 @@ Then `docker compose up -d`.
 **Symptom:** error mentions `TELEGRAM_BOT_TOKEN` /
 `TELEGRAM_ENABLED=true in production requires ...`.
 
-**Cause:** the error reporter is enabled but has no credentials. Note that
-setting `TELEGRAM_ENABLED=false` does **not** disable it (any non-empty
-value counts as "on").
+**Cause:** the error reporter is enabled but has no credentials. On older backend
+versions setting `TELEGRAM_ENABLED=false` does **not** disable it (any non-empty
+value counted as "on"); newer versions read `false` / `0` / `no` / `off` as off.
 
 **Fix:** to disable it, set it **empty** in `.env`:
 ```
