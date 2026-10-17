@@ -54,8 +54,10 @@ Versions this guide describes: backend and desktop with the "ABB readiness" chan
 - **Run:** approve a scenario (a second person), create a schedule, set your time zone, leave it to fire; start
   a long run so the next firing overlaps.
 - **Capture:** the run history of the schedule; the schedule's `skippedOverlapCount` / `lastSkippedAt`.
-- **Know:** an unapproved scenario is skipped. An overlapping due run is skipped (default) and counted, no
-  report is created. A run due while the worker is restarting is not caught up. Failure notifications go
+- **Know:** an unapproved scenario is skipped. A run that outlasts the schedule interval delays the next firing
+  (the next tick is planned when the run ends; ticks inside the run are not queued — tested with a
+  1-minute cron and a 100-second run). A tick that does arrive during an active run is skipped (default) and
+  counted, no report is created. A run due while the worker is restarting is not caught up. Failure notifications go
   through a Slack notification connection only.
 
 ## CLI and CI/CD

@@ -57,9 +57,11 @@ until the next approval.
 
 Open the scenario's schedules and create one. The form defaults to your computer's
 time zone (the API default is UTC); check it. The overlap policy defaults to *skip*: a
-due run is skipped while the previous run of the same schedule is still going. Skipped
-runs are counted on the schedule (`skippedOverlapCount`, `lastSkippedAt`) but create
-no report. Failure notifications need a **Slack notification connection** chosen on
+due run is skipped while the previous run of the same schedule is still going (counted on
+the schedule as `skippedOverlapCount` / `lastSkippedAt`, no report is created). In
+practice the next tick is planned when a run finishes, so a run that outlasts its
+interval just delays the next firing to the next tick after it ends; ticks inside the
+run are not queued. Failure notifications need a **Slack notification connection** chosen on
 the schedule; without one a failed scheduled run is visible only in the scenario's run
 history and the schedule monitor.
 
