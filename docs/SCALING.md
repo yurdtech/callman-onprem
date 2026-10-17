@@ -20,6 +20,18 @@ backlog and **add capacity**, manually or automatically.
 | **Horizontal** — more workers | Runs N worker containers that share the queue | `docker compose up -d --scale worker=N` | When one worker (even at high concurrency) can't keep up, or you want headroom that grows/shrinks with load. |
 
 Total jobs processed in parallel ≈ **`N workers × BULLMQ_WORKER_CONCURRENCY`**.
+
+**What happens when several people run at once.** Every server-side run — a
+schedule firing, a *Run on server* click, a `callme scenario run` from CI — goes into
+the same BullMQ queue (`scenario-runs`) and is taken in the order it arrived; there is
+no per-user, per-workspace or per-priority fairness, and no per-token cap on
+concurrent runs. One person starting 200 runs delays everyone behind them; the
+`waiting` count in `/ops/queues` (and the autoscaler's metric) shows it. Runs are
+not retried by the queue (a schedule can retry on its own `retryCount`), a run is
+stopped after `SCENARIO_RUN_MAX_DURATION_MS` (5 min), and a worker that is stopped
+waits up to `WORKER_SHUTDOWN_TIMEOUT_MS` for runs in flight. A CI client waiting on a
+queued run sees the status `queued` until a worker picks it up; `callme scenario
+run --timeout` (default 30 min) is how long it will wait.
 Start by raising concurrency; reach for more workers when a single container is
 saturated.
 

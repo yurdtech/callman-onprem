@@ -1,0 +1,77 @@
+# Network requirements
+
+What has to reach what, and which optional features go to the internet. Use it for
+the firewall request and for the security review. Everything not listed can stay
+closed.
+
+## Inbound (to the Callman host)
+
+| Port | Service | Who connects | Notes |
+| --- | --- | --- | --- |
+| `8080` (`CALLMAN_PORT`) | Backend API | Desktops, the `callme` CLI, `callman-mcp`, CI agents | Put it behind your TLS proxy (443). Plain HTTP is published on all interfaces by default; bind or firewall it. |
+| `5100` (`CALLMAN_ADMIN_PORT`) | Admin panel | Admin workstations | Restrict to an admin segment or VPN. The Swagger page (`/admin/docs`) is off in production unless `ADMIN_API_DOCS_ENABLED=true`. |
+| `8081` (`CALLMAN_STORAGE_PORT`) | Storage gateway | Desktops | Only with the `storage` profile. |
+
+Keep these paths **off the user-facing proxy**: `/ops/*` and `/metrics` (no
+authentication; `/ops/license` returns the licensee's name and seat counts) and
+`/api/internal/*` (service to service). Let monitoring reach them on the internal
+address. Example (nginx):
+
+```nginx
+location ~ ^/(ops|metrics|api/internal)(/|$) { return 404; }   # user-facing server block
+```
+
+Behind a proxy, raise the body-size and timeout limits for desktop installer uploads
+and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-APP.md)).
+
+## Outbound from the Callman host
+
+| Destination | Why | Required? |
+| --- | --- | --- |
+| Your MongoDB, Redis (if external) | Data, queue | Yes |
+| Your LDAP / AD on `636` | Sign-in | If LDAP is used |
+| The systems under test, databases, Kafka brokers, Redis | Scenario and schedule runs execute **on the host** | Yes: this is the job. There is no allow-list in the product, restrict at the firewall |
+| Your object storage (S3 / MinIO / FileNet) | Large files | Only with the `storage` profile |
+| `ghcr.io` (or your registry) | Pulling images | Install and upgrade only; none with an air-gap bundle ([INSTALL.md](INSTALL.md)) |
+| `api.telegram.org` | Error forwarding | Only if `TELEGRAM_ENABLED` is on; leave it empty |
+| The AI provider set in **AI Settings** | AI assistant / AI node | Only if configured; switch the `ai*` flags off otherwise |
+| Slack webhook | Notification connections | Only if someone creates one |
+| `download.oracle.com` | Oracle thick client | Only when an admin clicks the download |
+
+## Outbound from a user's workstation (desktop app)
+
+| Destination | Why |
+| --- | --- |
+| Your Callman backend | API, request history, crash reports, the hourly update check |
+| The systems under test | Requests run on the workstation |
+| Model providers (`api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`) | **AI Testing** only, with the user's own key; screenshots and page structure go with each step |
+| `github.com`, `api.github.com`, `pypi.org`, the Playwright CDN | **AI Testing** and **Android UI testing**, once per machine: the AI engine, browsers, the Callman Agent APK and the Android UI-test driver |
+| `api.figma.com` | Figma import / visual compare, only with a Figma token |
+
+A packaged desktop cannot be pointed at an internal mirror for the downloads in the
+fourth row, and AI Testing has no admin switch: a site that must keep it off simply
+does not use it. Pre-staging the Callman Agent APK at `~/.callman/portal/callman-agent.apk`
+skips its download.
+
+The desktop sends each run's resolved request and response to your backend as
+request history. Switch the `history` feature flag off if that is not acceptable, and
+keep production secrets in environment values and managed connections.
+
+## From CI agents and engineers' laptops
+
+| Tool | Reaches |
+| --- | --- |
+| `callme` | The Callman API address you set (`CALLME_API_URL`) and, for `callme run` / `perf run`, the systems under test |
+| `callman-mcp` | The Callman API address (`CALLMAN_API_URL`); tool output, including response-body previews, goes to the language model of the AI tool in use |
+
+Both fall back to the public cloud address when the variable is missing: set it.
+The CLI has no proxy or CA flags; use Node.js's (`NODE_EXTRA_CA_CERTS=/path/ca.pem`
+for a private CA).
+
+## Air-gapped installs
+
+Compose: `scripts/compose-airgap-bundle.sh` on an internet-connected host builds one
+tarball (images plus deployment files); `scripts/compose-airgap-load.sh` loads it on
+the isolated host. Helm: `scripts/helm-airgap-bundle.sh` / `helm-airgap-load.sh`
+([HELM-INSTALL.md](HELM-INSTALL.md)). The `callme-cli` and `callman-mcp` packages can
+be carried the same way with `npm pack`.

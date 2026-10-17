@@ -25,7 +25,7 @@ infrastructure:
 | Config | `.env` file | `values.yaml` + a Kubernetes Secret |
 | Exposure / TLS | host ports, your reverse proxy | Route (OpenShift) or Ingress + cert-manager |
 | Scaling | `--scale worker=N` + cron autoscaler | `worker.replicaCount` / HPA |
-| Air-gapped installs | copy images manually | `scripts/helm-airgap-bundle.sh` |
+| Air-gapped installs | `scripts/compose-airgap-bundle.sh` | `scripts/helm-airgap-bundle.sh` |
 
 ---
 
@@ -180,6 +180,8 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/DESKTOP-APP.md`](docs/DESKTOP-APP.md) | Getting a new desktop version to your users: upload it once in the admin panel and every desktop updates itself |
 | [`docs/SCALING.md`](docs/SCALING.md) | Watch the job backlog and add worker containers under load |
 | [`docs/MONITORING.md`](docs/MONITORING.md) | DevOps monitoring: Prometheus `/metrics` catalog, the `/ops/*` JSON diagnostics API, log levels and rotation |
+| [`docs/NETWORK.md`](docs/NETWORK.md) | Ports, firewall rules and every optional feature that reaches the internet |
+| [`docs/PILOT-QUICKSTART.md`](docs/PILOT-QUICKSTART.md) | From a running server to a first approved, scheduled and CI-triggered scenario in about an hour |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common errors and how to fix them |
 | [`scripts/preflight.sh`](scripts/preflight.sh) | Config check — run it before `docker compose up -d` |
 | [`scripts/autoscale-worker.sh`](scripts/autoscale-worker.sh) | Optional autoscaler — adjusts the worker count from the live backlog |

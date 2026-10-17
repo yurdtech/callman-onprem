@@ -153,7 +153,8 @@ LDAP even when the backend does).
 | `ADMIN_JWT_EXPIRES_IN` | optional | `1h` | Admin access-token lifetime. |
 | `ADMIN_JWT_REFRESH_EXPIRES_IN` | optional | `7d` | Admin refresh-token lifetime. |
 | `ADMIN_BCRYPT_ROUNDS` | optional | `12` | Admin password hashing cost. |
-| `CALLMAN_DB_WRITE_ENABLED` | optional | `false` | Keep `false`: the admin panel can READ Callman data but never MODIFY it. Only enable if you specifically need admin writes. |
+| `CALLMAN_DB_WRITE_ENABLED` | optional | `false` | Keep `false` for a read-only panel: with it the panel can READ Callman data but never MODIFY it, and **revoking a token, ending a session, disabling a schedule, restoring a version, or deleting a user or workspace answers 403 *write disabled***. Set `true` when operators need those actions (a pilot usually does), and review the audit log. |
+| `ADMIN_API_DOCS_ENABLED` | optional | off in production | Serves the Swagger page at `/admin/docs` (it lists every route and is readable by anyone who reaches the port; calling a route still needs a login). Set `true` to turn it on. |
 | `CORS_ORIGINS` | optional | `http://localhost:5173` | Admin API allowed browser origins — only needed if the UI is served cross-origin. |
 | `RATE_LIMIT_MAX` | optional | `300` | Admin API request rate cap. |
 
@@ -197,6 +198,10 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | `MONGODB_MIN_POOL_SIZE` | `10` | Mongo connection pool min (≤ max). |
 | `BULLMQ_WORKER_CONCURRENCY` | `50` | Parallel background jobs per worker. Concurrency is the only memory backpressure on the worker — at 50, keep the container above 2 GB or lower it to 20 (the Helm chart's default). To add *more* worker containers, see [SCALING.md](SCALING.md). |
 | `NODE_OPTIONS` | compose: `--max-old-space-size=768` (backend, ui-runner), `1024` (worker) | V8 heap cap per container (`BACKEND_NODE_OPTIONS` / `WORKER_NODE_OPTIONS` / `UI_RUNNER_NODE_OPTIONS` in `.env` override). Node sizes its heap from the HOST's RAM, so without it a memory-limited container is OOM-killed before V8 collects. Keep ~25% under the container's memory limit. |
+| `WORKER_SHUTDOWN_TIMEOUT_MS` | `300000` | How long a worker waits for the runs in flight when it is stopped or restarted (`docker compose up -d`, an upgrade). A scenario run may last up to `SCENARIO_RUN_MAX_DURATION_MS` (5 min); the default lets it finish instead of ending a CI pipeline's run half-way. Compose's `stop_grace_period` is set just above it (330 s). |
+| `SCENARIO_RUN_MAX_DURATION_MS` / `SCENARIO_NODE_MAX_DURATION_MS` / `SCENARIO_REQUEST_TIMEOUT_MS` | `300000` / `60000` / `30000` | Hard caps: one scenario run, one node, one HTTP request. A longer run is stopped by the worker, whatever `callme scenario run --max-runtime` or `--timeout` say. |
+| `SCENARIO_DATASET_MAX_ROWS` | `500` | Most data-driven rows one scenario run executes. A dataset can hold more; the report says how many ran (`callme scenario run` prints `Dataset: N of M rows run`). |
+| `RATE_LIMIT_PAT_READ_MAX_PER_TOKEN` / `RATE_LIMIT_PAT_WRITE_MAX_PER_TOKEN` | `600` / `120` per window | Requests per API token (CI token, personal token). `callme scenario run` polls every 2 s per scenario, so a *parallel* folder of N scenarios makes about 30·N reads a minute — keep it well under 600 or give each pipeline its own token. Exceeding it returns `429` (the CLI retries). Window: `RATE_LIMIT_PAT_READ_WINDOW_MS` / `RATE_LIMIT_PAT_WRITE_WINDOW_MS`. |
 | `WORKER_HEAP_HIGH_WATERMARK` | `0.85` | Above this fraction of the heap cap the worker pauses picking up new jobs for a few seconds (nothing fails). |
 | `SCRIPT_WORKER_POOL_SIZE` | `2` | Warm script threads per worker; every scenario script runs there, off the worker's event loop, capped at `SCRIPT_WORKER_HEAP_MB` (128) each. |
 | `SCENARIO_MAX_RESPONSE_BYTES` | `10485760` | Largest HTTP response a request node buffers; bigger responses fail the node. |
@@ -275,7 +280,7 @@ required).
 
 | Variable | Default | Description |
 |---|---|---|
-| `TELEGRAM_ENABLED` | `true` | **To disable, set it to an EMPTY value** (`TELEGRAM_ENABLED=`). ⚠ Setting it to the text `false` does **not** disable it. When enabled in production you MUST also set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, or the app won't start. |
+| `TELEGRAM_ENABLED` | `true` | **To disable, set it EMPTY** (`TELEGRAM_ENABLED=`) — that works on every version. Newer backends also read `false`, `0`, `no`, `off` as off (older ones read *any* non-empty text, `false` included, as ON). When enabled in production you MUST also set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, or the app won't start. Enabled, it sends error reports to `api.telegram.org` (outbound internet). |
 | `TELEGRAM_BOT_TOKEN` | _(unset)_ | Required only if Telegram is enabled. |
 | `TELEGRAM_CHAT_ID` | _(unset)_ | Required only if Telegram is enabled. |
 

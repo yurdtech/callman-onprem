@@ -164,6 +164,12 @@ services:
       <<: *db-env
       # See backend: cap the heap below the container's memory limit.
       NODE_OPTIONS: ${WORKER_NODE_OPTIONS:---max-old-space-size=1024}
+      # A scenario run may take up to SCENARIO_RUN_MAX_DURATION_MS (5 min). On
+      # `docker compose up -d` / a restart the worker waits this long for the runs
+      # in flight to finish instead of cutting a CI pipeline's run in half after
+      # 30 s. Keep stop_grace_period just above it.
+      SHUTDOWN_TIMEOUT_MS: ${WORKER_SHUTDOWN_TIMEOUT_MS:-300000}
+    stop_grace_period: 330s
     volumes:
       - ./certs:/certs:ro
       - backups:/backups

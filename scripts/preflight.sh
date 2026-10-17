@@ -403,6 +403,10 @@ if [[ -z "$public_api_url" ]]; then
   info "from each request, and behind a proxy that does not forward X-Forwarded-Proto"
   info "that yields http:// — which the macOS updater refuses."
   info "  PUBLIC_API_BASE_URL=https://callman.yourcompany.local"
+elif [[ "$public_api_url" == *"example.com"* || "$public_api_url" == *"yourcompany"* ]]; then
+  bad "PUBLIC_API_BASE_URL is still the template placeholder ($public_api_url)"
+  info "Every desktop is told to fetch its updates from this address. Set the address"
+  info "your users really reach this backend on (scheme, host, no trailing slash, no /api)."
 elif [[ "$public_api_url" != https://* && "$public_api_url" != http://localhost* && "$public_api_url" != http://127.* ]]; then
   warn "PUBLIC_API_BASE_URL is not https — macOS will refuse to auto-update over plain HTTP"
   info "  current: $public_api_url"
@@ -461,16 +465,21 @@ done
 head_ "6. Optional integrations"
 
 tg="$(env_get TELEGRAM_ENABLED)"
+tg_lower="$(printf '%s' "$tg" | tr '[:upper:]' '[:lower:]')"
 if [[ -z "$tg" ]]; then
   ok "Telegram error reporting disabled (no outbound internet needed)"
+elif [[ "$tg_lower" == "false" || "$tg_lower" == "0" || "$tg_lower" == "no" || "$tg_lower" == "off" ]]; then
+  ok "Telegram error reporting set to '$tg' — disabled on this backend version"
+  info "Older backend versions read any non-empty value as ON. If the backend refuses to"
+  info "start with a Telegram error, set it EMPTY instead:  TELEGRAM_ENABLED="
 else
   if [[ -z "$(env_get TELEGRAM_BOT_TOKEN)" || -z "$(env_get TELEGRAM_CHAT_ID)" ]]; then
     bad "TELEGRAM_ENABLED=$tg but TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are missing"
     info "The backend refuses to start in production without both."
-    info "To DISABLE it, set an EMPTY value:  TELEGRAM_ENABLED="
-    info "(The literal text 'false' does NOT disable it.)"
+    info "To DISABLE it, set an EMPTY value:  TELEGRAM_ENABLED=   (works on every version)"
   else
     ok "Telegram error reporting enabled, credentials present"
+    info "It sends error reports to api.telegram.org — needs outbound internet."
   fi
 fi
 
