@@ -120,7 +120,7 @@ edit a mock's routes without touching its new parts.
   `GET|POST /mock/<id>/orders`, `GET|PUT|PATCH|DELETE /mock/<id>/orders/:id`,
   nested `GET|POST /mock/<id>/users/:userId/orders` — with json-server style
   filtering, sorting and paging (`?status=open&_sort=-createdAt&_page=2`,
-  `X-Total-Count`). Seed records are loaded on first use. Invalid fields answer
+  `X-Total-Count`). Seed records are written when the mock is saved. Invalid fields answer
   `400`, a taken unique value `409`, a limit `409` / `413`.
 - **Sign-in simulation.** `POST /auth/login`, `POST /auth/register` and
   `GET /auth/me` (paths configurable) issue and check JWTs signed with a
