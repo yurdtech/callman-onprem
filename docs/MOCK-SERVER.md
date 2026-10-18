@@ -9,9 +9,9 @@ everyone else.
 
 - Same image as the backend (`node dist/mock-server.js`), so there is nothing
   extra to pull.
-- Uses the same MongoDB and Redis as the backend. Mocks, their state, request
-  logs and limits live there, so the container holds nothing to back up and can
-  be scaled out.
+- Uses the same MongoDB and Redis as the backend. Mocks, their state and data,
+  request logs and limits live there, so the container holds nothing to back up
+  and can be scaled out.
 - Users still manage mocks through the API (desktop app, CLI, MCP). Only the
   public `/mock/*` traffic moves.
 
@@ -96,8 +96,8 @@ win. Scale with `mock.replicaCount` or `mock.hpa.enabled`. See
 
 ## Mock lifetime
 
-Mocks expire on their own, and their request logs go with them. **How long
-they live is set in the admin panel:** Mocks → **Mock lifetime** (2 days by
+Mocks expire on their own, and their request logs and data go with them.
+**How long they live is set in the admin panel:** Mocks → **Mock lifetime** (2 days by
 default, 10 or 20 days, or a custom 1–365 days).
 
 - Every new mock gets that lifetime, and the desktop app preselects it.
@@ -106,6 +106,102 @@ default, 10 or 20 days, or a custom 1–365 days).
   Mocks list (**Extend**). That needs `CALLMAN_DB_WRITE_ENABLED=true` on the
   admin panel.
 - The backend picks a change up within a minute.
+
+## Mock engine v2: data, sign-in, faults, sessions, imports
+
+Backend releases with **mock engine v2** let a mock do much more than answer
+fixed responses. It is the same engine the desktop app runs for local mocks.
+Mocks created before it keep working unchanged, and older desktop apps can still
+edit a mock's routes without touching its new parts.
+
+- **Resources and data.** A mock can define resources (say `users`, `orders`):
+  small tables with typed fields, unique fields and references between them.
+  Each resource answers CRUD endpoints under its base path —
+  `GET|POST /mock/<id>/orders`, `GET|PUT|PATCH|DELETE /mock/<id>/orders/:id`,
+  nested `GET|POST /mock/<id>/users/:userId/orders` — with json-server style
+  filtering, sorting and paging (`?status=open&_sort=-createdAt&_page=2`,
+  `X-Total-Count`). Seed records are loaded on first use. Invalid fields answer
+  `400`, a taken unique value `409`, a limit `409` / `413`.
+- **Sign-in simulation.** `POST /auth/login`, `POST /auth/register` and
+  `GET /auth/me` (paths configurable) issue and check JWTs signed with a
+  per-mock secret, so the app under test can log in against the mock and
+  routes can require a signed-in user or a role (`401` / `403`). Mock users
+  are test fixtures, not accounts: their passwords are stored hashed and never
+  returned. The mock's own access token (`X-Mock-Token`) is still checked
+  first.
+- **Faults.** Errors, delays, timeouts and dropped connections, on the whole
+  mock, a route or a resource endpoint — by probability, by call count ("fail
+  the first 3 calls") or as a sequence. Call counts are kept in Redis, so they
+  hold across mock-server replicas. See [behind a proxy](#faults-behind-a-proxy)
+  for what a caller actually receives.
+- **Test sessions.** A caller that sends `X-Mock-Session: <id>` gets its own
+  copy of the mock's data, seeded on first use, so parallel test runs never see
+  each other's writes. An unused session is dropped after
+  `MOCK_SESSION_IDLE_TTL_MINUTES`; more than `MOCK_MAX_SESSIONS_PER_MOCK`
+  active sessions answer `429` with `X-Mock-Limit-Reason: session-limit`.
+  `GET /mock/<id>/__callman/session` shows the caller's session and
+  `POST /mock/<id>/__callman/session/reset` resets it (its own only).
+  `/__callman` is a reserved path in every mock.
+- **Imports.** `POST /api/import/mocks` builds a mock — or merges into an
+  existing one — from an OpenAPI, Postman or Callman file, or from a collection
+  in the workspace. The server never fetches a URL: the desktop app, CLI or MCP
+  client reads the file and sends its content. This is an **API** endpoint,
+  not mock traffic.
+
+### Where the data lives
+
+In the same MongoDB, in two collections the backend owns:
+
+- `mockRecords` — one document per record, per namespace.
+- `mockNamespaces` — one per mock for its shared data, plus one per active
+  test session.
+
+Both carry a TTL on `expiresAt`, which always equals the mock's: the data lives
+exactly as long as its mock. Renewing or deleting a mock in the app, and
+**Extend**, **Force-expire** or deleting a user in the admin panel, move or
+remove its data with it. The pre-migration `mongodump` and your own backups
+include both collections like every other one. The admin panel's Mocks list
+shows how many resources and records each mock holds; it never shows the records
+themselves (they may contain personal test data).
+
+Mocks without resources never touch these collections. For the ones that do,
+every data query is bounded (`MOCK_DATA_QUERY_TIMEOUT_MS`) and so is the number
+of data operations per request (`MOCK_MAX_DATA_OPS_PER_REQUEST`). If MongoDB is
+unreachable, data endpoints answer `503 Mock data store unavailable` instead of
+a made-up success.
+
+### Faults behind a proxy
+
+A fault is simulated by the mock server itself, so whatever sits in front of it
+— your nginx, a Kubernetes Ingress, the OpenShift router — shapes what the
+caller finally sees:
+
+| Fault | What the mock server does | What a caller behind a proxy receives |
+|---|---|---|
+| `error` | Answers with the configured status and body | That response, unchanged |
+| `delay` | Answers after the configured delay (up to 60 s) | The response, late |
+| `timeout` | Holds the connection (up to 60 s), then answers `504` | `504` — the **proxy's own** `504`, earlier, if its read timeout is shorter than the hang |
+| `drop` | Closes the connection without any response | **`502 Bad Gateway`** from the proxy (called directly: a connection reset) |
+
+Keep the 120 s read timeout on the mock route (the nginx example above; the
+Helm chart sets it) so a configured hang reaches the caller as configured.
+Tests that assert on a dropped connection should expect a `502` when they go
+through the proxy.
+
+### Imports and the proxy body limit
+
+The import request carries the file as JSON, about 1.5× the file size. nginx
+rejects bodies over **1 MB** by default, so with the default
+`MOCK_MAX_IMPORT_BYTES` (2 MB) raise the limit for the **API's** host:
+
+- Compose / your own nginx: `client_max_body_size 4m;` in the API's `server`
+  block.
+- Helm with an nginx Ingress: `backend.ingress.annotations:
+  nginx.ingress.kubernetes.io/proxy-body-size: "4m"`. OpenShift Routes have no
+  body limit.
+
+A file over the limit answers `413 MOCK_IMPORT_TOO_LARGE` from Callman; a `413`
+page from the proxy itself means the proxy limit is the one to raise.
 
 ## Limits and protection
 
@@ -117,9 +213,19 @@ default, 10 or 20 days, or a custom 1–365 days).
 | Mocks per workspace | 20 | `MOCK_MAX_PER_WORKSPACE` |
 | Regex conditions (`matches`) | 50 ms per evaluation | `MOCK_REGEX_TIMEOUT_MS`. Patterns that can backtrack catastrophically are refused when saved; one that still times out is disabled for 10 minutes |
 | Request logs | newest 500 per mock | `MOCK_MAX_LOGS_PER_MOCK`, written in batches every second (`MOCK_LOG_FLUSH_INTERVAL_MS`) |
+| Resources per mock | 20 | `MOCK_MAX_RESOURCES_PER_MOCK` |
+| Records per resource / per namespace | 1 000 / 5 000 | `MOCK_MAX_RECORDS_PER_RESOURCE` / `MOCK_MAX_RECORDS_PER_NAMESPACE` — a namespace is the shared data or one test session |
+| Size of one record / of a mock's seed records | 16 KB / 512 KB | `MOCK_MAX_RECORD_BYTES` / `MOCK_MAX_SEED_BYTES` |
+| Active test sessions per mock | 20, dropped after 60 idle minutes | `MOCK_MAX_SESSIONS_PER_MOCK` / `MOCK_SESSION_IDLE_TTL_MINUTES` |
+| Data work per request | 25 operations, 2 s per query | `MOCK_MAX_DATA_OPS_PER_REQUEST` / `MOCK_DATA_QUERY_TIMEOUT_MS` |
+| Import file | 2 MB | `MOCK_MAX_IMPORT_BYTES` (see [the proxy body limit](#imports-and-the-proxy-body-limit)) |
+
+Compose: set them in `.env`. Helm: `mock.limits.*` (they go to every pod — the
+API checks definitions and imports against them too). Details for each:
+[ENVIRONMENT.md](ENVIRONMENT.md#mock-data-sessions-and-imports-mock-engine-v2).
 
 Rejected requests answer `429` with `X-Mock-Limit-Reason: ip-rate-limit`,
-`rate-limit` or `total-limit`.
+`rate-limit`, `total-limit` or `session-limit`.
 
 **Load-testing against a mock?** Raise `MOCK_DEFAULT_RATE_LIMIT_PER_SECOND`
 (and `MOCK_IP_RATE_LIMIT_PER_SECOND` if the load comes from one machine) on the
