@@ -1,0 +1,37 @@
+{{- if include "callman.mock.ingressOn" . }}
+# The mock server on the /mock path. Without mock.ingress.host it shares the
+# backend's host — two Ingress objects may name the same host and the
+# controller sends the longer prefix (/mock) here and everything else to the
+# API. With a host of its own it is a dedicated mock domain.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "callman.fullname" . }}-mock
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mock") | nindent 4 }}
+  annotations:
+    {{- include "callman.mockAnnotations" .Values.mock.ingress.annotations | nindent 4 }}
+spec:
+  {{- with (.Values.mock.ingress.className | default .Values.backend.ingress.className) }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ required "mock.ingress.host (or backend.ingress.host) is required for the mock Ingress" (include "callman.mock.host" .) | quote }}
+      http:
+        paths:
+          - path: {{ .Values.mock.ingress.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "callman.fullname" . }}-mock
+                port:
+                  name: http
+  {{- $tls := .Values.mock.ingress.tls }}
+  {{- if and (not $tls) (not .Values.mock.ingress.host) }}
+  {{- $tls = .Values.backend.ingress.tls }}
+  {{- end }}
+  {{- with $tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

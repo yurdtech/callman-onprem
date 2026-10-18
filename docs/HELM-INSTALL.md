@@ -148,6 +148,25 @@ kubectl -n callman run backup-shell --rm -it --image=mongo:7 \
 The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 `helm uninstall`.
 
+### Upgrading to chart 0.3.0
+
+- **Mock server (new, on by default).** `helm upgrade` adds a `<release>-mock`
+  Deployment and Service that serve the public `/mock/*` surface, so mock
+  traffic and load tests against mocks no longer share the API's pods. It needs
+  a backend image that ships `dist/mock-server.js` — use the app version this
+  chart release pins (do not pin `backend.image.tag` to an older release with
+  `mock.enabled=true`).
+  - With a backend Ingress, or an OpenShift Route **with a host**, the mock
+    Ingress/Route joins that host on `/mock`. Mock URLs do not change and the
+    API hands mock traffic over automatically (`MOCK_SERVE_ON_API=false`).
+  - For a mock domain of its own, set `mock.ingress.host` / `mock.route.host`.
+  - Without either, the mock pods run idle and the API keeps serving mocks.
+    The NOTES say so. Details: [MOCK-SERVER.md](MOCK-SERVER.md).
+- **Mock lifetime moves to the admin panel** (Mocks → Mock lifetime: 2 days
+  unless changed, 10 / 20 days or custom).
+- **Rate limiting counts in Redis everywhere.** The chart already pinned
+  `RATE_LIMIT_STORE=redis`, so there is nothing to change.
+
 ### Upgrading to chart 0.2.0 (app 1.0.5)
 
 Read this before running the upgrade; one item can stop the chart rendering.
@@ -316,9 +335,9 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `RATE_LIMIT_MAX` | `admin.rateLimitMax` |
 | `BULLMQ_WORKER_CONCURRENCY` | `worker.concurrency` |
 | `WORKER_HEALTH_PORT` | `worker.healthPort` |
-| `SHUTDOWN_TIMEOUT_MS` | `worker.shutdownTimeoutMs` (worker grace period derives from it); `uiRunner.drainTimeoutMs` for the ui-runner; `storage.drainTimeoutMs` for the gateway |
-| `NODE_OPTIONS` (`--max-old-space-size`) | `backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` / `storage.heapMb` |
-| `MONGODB_MAX_POOL_SIZE` / `MONGODB_MIN_POOL_SIZE` | `backend.mongoPool` / `worker.mongoPool` / `uiRunner.mongoPool` / `storage.mongoPool` |
+| `SHUTDOWN_TIMEOUT_MS` | `worker.shutdownTimeoutMs` (worker grace period derives from it); `uiRunner.drainTimeoutMs` for the ui-runner; `storage.drainTimeoutMs` for the gateway; `mock.drainTimeoutMs` for the mock server |
+| `NODE_OPTIONS` (`--max-old-space-size`) | `backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` / `storage.heapMb` / `mock.heapMb` |
+| `MONGODB_MAX_POOL_SIZE` / `MONGODB_MIN_POOL_SIZE` | `backend.mongoPool` / `worker.mongoPool` / `uiRunner.mongoPool` / `storage.mongoPool` / `mock.mongoPool` |
 | `RATE_LIMIT_STORE` | fixed `redis` (Redis is always present) |
 | `UV_THREADPOOL_SIZE` | fixed `8` |
 | `BULLMQ_LOCK_DURATION_MS` | fixed `120000` |
@@ -332,10 +351,13 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `METRICS_ENABLED` | `backend.metricsEnabled` |
 | `CLIENT_ORIGIN` | `backend.clientOrigin` |
 | `PUBLIC_API_BASE_URL` | `backend.publicApiBaseUrl` |
-| `MOCK_PUBLIC_BASE_URL` | `backend.mockPublicBaseUrl` |
+| `MOCK_PUBLIC_BASE_URL` | `mock.publicUrl` (legacy `backend.mockPublicBaseUrl`); derived from the mock Ingress/Route host when unset |
+| `MOCK_SERVE_ON_API` | derived: `false` when an Ingress/Route sends `/mock/*` to the mock pods |
+| `CALLMAN_MOCK_PORT` / `CALLMAN_MOCK_HEALTH_PORT` | `mock.port` / `mock.healthPort` |
+| `MOCK_IP_RATE_LIMIT_PER_SECOND` | `mock.ipRateLimitPerSecond` |
 | `SKIP_MIGRATION_BACKUP` | `migrate.backup.enabled: false` |
 | `MONGODB_BACKUP_DIR` | fixed `/backups` on the backups PVC |
-| any other [ENVIRONMENT.md](ENVIRONMENT.md) var | `backend.extraEnv` / `worker.extraEnv` / `uiRunner.extraEnv` / `storage.extraEnv` / `admin.extraEnv` |
+| any other [ENVIRONMENT.md](ENVIRONMENT.md) var | `backend.extraEnv` / `worker.extraEnv` / `uiRunner.extraEnv` / `storage.extraEnv` / `mock.extraEnv` / `admin.extraEnv` |
 
 ## 11. Troubleshooting quick hits
 

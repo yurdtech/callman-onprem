@@ -5,6 +5,7 @@ Components:
   worker       x{{ .Values.worker.replicaCount }}{{ if .Values.worker.hpa.enabled }} (HPA {{ .Values.worker.hpa.minReplicas }}-{{ .Values.worker.hpa.maxReplicas }}){{ end }}
   admin panel  {{ include "callman.image" (dict "root" $ "image" .Values.admin.image) }}
   ui-runner    {{ if .Values.uiRunner.enabled }}enabled{{ else }}disabled (uiRunner.enabled=true to opt in){{ end }}
+  mock server  {{ if .Values.mock.enabled }}x{{ .Values.mock.replicaCount }}{{ if .Values.mock.hpa.enabled }} (HPA {{ .Values.mock.hpa.minReplicas }}-{{ .Values.mock.hpa.maxReplicas }}){{ end }}{{ if include "callman.mock.routed" . }}, serves /mock/*{{ else }}, NOT routed — the API still serves /mock/*{{ end }}{{ else }}disabled (mock.enabled=true){{ end }}
   mongodb      {{ if .Values.mongo.enabled }}bundled{{ else }}external{{ end }}
   redis        {{ if .Values.redis.enabled }}bundled{{ else }}external{{ end }}
 
@@ -28,6 +29,17 @@ Components:
      Admin:    https://{{ .Values.admin.ingress.host }}
 {{- else }}
      kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "callman.fullname" . }}-admin 5100:5100
+{{- end }}
+
+{{- if .Values.mock.enabled }}
+     Mocks:    {{ include "callman.mock.publicUrl" . | default (.Values.backend.publicApiBaseUrl | default "<backend URL>") }}/mock/<mockId>/...
+{{- if not (include "callman.mock.routed" .) }}
+
+   The mock server runs but nothing routes /mock/* to it, so the API keeps
+   serving mocks itself. Give it an entrance — backend Ingress/Route with a
+   host (it joins on /mock), or mock.ingress / mock.route with a host of its
+   own — and the API hands mock traffic over on the next upgrade.
+{{- end }}
 {{- end }}
 
 3. First login: the ADMIN_BOOTSTRAP_EMAIL / ADMIN_BOOTSTRAP_PASSWORD account

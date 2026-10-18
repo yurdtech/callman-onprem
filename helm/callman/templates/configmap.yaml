@@ -1,6 +1,6 @@
 {{- include "callman.validateTopology" . -}}
 # Shared non-secret env for the backend family (backend, worker, migrate,
-# ui-runner, storage). Compose parity: one .env consumed by every service —
+# ui-runner, storage, mock). Compose parity: one .env consumed by every service —
 # unknown vars are ignored by each process's schema.
 apiVersion: v1
 kind: ConfigMap
@@ -50,9 +50,22 @@ data:
   {{- with .Values.backend.publicApiBaseUrl }}
   PUBLIC_API_BASE_URL: {{ . | quote }}
   {{- end }}
-  {{- with .Values.backend.mockPublicBaseUrl }}
+  {{- with (include "callman.mock.publicUrl" .) }}
+  # Where mocks are published (`<base>/mock/<id>`): mock.publicUrl, else the
+  # mock Ingress/Route's own host. Unset when mocks share the backend's host —
+  # the backend then uses PUBLIC_API_BASE_URL.
   MOCK_PUBLIC_BASE_URL: {{ . | quote }}
   {{- end }}
+  {{- if .Values.mock.enabled }}
+  CALLMAN_MOCK_PORT: {{ .Values.mock.port | quote }}
+  CALLMAN_MOCK_HEALTH_PORT: {{ .Values.mock.healthPort | quote }}
+  MOCK_IP_RATE_LIMIT_PER_SECOND: {{ .Values.mock.ipRateLimitPerSecond | quote }}
+  {{- end }}
+  # "false" once an Ingress/Route sends /mock/* to the mock pods: the API then
+  # answers stray /mock requests with a 307 to the mock server and never runs a
+  # mock itself. "true" (no route to the mock pods) keeps mocks working on the
+  # API as before.
+  MOCK_SERVE_ON_API: {{ ternary "false" "true" (eq (include "callman.mock.routed" .) "true") | quote }}
   {{- with .Values.backend.onpremCompanySlug }}
   ONPREM_COMPANY_SLUG: {{ . | quote }}
   {{- end }}

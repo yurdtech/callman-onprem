@@ -1,6 +1,6 @@
 {{- if .Values.serviceMonitor.enabled }}
 # Requires the Prometheus Operator CRDs. Scrapes /metrics on the backend and
-# worker (ui-runner and the storage gateway too when enabled). METRICS_ENABLED
+# worker (ui-runner, the storage gateway and the mock server too when enabled). METRICS_ENABLED
 # must stay true.
 # The admin panel's Service also exposes a port named `http` but serves no
 # /metrics, so the selector is pinned to the components that do.
@@ -21,7 +21,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/component
         operator: In
-        values: [backend, worker, ui-runner, storage]
+        values: [backend, worker, ui-runner, storage, mock]
   namespaceSelector:
     matchNames:
       - {{ .Release.Namespace }}

@@ -1,0 +1,26 @@
+{{- if include "callman.mock.routeOn" . }}
+# OpenShift Route for the mock server, path /mock. Without mock.route.host it
+# joins the backend Route's host (routes in one namespace may share a host
+# with different paths; the longer path wins), so mock URLs do not change.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "callman.fullname" . }}-mock
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mock") | nindent 4 }}
+  annotations:
+    {{- include "callman.mockAnnotations" .Values.mock.route.annotations | nindent 4 }}
+spec:
+  {{- with (include "callman.mock.host" .) }}
+  host: {{ . | quote }}
+  {{- end }}
+  path: {{ .Values.mock.ingress.path }}
+  to:
+    kind: Service
+    name: {{ include "callman.fullname" . }}-mock
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.mock.route.tls.termination }}
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

@@ -191,7 +191,7 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | `BCRYPT_ROUNDS` | `12` | Password hashing cost (10–14 typical). |
 | `SESSION_MAX_SESSIONS_PER_USER` | `5` | Concurrent sessions per user. |
 | `CACHE_TTL_SECONDS` | `3000` | Workspace/membership cache TTL (seconds). |
-| `RATE_LIMIT_STORE` | `mongo` | `mongo` or `redis` (redis needs Redis, which you have). |
+| `RATE_LIMIT_STORE` | `redis` | Leave unset — every limiter counts in Redis. `mongo` still works but is deprecated (a MongoDB write per throttled request) and warns at boot. |
 | `RATE_LIMIT_LOGIN_MAX_PER_EMAIL` | `5` | Failed logins per email before throttling. |
 | `RATE_LIMIT_LOGIN_WINDOW_MS` | `900000` | Login throttle window (ms, default 15 min). |
 | `MONGODB_MAX_POOL_SIZE` | `100` | Mongo connection pool max. |
@@ -234,7 +234,10 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | Variable | Default | Description |
 |---|---|---|
 | `PUBLIC_API_BASE_URL` | _(unset)_ | **Set this.** The absolute URL your users' desktops reach this backend on — scheme included, no trailing slash. See the warning below. |
-| `MOCK_PUBLIC_BASE_URL` | `http://localhost:4000` | Base URL embedded in generated Mock-API URLs — set to your public URL if you use Mock APIs. |
+| `MOCK_PUBLIC_BASE_URL` | _(unset → `PUBLIC_API_BASE_URL`)_ | Where mock APIs are published (`<base>/mock/<id>`): the mock server's own domain, or leave unset when `/mock/` on the API host is routed to it. See [MOCK-SERVER.md](MOCK-SERVER.md). |
+| `MOCK_SERVE_ON_API` | `true` | Set `false` once your proxy sends mock traffic to the mock server: the API then redirects `/mock/*` there and never runs a mock. |
+| `CALLMAN_MOCK_PORT` | `8082` | The mock server's port (published by compose). |
+| `MOCK_IP_RATE_LIMIT_PER_SECOND` | `300` | Per-IP flood fuse on the mock server, per process (`0` = off). |
 | `CLIENT_ORIGIN` | _(unset)_ | Comma-separated browser origins allowed by CORS. |
 
 > ⚠️ **`PUBLIC_API_BASE_URL` stopped being optional when desktop auto-update
