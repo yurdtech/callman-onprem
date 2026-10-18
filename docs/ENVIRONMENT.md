@@ -247,6 +247,33 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 > incoming request, and behind a reverse proxy that does not forward
 > `X-Forwarded-Proto` that yields `http://` — which the macOS updater refuses.
 
+### Mock data, sessions and imports (mock engine v2)
+
+Mocks can hold **resources** — a small database per mock with its own CRUD
+endpoints — plus test sessions (`X-Mock-Session`) and imports from OpenAPI /
+Postman files. What they do: [MOCK-SERVER.md](MOCK-SERVER.md#mock-engine-v2-data-sign-in-faults-sessions-imports).
+All optional; the defaults suit every install. Read by the API (definitions,
+imports) and by the mock server (traffic), so set them once in `.env` (Helm:
+`mock.limits.*`).
+
+| Variable | Default | Description |
+|---|---|---|
+| `MOCK_MAX_RESOURCES_PER_MOCK` | `20` | 1–50. Resources (data tables) per mock; above it `409 MOCK_RESOURCE_LIMIT_REACHED`. |
+| `MOCK_MAX_RECORDS_PER_RESOURCE` | `1000` | 1–100000. Records per resource in one namespace (the shared data, or one test session); above it `409`. |
+| `MOCK_MAX_RECORDS_PER_NAMESPACE` | `5000` | 1–500000. Records of all a mock's resources together, in one namespace. |
+| `MOCK_MAX_RECORD_BYTES` | `16384` | 256–1048576. One record's JSON; above it `413`. |
+| `MOCK_MAX_SEED_BYTES` | `524288` | 1 KB–16 MB. The seed records stored in a mock's definition, all resources together; above it `413 MOCK_SEED_TOO_LARGE`. |
+| `MOCK_MAX_SESSIONS_PER_MOCK` | `20` | 0–1000. Active test sessions per mock; above it `429` with `X-Mock-Limit-Reason: session-limit`. |
+| `MOCK_SESSION_IDLE_TTL_MINUTES` | `60` | 5–1440. An unused test session is dropped, with its records, after this. |
+| `MOCK_MAX_DATA_OPS_PER_REQUEST` | `25` | 5–200. Data operations one mock request may run (cascades and `_expand` included); above it `500`. |
+| `MOCK_DATA_QUERY_TIMEOUT_MS` | `2000` | 100–30000. MongoDB `maxTimeMS` of one data query. |
+| `MOCK_MAX_IMPORT_BYTES` | `2097152` (2 MB) | 1 KB–20 MB. The largest OpenAPI / Postman / Callman file `POST /api/import/mocks` accepts (`413 MOCK_IMPORT_TOO_LARGE` above it). The request carries the file as JSON, so your proxy's body limit for the API must be about 1.5× this (nginx defaults to 1 MB). |
+
+Storage: one MongoDB document per record (`mockRecords`) and per namespace
+(`mockNamespaces`). Both expire with their mock (TTL). Renewing or deleting a
+mock in the app, and **Extend** / **Force-expire** / deleting a user in the
+admin panel, move or remove its data too.
+
 ### Desktop auto-update
 
 Your administrator uploads the installers we deliver in the admin panel

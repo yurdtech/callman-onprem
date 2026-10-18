@@ -66,6 +66,31 @@ data:
   # mock itself. "true" (no route to the mock pods) keeps mocks working on the
   # API as before.
   MOCK_SERVE_ON_API: {{ ternary "false" "true" (eq (include "callman.mock.routed" .) "true") | quote }}
+  # Mock engine v2 limits (mock.limits). Rendered for every pod, mock.enabled or
+  # not: the API validates definitions/imports against them and serves /mock/*
+  # itself until the mock pods are routed. A key set to null is left out (the
+  # backend default applies) rather than rendered as "0". `int64` keeps large
+  # values out of Helm's float notation ("2.097152e+06").
+  {{- with .Values.mock.limits }}
+  {{- $envByKey := dict
+        "maxResourcesPerMock" "MOCK_MAX_RESOURCES_PER_MOCK"
+        "maxRecordsPerResource" "MOCK_MAX_RECORDS_PER_RESOURCE"
+        "maxRecordsPerNamespace" "MOCK_MAX_RECORDS_PER_NAMESPACE"
+        "maxRecordBytes" "MOCK_MAX_RECORD_BYTES"
+        "maxSeedBytes" "MOCK_MAX_SEED_BYTES"
+        "maxSessionsPerMock" "MOCK_MAX_SESSIONS_PER_MOCK"
+        "sessionIdleTtlMinutes" "MOCK_SESSION_IDLE_TTL_MINUTES"
+        "maxDataOpsPerRequest" "MOCK_MAX_DATA_OPS_PER_REQUEST"
+        "dataQueryTimeoutMs" "MOCK_DATA_QUERY_TIMEOUT_MS"
+        "maxImportBytes" "MOCK_MAX_IMPORT_BYTES" }}
+  {{- $limits := . }}
+  {{- range $key, $env := $envByKey }}
+  {{- $value := get $limits $key }}
+  {{- if not (or (kindIs "invalid" $value) (eq (toString $value) "")) }}
+  {{ $env }}: {{ $value | int64 | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
   {{- with .Values.backend.onpremCompanySlug }}
   ONPREM_COMPANY_SLUG: {{ . | quote }}
   {{- end }}

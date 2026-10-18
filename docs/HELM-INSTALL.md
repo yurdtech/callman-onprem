@@ -148,6 +148,31 @@ kubectl -n callman run backup-shell --rm -it --image=mongo:7 \
 The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 `helm uninstall`.
 
+### Upgrading to chart 0.4.0
+
+- **Mock engine v2.** Mocks gain resources with their own data, sign-in
+  simulation, faults, `X-Mock-Session` test sessions and imports
+  (`POST /api/import/mocks`) — see
+  [MOCK-SERVER.md](MOCK-SERVER.md#mock-engine-v2-data-sign-in-faults-sessions-imports).
+  This needs a **backend release with mock engine v2**: the chart's
+  `appVersion` (the default image tag) is set to one when this chart is
+  released, and `admin.image.tag` to an admin panel that moves and deletes mock
+  data with its mock. If you pin `backend.image.tag` yourself, pin a release
+  with mock engine v2 — an older backend simply ignores the new settings.
+- **New values `mock.limits.*`** (resources, records, sessions, imports). The
+  defaults suit every install; they are rendered into the shared ConfigMap
+  for every pod, because the API checks definitions and imports against them
+  and keeps serving `/mock/*` until the mock pods are routed. Setting one to
+  `null` leaves the backend default.
+- **Import size vs. your Ingress.** The nginx Ingress controller rejects
+  request bodies over 1 MB by default; the chart does not raise that for the
+  backend. To import mock files up to the default 2 MB, add
+  `nginx.ingress.kubernetes.io/proxy-body-size: "4m"` to
+  `backend.ingress.annotations`. OpenShift Routes have no body limit.
+- **New collections, no action.** Mock data lives in `mockRecords` and
+  `mockNamespaces` in the same MongoDB and expires with its mock. The migrate
+  Job creates their indexes.
+
 ### Upgrading to chart 0.3.0
 
 - **Mock server (new, on by default).** `helm upgrade` adds a `<release>-mock`
@@ -355,6 +380,12 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `MOCK_SERVE_ON_API` | derived: `false` when an Ingress/Route sends `/mock/*` to the mock pods |
 | `CALLMAN_MOCK_PORT` / `CALLMAN_MOCK_HEALTH_PORT` | `mock.port` / `mock.healthPort` |
 | `MOCK_IP_RATE_LIMIT_PER_SECOND` | `mock.ipRateLimitPerSecond` |
+| `MOCK_MAX_RESOURCES_PER_MOCK` | `mock.limits.maxResourcesPerMock` |
+| `MOCK_MAX_RECORDS_PER_RESOURCE` / `MOCK_MAX_RECORDS_PER_NAMESPACE` | `mock.limits.maxRecordsPerResource` / `mock.limits.maxRecordsPerNamespace` |
+| `MOCK_MAX_RECORD_BYTES` / `MOCK_MAX_SEED_BYTES` | `mock.limits.maxRecordBytes` / `mock.limits.maxSeedBytes` |
+| `MOCK_MAX_SESSIONS_PER_MOCK` / `MOCK_SESSION_IDLE_TTL_MINUTES` | `mock.limits.maxSessionsPerMock` / `mock.limits.sessionIdleTtlMinutes` |
+| `MOCK_MAX_DATA_OPS_PER_REQUEST` / `MOCK_DATA_QUERY_TIMEOUT_MS` | `mock.limits.maxDataOpsPerRequest` / `mock.limits.dataQueryTimeoutMs` |
+| `MOCK_MAX_IMPORT_BYTES` | `mock.limits.maxImportBytes` |
 | `SKIP_MIGRATION_BACKUP` | `migrate.backup.enabled: false` |
 | `MONGODB_BACKUP_DIR` | fixed `/backups` on the backups PVC |
 | any other [ENVIRONMENT.md](ENVIRONMENT.md) var | `backend.extraEnv` / `worker.extraEnv` / `uiRunner.extraEnv` / `storage.extraEnv` / `mock.extraEnv` / `admin.extraEnv` |

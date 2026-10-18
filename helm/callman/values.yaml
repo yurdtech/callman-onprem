@@ -355,6 +355,25 @@ mock:                               # the public /mock/* surface (mock-server.js
   # 0 = off). Every request counts, unknown mock ids included. Per-mock limits
   # are separate and cluster-wide.
   ipRateLimitPerSecond: 300
+  # Mock engine v2 limits: resources (a small database per mock), test
+  # sessions, imports. Rendered into the SHARED env (not only the mock pods):
+  # the API checks definitions and imports against them and still serves
+  # /mock/* until the mock pods are routed. Data lives in the mockRecords /
+  # mockNamespaces collections and expires with its mock. See docs/MOCK-SERVER.md.
+  limits:
+    maxResourcesPerMock: 20         # ≈ MOCK_MAX_RESOURCES_PER_MOCK (1-50)
+    maxRecordsPerResource: 1000     # ≈ MOCK_MAX_RECORDS_PER_RESOURCE, per namespace
+    maxRecordsPerNamespace: 5000    # ≈ MOCK_MAX_RECORDS_PER_NAMESPACE (shared data, or one session)
+    maxRecordBytes: 16384           # ≈ MOCK_MAX_RECORD_BYTES, one record's JSON
+    maxSeedBytes: 524288            # ≈ MOCK_MAX_SEED_BYTES, a mock's seed records together
+    maxSessionsPerMock: 20          # ≈ MOCK_MAX_SESSIONS_PER_MOCK, active X-Mock-Session ids
+    sessionIdleTtlMinutes: 60       # ≈ MOCK_SESSION_IDLE_TTL_MINUTES (5-1440)
+    maxDataOpsPerRequest: 25        # ≈ MOCK_MAX_DATA_OPS_PER_REQUEST (5-200)
+    dataQueryTimeoutMs: 2000        # ≈ MOCK_DATA_QUERY_TIMEOUT_MS, Mongo maxTimeMS per data query
+    # ≈ MOCK_MAX_IMPORT_BYTES (2 MB), the largest file POST /api/import/mocks
+    # accepts. Its request is up to ~1.5x the file: behind an nginx Ingress raise
+    # backend.ingress.annotations nginx.ingress.kubernetes.io/proxy-body-size.
+    maxImportBytes: 2097152
   # ≈ SHUTDOWN_TIMEOUT_MS for THIS pod. Mock responses may be delayed by up to
   # 60 s; terminationGracePeriodSeconds is derived (+15 s).
   drainTimeoutMs: 75000
