@@ -163,8 +163,8 @@ Queues: `scenario-runs` (`BULLMQ_QUEUE_NAME`) and `ui-test-runs`
 |---|---|---|---|
 | `app_errors_total` | counter | `code`, `status` | Requests that ended in the error handler, by error code and HTTP status. |
 | `auth_failures_total` | counter | `reason` | 401s: `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID`, `AUTH_SESSION_NOT_FOUND`. A burst = a broken client or a probe. |
-| `rate_limit_rejections_total` | counter | `limiter` | 429s by limiter (`login:email`, `oauth:start:ip`, …). |
-| `mock_requests_total` | counter | `status_class` | Traffic served by the public mock router. |
+| `rate_limit_rejections_total` | counter | `limiter` | 429s by limiter (`login:email`, `oauth:start:ip`, `mock:ip`, `mock:rate`, `mock:total`, …). |
+| `mock_requests_total` | counter | `status_class` | Traffic served by the public mock router — exported by the mock server (health port 9093) once it serves `/mock/*`, by the backend before that. |
 | `error_reports_submitted_total` | counter | `severity`, `category`, `delivered`, `deduped` | Desktop crash reports received (and whether Telegram accepted them). |
 
 Deliberately **not** exposed: a response-size metric (compression makes

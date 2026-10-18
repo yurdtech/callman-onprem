@@ -1,0 +1,25 @@
+{{- if and .Values.mock.enabled .Values.mock.hpa.enabled }}
+# CPU-based: mock traffic is short request/response work, and the pods are
+# stateless, so adding one is cheap. Delayed responses cost sockets, not CPU —
+# size mock.resources for the connection count you expect.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "callman.fullname" . }}-mock
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mock") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "callman.fullname" . }}-mock
+  minReplicas: {{ .Values.mock.hpa.minReplicas }}
+  maxReplicas: {{ .Values.mock.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.mock.hpa.targetCPUUtilizationPercentage }}
+{{- end }}

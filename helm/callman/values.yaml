@@ -129,7 +129,8 @@ backend:
   # guesses it from each request, and behind an ingress that does not forward
   # X-Forwarded-Proto that yields http:// — which the macOS updater refuses.
   publicApiBaseUrl: ""
-  mockPublicBaseUrl: ""             # ≈ MOCK_PUBLIC_BASE_URL
+  # ≈ MOCK_PUBLIC_BASE_URL. Legacy; prefer mock.publicUrl (same meaning).
+  mockPublicBaseUrl: ""
   # ── Desktop auto-update (see docs/DESKTOP-APP.md) ────────────────────────
   # ≈ ONPREM_COMPANY_SLUG. The SECOND half of the foreign-build check. The first
   # half is `publicApiBaseUrl` above: a build carries the API address it was made
@@ -328,6 +329,79 @@ storage:                            # ≈ COMPOSE_PROFILES storage
   pdb:
     enabled: false
     minAvailable: 1
+
+mock:                               # the public /mock/* surface (mock-server.js)
+  # User-defined mock APIs, served by pods of their own so mock traffic — load
+  # tests included — never shares an event loop with the API. Same image as the
+  # backend (needs a Callman release that ships dist/mock-server.js), uses the
+  # same MongoDB + Redis, stateless.
+  #
+  # Exposure follows the backend unless forced (see ingress/route below): with
+  # no host of its own the mock Ingress/Route joins the backend's host on the
+  # /mock path, so `helm upgrade` moves mock traffic to these pods without a
+  # DNS change and published mock URLs stay the same. Once that happens the
+  # API stops executing mocks (MOCK_SERVE_ON_API=false: it redirects stray
+  # /mock requests here). With neither an Ingress nor a Route the API keeps
+  # serving mocks as before.
+  enabled: true
+  replicaCount: 1                   # ignored while hpa.enabled
+  port: 8082                        # ≈ CALLMAN_MOCK_PORT
+  healthPort: 9093                  # ≈ CALLMAN_MOCK_HEALTH_PORT
+  # ≈ MOCK_PUBLIC_BASE_URL — the address users call mocks on, no trailing slash,
+  # no /mock path. "" = derived: the mock Ingress/Route's own host, or the
+  # backend's public URL when they share a host.
+  publicUrl: ""
+  # Per-pod, per-IP flood fuse in requests/second (≈ MOCK_IP_RATE_LIMIT_PER_SECOND,
+  # 0 = off). Every request counts, unknown mock ids included. Per-mock limits
+  # are separate and cluster-wide.
+  ipRateLimitPerSecond: 300
+  # ≈ SHUTDOWN_TIMEOUT_MS for THIS pod. Mock responses may be delayed by up to
+  # 60 s; terminationGracePeriodSeconds is derived (+15 s).
+  drainTimeoutMs: 75000
+  heapMb: 384
+  mongoPool:
+    max: 10
+    min: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 512Mi
+  # Any other backend env var from docs/ENVIRONMENT.md (string values), e.g.
+  # MOCK_DEFAULT_RATE_LIMIT_PER_SECOND for load tests against mocks.
+  extraEnv: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  pdb:
+    enabled: false
+    minAvailable: 1
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  ingress:
+    enabled: ""                     # "" = same as backend.ingress.enabled; true/false forces
+    className: ""                   # "" = backend.ingress.className
+    host: ""                        # "" = backend.ingress.host (path split); set for a mock domain
+    path: /mock                     # the mock URLs' path — keep it
+    # Timeouts (120 s, delays go to 60 s) and a 2 MB body limit are set for you;
+    # anything here overrides them.
+    annotations: {}
+    tls: []                         # "" host → the backend's tls list is reused
+  route:                            # OpenShift; mutually exclusive with ingress
+    # "" = same as backend.route.enabled, but only when a host is known
+    # (mock.route.host or backend.route.host): OpenShift generates a different
+    # host per Route, so the /mock path cannot join an unnamed backend host.
+    enabled: ""
+    host: ""                        # "" = backend.route.host; set for a mock domain
+    # `haproxy.router.openshift.io/timeout: 120s` is set for you; override here.
+    annotations: {}
+    tls:
+      termination: edge             # edge | reencrypt | passthrough
 
 admin:
   image:

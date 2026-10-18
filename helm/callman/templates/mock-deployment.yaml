@@ -1,0 +1,103 @@
+{{- if .Values.mock.enabled }}
+# The public /mock/* surface (user-defined mock APIs) in pods of its own, so
+# mock traffic — load tests included — never shares an event loop with the API.
+# Stateless: mock documents, state, request logs and limits live in the shared
+# MongoDB/Redis, so it scales freely (mock.replicaCount / mock.hpa).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "callman.fullname" . }}-mock
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mock") | nindent 4 }}
+spec:
+  {{- if not .Values.mock.hpa.enabled }}
+  replicas: {{ .Values.mock.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "mock") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "mock") | nindent 8 }}
+      annotations:
+        # Roll the pods when the shared env changes (MOCK_PUBLIC_BASE_URL etc.).
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.mock.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      # In-flight mock responses may be deliberately delayed (up to 60 s);
+      # give them time to finish on a rollout.
+      terminationGracePeriodSeconds: {{ add (div (int .Values.mock.drainTimeoutMs) 1000) 15 }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: mock
+          # Same image as the backend, different command.
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
+          # `args`, not `command`: the image's ENTRYPOINT (tini) stays PID 1.
+          args: ["node", "dist/mock-server.js"]
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.mock.port }}
+            - name: health
+              containerPort: {{ .Values.mock.healthPort }}
+          {{- include "callman.sharedEnvFrom" . | nindent 10 }}
+          env:
+            # Container-level env wins over the shared ConfigMap's
+            # SHUTDOWN_TIMEOUT_MS (which is sized for scenario runs).
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: {{ .Values.mock.drainTimeoutMs | quote }}
+            - name: NODE_OPTIONS
+              value: {{ printf "--max-old-space-size=%d" (int .Values.mock.heapMb) | quote }}
+            - name: MONGODB_MAX_POOL_SIZE
+              value: {{ .Values.mock.mongoPool.max | quote }}
+            - name: MONGODB_MIN_POOL_SIZE
+              value: {{ .Values.mock.mongoPool.min | quote }}
+            {{- with .Values.mock.extraEnv }}
+            {{- include "callman.extraEnv" . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.mock.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "callman.certsMount" . | nindent 12 }}
+      volumes:
+        {{- include "callman.certsVolume" . | nindent 8 }}
+      {{- with .Values.mock.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mock.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mock.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

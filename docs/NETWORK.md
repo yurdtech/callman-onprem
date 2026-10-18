@@ -11,6 +11,7 @@ closed.
 | `8080` (`CALLMAN_PORT`) | Backend API | Desktops, the `callme` CLI, `callman-mcp`, CI agents | Put it behind your TLS proxy (443). Plain HTTP is published on all interfaces by default; bind or firewall it. |
 | `5100` (`CALLMAN_ADMIN_PORT`) | Admin panel | Admin workstations | Restrict to an admin segment or VPN. The Swagger page (`/admin/docs`) is off in production unless `ADMIN_API_DOCS_ENABLED=true`. |
 | `8081` (`CALLMAN_STORAGE_PORT`) | Storage gateway | Desktops | Only with the `storage` profile. |
+| `8082` (`CALLMAN_MOCK_PORT`) | Mock server (`/mock/*`) | Applications under test, CI, load generators — anything that calls a user's mock API | Public by design: mocks are called anonymously. Put it behind your proxy as its own domain or as `/mock/` on the API host ([MOCK-SERVER.md](MOCK-SERVER.md)). |
 
 Keep these paths **off the user-facing proxy**: `/ops/*` and `/metrics` (no
 authentication; `/ops/license` returns the licensee's name and seat counts) and

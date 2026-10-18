@@ -1,0 +1,19 @@
+{{- if .Values.mock.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "callman.fullname" . }}-mock
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "mock") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.mock.port }}
+      targetPort: http
+    - name: health
+      port: {{ .Values.mock.healthPort }}
+      targetPort: health
+  selector:
+    {{- include "callman.selectorLabels" (dict "root" $ "component" "mock") | nindent 4 }}
+{{- end }}

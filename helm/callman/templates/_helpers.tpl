@@ -283,6 +283,14 @@ bad values file fails to render with an actionable message.
 {{- fail "worker.mountBackups with worker.replicaCount > 1 requires backup.persistence.accessModes to include ReadWriteMany" -}}
 {{- end -}}
 {{- end -}}
+{{- if .Values.mock.enabled -}}
+{{- if and (include "callman.mock.ingressOn" .) (include "callman.mock.routeOn" .) -}}
+{{- fail "the mock server cannot have both an Ingress and a Route: set mock.ingress.enabled or mock.route.enabled to false (Ingress for vanilla k8s, Route for OpenShift)" -}}
+{{- end -}}
+{{- if and (eq (toString .Values.mock.route.enabled) "true") (not (include "callman.mock.host" .)) (not .Values.mock.publicUrl) (not .Values.backend.mockPublicBaseUrl) -}}
+{{- fail "mock.route.enabled without a host: set mock.route.host (or backend.route.host to share it), or mock.publicUrl to the generated route host — Callman embeds it in every mock URL" -}}
+{{- end -}}
+{{- end -}}
 {{- if .Values.storage.enabled -}}
 {{- if and .Values.storage.ingress.enabled .Values.storage.route.enabled -}}
 {{- fail "storage.ingress.enabled and storage.route.enabled are mutually exclusive (Ingress for vanilla k8s, Route for OpenShift)" -}}
@@ -384,4 +392,94 @@ HAProxy keys costs nothing.
 {{- $_ := set $defaults "nginx.ingress.kubernetes.io/proxy-request-buffering" "off" -}}
 {{- end -}}
 {{- toYaml (merge (deepCopy (default (dict) .annotations)) $defaults) -}}
+{{- end -}}
+
+{{/*
+Mock server exposure. The public /mock/* surface (mock.*) follows the backend's
+exposure unless forced: mock.ingress.enabled / mock.route.enabled are
+"" (auto — same as the backend), true or false.
+
+With no host of its own the mock Ingress/Route takes the backend's host and
+claims only the /mock path, so `helm upgrade` moves mock traffic to the mock
+pods with no DNS change and the published mock URLs stay the same. Give it a
+host to serve mocks from a domain of their own.
+
+  callman.mock.ingressOn  "true" | ""
+  callman.mock.routeOn    "true" | ""
+  callman.mock.routed     "true" when an Ingress/Route sends /mock/* to the mock pods
+  callman.mock.host       the host that Ingress/Route answers on ("" = generated)
+  callman.mock.publicUrl  MOCK_PUBLIC_BASE_URL to render ("" = backend falls back
+                          to PUBLIC_API_BASE_URL)
+*/}}
+{{- define "callman.mock.ingressOn" -}}
+{{- if .Values.mock.enabled -}}
+{{- $v := toString .Values.mock.ingress.enabled -}}
+{{- if eq $v "true" -}}
+true
+{{- else if and (eq $v "") .Values.backend.ingress.enabled -}}
+true
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "callman.mock.routeOn" -}}
+{{- if .Values.mock.enabled -}}
+{{- $v := toString .Values.mock.route.enabled -}}
+{{- if eq $v "true" -}}
+true
+{{- else if and (eq $v "") .Values.backend.route.enabled (or .Values.mock.route.host .Values.backend.route.host) -}}
+{{/* Auto mode needs a known host: OpenShift generates a DIFFERENT host per
+     Route, so without one the /mock path cannot join the backend's host. */}}
+true
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "callman.mock.routed" -}}
+{{- if or (include "callman.mock.ingressOn" .) (include "callman.mock.routeOn" .) -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "callman.mock.host" -}}
+{{- if include "callman.mock.ingressOn" . -}}
+{{- .Values.mock.ingress.host | default .Values.backend.ingress.host -}}
+{{- else if include "callman.mock.routeOn" . -}}
+{{- .Values.mock.route.host | default .Values.backend.route.host -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "callman.mock.publicUrl" -}}
+{{- if .Values.mock.publicUrl -}}
+{{- .Values.mock.publicUrl | trimSuffix "/" -}}
+{{- else if .Values.backend.mockPublicBaseUrl -}}
+{{- .Values.backend.mockPublicBaseUrl | trimSuffix "/" -}}
+{{- else if include "callman.mock.routed" . -}}
+{{- $ownHost := ternary .Values.mock.ingress.host .Values.mock.route.host (eq (include "callman.mock.ingressOn" .) "true") -}}
+{{- $host := include "callman.mock.host" . -}}
+{{- if and (not $ownHost) .Values.backend.publicApiBaseUrl -}}
+{{/* Shared host: the backend already knows its public URL. */}}
+{{- else if $host -}}
+{{- $tls := true -}}
+{{- if include "callman.mock.ingressOn" . -}}
+{{- $tls = or .Values.mock.ingress.tls (and (not $ownHost) .Values.backend.ingress.tls) -}}
+{{- end -}}
+{{- printf "%s://%s" (ternary "https" "http" (not (empty $tls))) $host -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Ingress/Route annotations for the mock surface, merged under the operator's
+(theirs win). A mock may delay its answer by up to 60 s, past both the nginx
+(60 s) and the OpenShift router (30 s) defaults; request bodies go up to
+MOCK_MAX_REQUEST_BODY_BYTES (1 MB), the nginx default exactly, so allow 2 MB.
+*/}}
+{{- define "callman.mockAnnotations" -}}
+{{- $defaults := dict
+      "nginx.ingress.kubernetes.io/proxy-read-timeout" "120"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout" "120"
+      "nginx.ingress.kubernetes.io/proxy-body-size" "2m"
+      "haproxy.router.openshift.io/timeout" "120s" -}}
+{{- toYaml (merge (deepCopy (default (dict) .)) $defaults) -}}
 {{- end -}}

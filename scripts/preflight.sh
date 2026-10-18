@@ -444,7 +444,7 @@ port_in_use() {
   (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1
 }
 
-port_checks=("CALLMAN_PORT:8080:backend API" "CALLMAN_ADMIN_PORT:5100:admin panel")
+port_checks=("CALLMAN_PORT:8080:backend API" "CALLMAN_ADMIN_PORT:5100:admin panel" "CALLMAN_MOCK_PORT:8082:mock server")
 if [[ ",$profiles," == *",storage,"* ]]; then
   port_checks+=("CALLMAN_STORAGE_PORT:8081:storage gateway")
 fi
@@ -460,6 +460,19 @@ for pair in "${port_checks[@]}"; do
     ok "port $p free for the $label"
   fi
 done
+
+# The mock server only takes mock traffic over once the proxy routes /mock/*
+# to it AND the API is told so; flipping the flag first would 503 every mock.
+if [[ "$(env_get MOCK_SERVE_ON_API | tr '[:upper:]' '[:lower:]')" == "false" ]]; then
+  if [[ -z "$(env_get MOCK_PUBLIC_BASE_URL)" && -z "$(env_get PUBLIC_API_BASE_URL)" ]]; then
+    warn "MOCK_SERVE_ON_API=false but neither MOCK_PUBLIC_BASE_URL nor PUBLIC_API_BASE_URL is set"
+    info "Mock URLs would point at localhost. Set MOCK_PUBLIC_BASE_URL to the mock server's address (docs/MOCK-SERVER.md)."
+  else
+    ok "mock traffic handed to the mock server (MOCK_SERVE_ON_API=false) — make sure your proxy routes it there"
+  fi
+else
+  info "mocks are still served by the API (MOCK_SERVE_ON_API unset/true) — see docs/MOCK-SERVER.md to hand them to the mock server"
+fi
 
 # ══════════════════════════════════════════════════════════════════════
 head_ "6. Optional integrations"
