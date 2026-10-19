@@ -7,8 +7,8 @@ configured. Mocks are called by applications under test, by CI, and often by
 pod of its own, so a busy or misbehaving mock cannot slow the Callman API for
 everyone else.
 
-- Same image as the backend (`node dist/mock-server.js`), so there is nothing
-  extra to pull.
+- Same image as the backend (`node dist/mock-server.js`, backend 1.0.6 and
+  later), so there is nothing extra to pull.
 - Uses the same MongoDB and Redis as the backend. Mocks, their state and data,
   request logs and limits live there, so the container holds nothing to back up
   and can be scaled out.
@@ -109,8 +109,8 @@ default, 10 or 20 days, or a custom 1–365 days).
 
 ## Mock engine v2: data, sign-in, faults, sessions, imports
 
-Backend releases with **mock engine v2** let a mock do much more than answer
-fixed responses. It is the same engine the desktop app runs for local mocks.
+Backend releases with **mock engine v2** (1.0.6 and later) let a mock do much
+more than answer fixed responses. It is the same engine the desktop app runs for local mocks.
 Mocks created before it keep working unchanged, and older desktop apps can still
 edit a mock's routes without touching its new parts.
 

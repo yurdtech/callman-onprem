@@ -10,6 +10,10 @@ By default the stack is **all-in-one** — it brings its own MongoDB and Redis, 
 one command gives you a working install. You can point it at your company's
 existing databases instead.
 
+This documentation describes Callman on-prem 1.0.6 — backend, admin panel and
+UI-test runner 1.0.6, Helm chart 0.4.0, desktop 2.0.14, CLI (`callme-cli`)
+1.11.0, MCP (`callman-mcp`) 0.10.0.
+
 ---
 
 ## Choose your deployment
@@ -176,6 +180,7 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/AUTH_SETUP.md`](docs/AUTH_SETUP.md) | How people sign in — email + password, or your corporate LDAP / Active Directory (configured in the admin panel) |
 | [`docs/UI-RUNNER.md`](docs/UI-RUNNER.md) | Optional UI-test runner: scheduled web UI tests in a headless browser |
 | [`docs/STORAGE.md`](docs/STORAGE.md) | Where Callman keeps large files: connect your own S3 / MinIO / FileNet, and the optional storage gateway |
+| [`docs/DATABASE-CONNECTIONS.md`](docs/DATABASE-CONNECTIONS.md) | Test databases (Oracle, PostgreSQL, MySQL, SQL Server, MongoDB): what connects from where — workstations and the cluster — the ports to open, the Oracle 11g client, company CA certificates, and what each connection-test message means |
 | [`docs/MOCK-SERVER.md`](docs/MOCK-SERVER.md) | The mock server: routing `/mock/*` to its own container/pod, mock lifetime, mock engine v2 (resources and data, sign-in simulation, faults, test sessions, imports), limits for load tests |
 | [`docs/APP-BUILDS.md`](docs/APP-BUILDS.md) | Mobile app builds: publish Android/iOS builds from CI with `callme build publish`, testers install them on an emulator/simulator in one click |
 | [`docs/DESKTOP-APP.md`](docs/DESKTOP-APP.md) | Getting a new desktop version to your users: upload it once in the admin panel and every desktop updates itself |
@@ -209,6 +214,9 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
   your own S3 / MinIO / FileNet in the admin panel under **Storage**. Same image
   as the backend, enabled with one `.env` line — see
   [docs/STORAGE.md](docs/STORAGE.md).
+- **mock** — answers your users' mock APIs (`/mock/*`) from a container of its
+  own, so mock traffic never slows the API — see
+  [docs/MOCK-SERVER.md](docs/MOCK-SERVER.md).
 - **mongo / redis** — the bundled data stores, unless you brought your own.
 
 ---
@@ -222,7 +230,7 @@ and has its own login, independent of the backend's. By default it can only
 
 Configure it in `.env` (already in `.env.example`):
 
-- `CALLMAN_ADMIN_VERSION` — the admin image version we tell you (e.g. `0.1.0`).
+- `CALLMAN_ADMIN_VERSION` — the admin image version we tell you (e.g. `1.0.6`).
 - `CALLMAN_ADMIN_PORT` — port to reach it on (default `5100`).
 - `ADMIN_JWT_SECRET`, `ADMIN_JWT_REFRESH_SECRET` — each `openssl rand -hex 32`
   (separate from the backend secrets).
