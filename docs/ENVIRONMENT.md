@@ -128,7 +128,7 @@ default. Full guide: **[EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md)**.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `CALLMAN_PORT` | optional | `8080` | The port the API listens on **and** is published on. Browse `http://<host>:<CALLMAN_PORT>`. |
-| `CALLMAN_EDITION` | optional | `onprem` | Keep `onprem`. Shown on `/version`. |
+| `CALLMAN_EDITION` | optional | `onprem` | Keep `onprem`. `docker-compose.yml` falls back to it when the line is missing (the image's own default is `cloud`); any other value turns off licensing and the on-prem migrations and stops the storage gateway, so `preflight.sh` refuses it. Shown on `/version`. |
 | `NODE_ENV` | optional | `production` | Keep `production`. |
 
 ---
