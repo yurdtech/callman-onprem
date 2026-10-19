@@ -249,7 +249,19 @@ runs at `worker.concurrency: 20` by default; raise it together with
 `worker.heapMb` and the memory limit. `worker.shutdownTimeoutMs` (120 s) and
 `uiRunner.drainTimeoutMs` (120 s; up to 900000 with backend ≥ 1.1) are the
 rollout drain budgets — the pods' `terminationGracePeriodSeconds` derive from
-them.
+them. The backend pods read the same shared `SHUTDOWN_TIMEOUT_MS` as the worker,
+so their grace period is at least `worker.shutdownTimeoutMs` + 15 s;
+`backend.terminationGracePeriodSeconds` (45) only acts as a floor.
+
+Every app Deployment carries `checksum/config` (and, when the chart renders the
+Secret, `checksum/secret`) pod annotations, so a `helm upgrade` that changes a
+value or an inline secret rolls the pods onto it. With `secrets.existingSecret`
+the chart cannot see the Secret's content: after rotating a key there, run
+`kubectl -n callman rollout restart deployment`.
+
+The bundled MongoDB and Redis request `100m`/`256Mi` and `50m`/`64Mi`
+(`mongo.resources`, `redis.resources`) and set no limits; size the requests for
+your data, or set them to `null` to drop them.
 
 ### Storage gateway
 

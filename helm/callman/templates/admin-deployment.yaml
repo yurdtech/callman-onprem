@@ -18,10 +18,11 @@ spec:
     metadata:
       labels:
         {{- include "callman.selectorLabels" (dict "root" $ "component" "admin") | nindent 8 }}
-      {{- with .Values.admin.podAnnotations }}
       annotations:
+        {{- include "callman.checksumAnnotations" (dict "root" $ "configmap" "/admin-configmap.yaml") | nindent 8 }}
+        {{- with .Values.admin.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       serviceAccountName: {{ include "callman.serviceAccountName" . }}
       terminationGracePeriodSeconds: {{ .Values.admin.terminationGracePeriodSeconds }}

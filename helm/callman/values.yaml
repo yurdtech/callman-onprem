@@ -62,7 +62,13 @@ mongo:
   persistence:
     size: 20Gi
     storageClass: ""
-  resources: {}
+  # Requests only (no limits), so the scheduler reserves room for the database
+  # instead of packing it onto a full node. Override freely; `resources: null`
+  # drops them.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
   # UID overrides. Defaults: OpenShift — unset (SCC assigns); vanilla k8s —
   # runAsUser/fsGroup 999 (the image's mongodb user).
   podSecurityContext: {}
@@ -84,7 +90,12 @@ redis:
   persistence:
     size: 5Gi
     storageClass: ""
-  resources: {}
+  # Requests only (no limits), so the scheduler reserves room for the queue
+  # store. Override freely; `resources: null` drops them.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
   podSecurityContext: {}
   nodeSelector: {}
   tolerations: []
@@ -147,6 +158,9 @@ backend:
   httpRequestTimeoutMs: "1800000"
   # Any other backend env var from docs/ENVIRONMENT.md (string values).
   extraEnv: {}
+  # A FLOOR: the chart raises it to the API's drain budget + 15 s (the shared
+  # SHUTDOWN_TIMEOUT_MS = worker.shutdownTimeoutMs, or extraEnv.SHUTDOWN_TIMEOUT_MS),
+  # so a rollout never SIGKILLs requests the process is still allowed to finish.
   terminationGracePeriodSeconds: 45
   podAnnotations: {}
   nodeSelector: {}
