@@ -185,6 +185,7 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/APP-BUILDS.md`](docs/APP-BUILDS.md) | Mobile app builds: publish Android/iOS builds from CI with `callme build publish`, testers install them on an emulator/simulator in one click |
 | [`docs/DESKTOP-APP.md`](docs/DESKTOP-APP.md) | Getting a new desktop version to your users: upload it once in the admin panel and every desktop updates itself |
 | [`docs/SCALING.md`](docs/SCALING.md) | Watch the job backlog and add worker containers under load |
+| [`docs/LOAD-LAB.md`](docs/LOAD-LAB.md) | Load Testing Lab: fire N × scenario runs at once and read the report |
 | [`docs/MONITORING.md`](docs/MONITORING.md) | DevOps monitoring: Prometheus `/metrics` catalog, the `/ops/*` JSON diagnostics API, log levels and rotation |
 | [`docs/NETWORK.md`](docs/NETWORK.md) | Ports, firewall rules and every optional feature that reaches the internet |
 | [`docs/PILOT-QUICKSTART.md`](docs/PILOT-QUICKSTART.md) | From a running server to a first approved, scheduled and CI-triggered scenario in about an hour |

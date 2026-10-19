@@ -44,6 +44,10 @@ spec:
               value: {{ .Values.worker.mongoPool.max | quote }}
             - name: MONGODB_MIN_POOL_SIZE
               value: {{ .Values.worker.mongoPool.min | quote }}
+            # Which queues this pod consumes: scenario runs always; lab shards
+            # unless a dedicated loadLabWorker deployment takes them.
+            - name: WORKER_QUEUES
+              value: {{ ternary "scenarios,load-lab" "scenarios" (and .Values.loadLab.enabled .Values.loadLab.onRegularWorkers) | quote }}
             {{- with .Values.worker.extraEnv }}
             {{- include "callman.extraEnv" . | nindent 12 }}
             {{- end }}

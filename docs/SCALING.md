@@ -35,6 +35,14 @@ run --timeout` (default 30 min) is how long it will wait.
 Start by raising concurrency; reach for more workers when a single container is
 saturated.
 
+## Load Testing Lab
+
+To measure how many scenario runs the deployment (and the systems behind it)
+take **at the same moment**, use the admin panel's *Load Testing Lab*: it
+fires A × 100, B × 200, … runs at one instant across the workers and reports
+the result. Sizing, the dedicated `loadLabWorker` (Helm) / `load-lab` profile
+(Compose) and how to read the report: [LOAD-LAB.md](LOAD-LAB.md).
+
 ## Scaling the UI-test runner (profile `ui-runner`)
 
 The `ui-runner` service executes web UI tests in headless Chromium — a very

@@ -216,6 +216,56 @@ worker:
     targetCPUUtilizationPercentage: 75
     targetWaitingJobsPerReplica: 10
 
+# Load Testing Lab (admin panel → "Load Testing Lab"): fire N × scenario runs
+# at the same instant across the worker pods and report the result. Labs run
+# on every worker that consumes the load-lab queues — by default the regular
+# `worker` pods. Enable `loadLabWorker` to give labs their own pods so a
+# 700-run burst never competes with production schedules / CI runs.
+loadLab:
+  enabled: true                     # ≈ LOAD_LAB_ENABLED (API + lab consumers)
+  maxTotalRuns: 2000                # ≈ LOAD_LAB_MAX_TOTAL_RUNS — largest lab
+  # ≈ LOAD_LAB_MAX_RUNS_PER_POD — runs one pod fires at once. Burst mode
+  # refuses a lab larger than (lab pods × this). A typical API/DB scenario
+  # holds ~2–8 MB of heap while running: 150 fits the 1 GiB worker heap.
+  maxRunsPerPod: 150
+  armTimeoutMs: 60000               # ≈ LOAD_LAB_ARM_TIMEOUT_MS
+  startLeadMs: 3000                 # ≈ LOAD_LAB_START_LEAD_MS
+  samplesPerGroup: 3                # ≈ LOAD_LAB_SAMPLES_PER_GROUP
+  # The regular worker pods also take lab shards (WORKER_QUEUES includes
+  # load-lab). Set false together with loadLabWorker.enabled=true to keep
+  # labs off the production workers entirely.
+  onRegularWorkers: true
+
+# Dedicated load-lab pods (same backend image, WORKER_QUEUES=load-lab). Scale
+# replicaCount to the capacity a lab needs before it starts:
+#   pods = ceil(total runs / loadLab.maxRunsPerPod)  (perPod below overrides)
+loadLabWorker:
+  enabled: false
+  replicaCount: 2
+  healthPort: 9092
+  shutdownTimeoutMs: 120000
+  # Overrides loadLab.maxRunsPerPod for these pods ("" = inherit).
+  maxRunsPerPod: ""
+  heapMb: 2048
+  # libuv thread pool. Oracle Thick mode (11g targets) runs EVERY Oracle call
+  # on it, so it caps the Oracle calls in flight per pod — raise it with the
+  # burst size (DNS lookups of HTTP steps share it too).
+  uvThreadpoolSize: 32
+  mongoPool:
+    max: 20
+    min: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 3Gi
+  extraEnv: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
 uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
   enabled: false
   image:

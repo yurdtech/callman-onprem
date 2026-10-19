@@ -191,6 +191,39 @@ services:
       retries: 5
       start_period: 30s
 
+  # Dedicated Load Testing Lab workers (profile `load-lab`). Without this
+  # profile the regular `worker` replicas run lab shards too (WORKER_QUEUES
+  # default "scenarios,load-lab"). With it, set WORKER_QUEUES=scenarios in .env
+  # so labs stay off the production workers, then size the lab fleet:
+  #   COMPOSE_PROFILES=load-lab docker compose up -d --scale load-lab-worker=N
+  # N = ceil(total runs / LOAD_LAB_MAX_RUNS_PER_POD). See docs/LOAD-LAB.md.
+  load-lab-worker:
+    <<: *app
+    profiles: ["load-lab"]
+    command: ["node", "dist/worker.js"]
+    init: true
+    environment:
+      <<: *db-env
+      WORKER_QUEUES: load-lab
+      NODE_OPTIONS: ${LOAD_LAB_WORKER_NODE_OPTIONS:---max-old-space-size=2048}
+      # Oracle Thick mode (11g) runs every Oracle call on the libuv pool, so it
+      # caps the Oracle calls in flight per container — raise with the burst.
+      UV_THREADPOOL_SIZE: ${LOAD_LAB_WORKER_UV_THREADPOOL_SIZE:-32}
+      SHUTDOWN_TIMEOUT_MS: ${WORKER_SHUTDOWN_TIMEOUT_MS:-300000}
+    stop_grace_period: 330s
+    volumes:
+      - ./certs:/certs:ro
+    depends_on:
+      <<: *db-depends
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # Mock server — the public /mock/* surface (user-defined mock APIs) in a
   # container of its own, so mock traffic and load tests against mocks never
   # share the API's event loop. Always on; same image as backend/worker,

@@ -34,6 +34,13 @@ data:
   # error-report rate limiters default to Mongo buckets otherwise, which is
   # two extra Mongo round-trips per login.
   RATE_LIMIT_STORE: redis
+  # Load Testing Lab (values: loadLab).
+  LOAD_LAB_ENABLED: {{ .Values.loadLab.enabled | quote }}
+  LOAD_LAB_MAX_TOTAL_RUNS: {{ .Values.loadLab.maxTotalRuns | int64 | quote }}
+  LOAD_LAB_MAX_RUNS_PER_POD: {{ .Values.loadLab.maxRunsPerPod | int64 | quote }}
+  LOAD_LAB_ARM_TIMEOUT_MS: {{ .Values.loadLab.armTimeoutMs | int64 | quote }}
+  LOAD_LAB_START_LEAD_MS: {{ .Values.loadLab.startLeadMs | int64 | quote }}
+  LOAD_LAB_SAMPLES_PER_GROUP: {{ .Values.loadLab.samplesPerGroup | int64 | quote }}
   # libuv thread pool (bcrypt, crypto, DNS, zlib). Node's default 4 is the
   # bottleneck during a login burst; 8 is safe at the pods' CPU requests.
   UV_THREADPOOL_SIZE: "8"
