@@ -196,7 +196,9 @@ fi
 # ══════════════════════════════════════════════════════════════════════
 head_ "4. Databases"
 
-profiles="$(env_get COMPOSE_PROFILES)"
+# Compose lets an exported COMPOSE_PROFILES override the one in .env, so judge
+# the same profile list compose will actually run.
+profiles="${COMPOSE_PROFILES:-$(env_get COMPOSE_PROFILES)}"
 bundled_mongo=0; bundled_redis=0
 [[ ",$profiles," == *",bundled-mongo,"* ]] && bundled_mongo=1
 [[ ",$profiles," == *",bundled-redis,"* ]] && bundled_redis=1
@@ -332,15 +334,23 @@ fi
 
 # ── Redis ──
 if [[ "$bundled_redis" -eq 1 ]]; then
+  redis_ok=1
   if env_defined REDIS_URL && [[ -n "$(env_get REDIS_URL)" ]]; then
     bad "REDIS_URL is set AND 'bundled-redis' is in COMPOSE_PROFILES"
     info "Pick one: remove bundled-redis from COMPOSE_PROFILES to use your own"
     info "Redis, or comment out REDIS_URL to use the bundled one."
-  elif [[ -z "$(env_get REDIS_PASSWORD)" ]]; then
-    bad "REDIS_PASSWORD is empty but the bundled Redis is enabled"
-  else
-    ok "Redis: bundled (we run it for you, already set to noeviction)"
+    redis_ok=0
   fi
+  # Checked on its own (not only when REDIS_URL is unset): the bundled Redis
+  # starts with `--requirepass "$REDIS_PASSWORD"` whatever the app tier uses,
+  # and an empty value leaves it with an empty password.
+  if [[ -z "$(env_get REDIS_PASSWORD)" ]]; then
+    bad "REDIS_PASSWORD is empty but the bundled Redis is enabled"
+    info "The bundled Redis would start with an empty password. Set a strong one"
+    info "(generate with:  openssl rand -hex 24)."
+    redis_ok=0
+  fi
+  [[ "$redis_ok" -eq 1 ]] && ok "Redis: bundled (we run it for you, already set to noeviction)"
 else
   redis_uri="$(env_get REDIS_URL)"
   if [[ -z "$redis_uri" ]]; then
