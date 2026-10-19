@@ -32,7 +32,8 @@ who published it.
   every build's download link.
 - Your reverse proxy routes `/storage/` to the gateway **with the large-body
   settings** from STORAGE.md — builds are 50–300 MB.
-- **callme-cli 1.8.0 or newer** on the CI runner (`npm i -g callme-cli`).
+- **callme-cli 1.8.0 or newer** on the CI runner (`npm i -g callme-cli`; the
+  current version is 1.11.0).
 - The desktop app on testers' machines; the **Builds** page appears only on
   on-prem deployments. Installing on an emulator/simulator needs the Android
   SDK (Android) or Xcode (iOS, macOS only) on that machine.

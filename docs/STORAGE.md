@@ -29,7 +29,7 @@ configured.
 
 ## Requirements
 
-- Callman backend **1.1.0 or newer** (`CALLMAN_VERSION`).
+- Callman backend **1.0.5 or newer** (`CALLMAN_VERSION`).
 - Somewhere to put the files — one of:
   - an **S3 bucket** (AWS, or any S3-compatible appliance: MinIO, Ceph RGW,
     NetApp StorageGRID, Dell ECS), with an access key that can read, write and

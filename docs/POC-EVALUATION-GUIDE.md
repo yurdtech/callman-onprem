@@ -5,8 +5,9 @@ how to exercise it, the evidence worth keeping, and the limits we know about —
 "Partial" is written down with its caveat, not discovered later. Setup first:
 [PILOT-QUICKSTART.md](PILOT-QUICKSTART.md); network and egress: [NETWORK.md](NETWORK.md).
 
-Versions this guide describes: backend and desktop with the "ABB readiness" changes,
-`callman-core` 1.38.0, `callme-cli` 1.9.1, `callman-mcp` 0.7.1. Older builds differ where noted.
+Versions this guide describes: Callman on-prem 1.0.6 — backend, admin panel and UI-test runner
+1.0.6, desktop 2.0.14, `callme-cli` 1.11.0, `callman-mcp` 0.10.0 (`callman-core` 1.40.0). Older
+builds differ where noted.
 
 ## Admin panel (users, groups, roles, tokens, workspaces)
 - **Run:** create a group, add users, flag an approver; log into the panel as `analyst`, `admin`
@@ -35,8 +36,8 @@ Versions this guide describes: backend and desktop with the "ABB readiness" chan
   a post-response script (`pm.response.to.have.jsonSchema(...)`). **Kafka event matching is a scenario node**,
   not a request tab: build one scenario (Request → Database → Redis → Kafka → Assertion) and run it.
 - **Capture:** the run report of that scenario (all four checks in one report) and the request's results in
-  the Test results tab. The same request through `callme run` gives the same DB/Redis verdict from CLI
-  1.9.1 / core 1.38.0.
+  the Test results tab. The same request through `callme run` gives the same DB/Redis verdict (CLI
+  1.9.1 and later).
 - **Know:** a single request cannot carry a Kafka check. Contracts are path rules (type, range, enum, format,
   …); a full JSON Schema is a script call or the scenario request node's Schema tab.
 
@@ -62,12 +63,14 @@ Versions this guide describes: backend and desktop with the "ABB readiness" chan
 
 ## CLI and CI/CD
 - **Run:** `callme run` (collection) and `callme scenario run` (server-side) in a real pipeline; a deliberate
-  failure; `--fail-threshold`; `--folder-id`.
+  failure; `--fail-threshold`; `--folder-id` (one folder of a collection, or a scenario folder).
 - **Capture:** pipeline definition, console output, exit codes. Exit `0` passed · `1` failed, or skipped
   (nothing tested) · `2` could not run (token refused, server unreachable, timeout, empty run).
 - **Know:** the default `--fail-threshold critical` fails the job only for critical-priority scenarios; use
   `--fail-threshold low` to fail on any red scenario. An empty collection exits `2` (`--min-requests 0` allows
-  it). `CALLME_API_URL` must be set on-prem.
+  it). `CALLME_API_URL` (or `--api-url`) is required — the CLI stops without it. `callme run` runs a collection depth-first in the
+  desktop runner's order, and a request that got no response says why on its status line
+  (`--verbose` adds the code and the causes).
 
 ## Reporting and the report API
 - **Run:** `callme run … --report json|html`; `callme scenario run … --report json`; read runs back with
@@ -85,11 +88,14 @@ Versions this guide describes: backend and desktop with the "ABB readiness" chan
 - **Capture:** the two runs' duration and step count (History shows both, plus a Repeatability card for
   scenarios run more than once); the exported UI test; the device permission list
   (`adb shell dumpsys package com.mobilerun.portal`).
-- **Know:** runs are not deterministic. Web AI runs cannot be saved as a replayable UI test. Each step sends a
-  screenshot and page structure to the model provider you chose (see UI testing docs §19.15); the first run
-  downloads the engine and the on-device agent from the internet. The Callman Agent APK declares broad
-  permissions (accessibility service, notification listener, keyboard, SMS and contacts read, all-files
-  storage, install packages) — use test devices.
+- **Know:** runs are not deterministic. Web AI runs cannot be saved as a replayable UI test. Each step sends the
+  test text and the screen's element list — and a screenshot on web, or on mobile with Vision on — to the model
+  provider you chose (see UI testing docs §19.15); the first run downloads the engine and the on-device agent
+  from the internet (no mirror setting; the agent APK can be pre-staged). The Callman Agent package declares
+  broad permissions (SMS and contacts, notification listener, all-files storage, install packages); from
+  desktop 2.0.14 Callman grants it only the notification permission, takes back SMS, contacts and storage an
+  older install granted, and turns on its accessibility service and keyboard — still use test devices. An
+  admin can hide AI Testing with the AI Testing feature flag.
 
 ## Migration of existing test assets
 - **Run:** import one real suite (Postman, Insomnia, Bruno, OpenAPI) and read the import report; run it.
@@ -115,8 +121,19 @@ Versions this guide describes: backend and desktop with the "ABB readiness" chan
 - **Run:** a read-only personal token in an AI tool; `callman-mcp doctor`; ask for `whoami`.
 - **Capture:** the tool list (a read-only token sees only the tools it can use), a session transcript, the
   token's permission list.
-- **Know:** 90 tools; tool output, including response-body previews, goes to the language model of the AI
-  tool. `CALLMAN_API_URL` must be set on-prem.
+- **Know:** 116 tools (a token sees only those it can use); tool output, including response-body previews,
+  goes to the language model of the AI tool. `CALLMAN_API_URL` is required — `callman-mcp` 0.10.0 does not
+  start without it.
+
+## Database connections
+- **Run:** a connection per engine you use (Oracle, PostgreSQL, MySQL, SQL Server, MongoDB) with **Test
+  connection**; a request with a DB assertion run from the desktop, and a scenario with a DB node run on the
+  server.
+- **Capture:** the test result (one row for the server, one for the desktop) and, for a failure, the reading
+  it shows.
+- **Know:** the desktop and the server connect from different machines — open the database ports from the
+  workstations and from the cluster ([DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md)). Oracle 11g needs
+  the Oracle client: admin panel → Database drivers for the server, one click in the desktop.
 
 ## Diagrams and connections
 - **Run:** create a diagram (by hand, from Mermaid/BPMN, or from a database schema); export PNG/SVG/PDF/JSON/Mermaid.

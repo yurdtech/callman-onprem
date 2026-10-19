@@ -13,10 +13,10 @@ placeholders you must replace.
 
 | Variable | Required | Default | Description / how to create |
 |---|---|---|---|
-| `CALLMAN_VERSION` | ✅ | — | Image version to run (e.g. `1.0.1`). We tell you which. |
+| `CALLMAN_VERSION` | ✅ | — | Image version to run (e.g. `1.0.6`). We tell you which. |
 | `JWT_SECRET` | ✅ | — | Signs access tokens. ≥ 32 chars. `openssl rand -hex 32` |
 | `JWT_REFRESH_SECRET` | ✅ | — | Signs refresh tokens. ≥ 32 chars, **different** from the others. |
-| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin panel image version (e.g. `0.1.0`). Separate from `CALLMAN_VERSION`. |
+| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin panel image version (e.g. `1.0.6`). Separate from `CALLMAN_VERSION`. |
 | `SESSION_TOKEN_ENCRYPTION_SECRET` | ✅ | — | Encrypts stored sessions. ≥ 32 chars, **different**. |
 | `CONNECTION_ENCRYPTION_KEY` | ✅ | — | Encrypts saved DB/connection credentials. ≥ 32 chars, **different**. **Shared with the admin panel** — see below. |
 
@@ -143,7 +143,7 @@ LDAP even when the backend does).
 
 | Variable | Required | Default | Description / how to create |
 |---|---|---|---|
-| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin image version to run (e.g. `0.1.0`). Separate from `CALLMAN_VERSION`. |
+| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin image version to run (e.g. `1.0.6`). Separate from `CALLMAN_VERSION`. |
 | `CALLMAN_ADMIN_PORT` | optional | `5100` | Port to reach the admin UI + API on (same origin). |
 | `CALLMAN_BACKEND_API_URL` | optional* | `http://backend:<CALLMAN_PORT>` | Base URL of the Callman **backend** API, used by the managed-connections **Test** action — see below. Defaults to the bundled backend service; set it only when the backend runs outside this compose file. |
 | `ADMIN_JWT_SECRET` | ✅ | — | Signs admin access tokens. ≥ 32 chars. `openssl rand -hex 32`. Separate from backend secrets. |
@@ -352,6 +352,12 @@ Nothing needs to be set in `.env`; the variables below are optional.
 Oracle 10g and older are not supported. Until a client is installed you may
 see a benign `Oracle Thick mode not enabled — staying in Thin mode` line in
 the logs; it only matters if you use a very old Oracle server.
+
+Test databases with a certificate from your company CA: put the CA bundle in
+`certs/` and set `NODE_EXTRA_CA_CERTS=/certs/<bundle>.pem` (the same variable as
+for S3 above). Which services connect to test databases, the ports to open and
+what each connection-test message means:
+[DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md).
 
 ---
 

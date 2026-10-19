@@ -9,6 +9,10 @@ inside the admin panel (see [AUTH_SETUP.md](AUTH_SETUP.md)).
 Works on vanilla Kubernetes (Ingress) and OpenShift (Route, restricted-v2
 SCC) from the same chart.
 
+This guide describes Callman on-prem 1.0.6 — Helm chart 0.4.0, backend, admin
+panel and UI-test runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.11.0, MCP
+(`callman-mcp`) 0.10.0.
+
 ---
 
 ## 0. Prerequisites
@@ -135,7 +139,7 @@ kubectl -n callman run backup-shell --rm -it --image=mongo:7 \
 # inside: mongorestore --uri="$MONGODB_URI" --archive=/backups/callman-backup-<stamp>.archive.gz --gzip --drop
 ```
 
-- **Old Oracle (11g).** The release that adds it moves the backend images
+- **Old Oracle (11g).** Release 1.0.6 adds it and moves the backend images
   from Alpine to Debian slim: values do not change, the first pull is ~60–80 MB
   larger (so is the airgap `images.tar`). The Oracle client itself is installed
   from the admin panel (see
@@ -154,11 +158,11 @@ The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
   simulation, faults, `X-Mock-Session` test sessions and imports
   (`POST /api/import/mocks`) — see
   [MOCK-SERVER.md](MOCK-SERVER.md#mock-engine-v2-data-sign-in-faults-sessions-imports).
-  This needs a **backend release with mock engine v2**: the chart's
-  `appVersion` (the default image tag) is set to one when this chart is
-  released, and `admin.image.tag` to an admin panel that moves and deletes mock
-  data with its mock. If you pin `backend.image.tag` yourself, pin a release
-  with mock engine v2 — an older backend simply ignores the new settings.
+  This needs **backend 1.0.6** (the first release with mock engine v2) and
+  **admin panel 1.0.6**, which moves and deletes mock data with its mock: the
+  chart's `appVersion` (the default image tag) and `admin.image.tag` point at
+  them. If you pin `backend.image.tag` yourself, pin 1.0.6 or newer — an older
+  backend simply ignores the new settings.
 - **New values `mock.limits.*`** (resources, records, sessions, imports). The
   defaults suit every install; they are rendered into the shared ConfigMap
   for every pod, because the API checks definitions and imports against them

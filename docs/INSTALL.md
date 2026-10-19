@@ -8,6 +8,10 @@ for downloads.
 admin panel, and (unless you bring your own) a MongoDB and Redis — all running
 as containers on one server.
 
+This guide describes Callman on-prem 1.0.6 — backend, admin panel and UI-test
+runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.11.0, MCP (`callman-mcp`)
+0.10.0.
+
 ---
 
 > **Air-gapped host?** Build an offline bundle on a connected machine with
@@ -114,7 +118,7 @@ chmod 600 .env        # it will hold passwords — keep it private
 Open `.env` in an editor and fill in every `<CHANGE_ME...>` value:
 
 - **`CALLMAN_VERSION`** and **`CALLMAN_ADMIN_VERSION`** — the versions we told
-  you to install (e.g. `1.0.1` and `0.1.0`).
+  you to install (e.g. `1.0.6` and `1.0.6`).
 - **`MONGO_ROOT_PASSWORD`** and **`REDIS_PASSWORD`** — strong passwords for the
   bundled databases. (Skip whichever you replaced in step 3.)
 - **`ADMIN_BOOTSTRAP_EMAIL`** / **`ADMIN_BOOTSTRAP_PASSWORD`** — the first
@@ -217,7 +221,7 @@ curl http://localhost:8080/health
 Expected: HTTP 200 and JSON like:
 
 ```json
-{"success":true,"data":{"status":"ok","version":"1.0.1","gitSha":"<sha>","edition":"onprem","queue":{...}}}
+{"success":true,"data":{"status":"ok","version":"1.0.6","gitSha":"<sha>","edition":"onprem","queue":{...}}}
 ```
 
 **d) Dependencies reachable:**
@@ -344,13 +348,13 @@ start on the new version. Confirm with `curl http://localhost:8080/version`.
 > off by default and enabled with one `.env` line; see
 > [UI-RUNNER.md](UI-RUNNER.md).
 
-> Since backend **1.1.0** an optional **storage gateway** is available, for
+> Since backend **1.0.5** an optional **storage gateway** is available, for
 > features that produce large files (mobile build artifacts, recordings). It
 > keeps nothing itself — you connect your own S3 / MinIO / FileNet in the admin
 > panel under **Storage** — and it runs from the image you already pulled. Off
 > by default; see [STORAGE.md](STORAGE.md).
 
-> The release that adds **old Oracle (11g) support** moves the backend,
+> Release **1.0.6** adds **old Oracle (11g) support** and moves the backend,
 > worker and storage images from Alpine to **Debian (slim)**. Nothing in your
 > `.env` or compose files changes and your data stays where it is, but the
 > first `docker compose pull` after it downloads about 60–80 MB more than
@@ -358,6 +362,8 @@ start on the new version. Confirm with `curl http://localhost:8080/version`.
 > older version works as usual. To actually connect to Oracle 11g, install
 > the Oracle client once in the admin panel — see
 > [ENVIRONMENT.md › Connecting to old Oracle databases](ENVIRONMENT.md#connecting-to-old-oracle-databases).
+> Which machines must reach your test databases is in
+> [DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md).
 
 ### Rollback note
 
