@@ -261,8 +261,8 @@ Install the **Infinity** datasource, point it at
 
 | Endpoint | Where | Checks | Used by |
 |---|---|---|---|
-| `GET /health/live` | backend `:8080`, worker `:9090`, ui-runner `:9091`, storage `:9092` | process answers | Docker `healthcheck`, K8s liveness / startup |
-| `GET /health/ready` | same | Mongo `readyState` + Redis `PING` (503 when degraded) | K8s readiness, `helm test` |
+| `GET /health/live` | backend `:8080`, worker `:9090`, ui-runner `:9091`, storage `:9092`, mock `:9093`, admin `:5100` | process answers | K8s liveness / startup |
+| `GET /health/ready` | same | Mongo `readyState` + Redis `PING` (503 when degraded); worker, ui-runner, storage and mock also wait until they are consuming / serving; admin checks Mongo only | Docker Compose `healthcheck`, K8s readiness, `helm test` |
 | `GET /health` | backend | queue counts + build info | `scripts/autoscale-worker.sh` (`.data.queue.waiting/.active` — this shape is frozen), humans |
 | `GET /version` | backend | build info | release tooling |
 

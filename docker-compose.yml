@@ -151,13 +151,16 @@ services:
       migrate:
         condition: service_completed_successfully
     # Overrides the image's baked probe, which targets the image default
-    # port (4000) rather than your CALLMAN_PORT.
+    # port (4000) rather than your CALLMAN_PORT. Readiness, not liveness: the
+    # container reports `healthy` only while the API can reach MongoDB and
+    # Redis, so `docker compose ps` shows the real state. Nothing waits on this
+    # status and Docker does not restart an `unhealthy` container.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${CALLMAN_PORT:-8080}/health/live"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${CALLMAN_PORT:-8080}/health/ready"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   # Background job processor (scenario runs + schedules). Deliberately has
   # NO `container_name` so it can be scaled to many replicas under load:
@@ -195,12 +198,14 @@ services:
     # WORKER_HEALTH_PORT is deliberately NOT published to the host: the
     # worker registers itself in Redis every 10 s and the backend lists the
     # whole fleet on GET /ops/instances (see docs/MONITORING.md).
+    # /health/ready turns 200 once the worker consumes the queue and Mongo +
+    # Redis answer (the health server itself is up before that).
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/live"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/ready"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 90s
 
   # Mock server — the public /mock/* surface (user-defined mock APIs) in a
   # container of its own, so mock traffic and load tests against mocks never
@@ -239,12 +244,12 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_MOCK_HEALTH_PORT||9093)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_MOCK_HEALTH_PORT||9093)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   # ── UI-test runner (optional, profile "ui-runner") ─────────────────
   # Executes WEB UI test flows on a schedule in headless Chromium. A
@@ -292,12 +297,12 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:'+(process.env.UITEST_HEALTH_PORT||9091)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.UITEST_HEALTH_PORT||9091)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 90s
 
   # Storage gateway — the HTTP surface for LARGE files (mobile build
   # artifacts, screen recordings, oversized imports). Opt-in: add `storage`
@@ -356,12 +361,12 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_STORAGE_HEALTH_PORT||9092)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_STORAGE_HEALTH_PORT||9092)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   # ── Bundled data stores (optional) ─────────────────────────────────
   # Enabled by COMPOSE_PROFILES in .env (default: both on). Remove a
@@ -464,6 +469,15 @@ services:
       CALLMAN_BACKEND_API_URL: ${CALLMAN_BACKEND_API_URL:-http://backend:${CALLMAN_PORT:-8080}}
     ports:
       - "${CALLMAN_ADMIN_PORT:-5100}:5100"
+    # Same probe as the image's baked one, but against readiness (MongoDB
+    # answers a ping) instead of liveness, so `docker compose ps` shows the
+    # real state. Nothing waits on this status.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5100/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     depends_on:
       # Hard requirement: admin connects directly to Mongo on boot — but
       # only wait for the bundled one when it is part of this deployment.

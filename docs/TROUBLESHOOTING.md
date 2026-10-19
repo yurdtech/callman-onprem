@@ -453,7 +453,13 @@ deployment files the worker inherited the API's probe and reported `unhealthy`
 forever while processing jobs perfectly.
 
 **Fix:** `git pull` here to get the current `docker-compose.yml`, then
-`docker compose up -d`. To confirm the worker is genuinely fine either way:
+`docker compose up -d`.
+
+With the current compose file every app container's healthcheck uses
+readiness (`/health/ready`), so `unhealthy` also means the container cannot
+reach MongoDB or Redis right now (or, for the worker, is not consuming the
+queue yet). Docker does not restart it for that; it turns `healthy` again on
+its own once the database answers. To confirm the worker is genuinely fine either way:
 ```bash
 docker compose logs worker | tail -20      # should show jobs being processed
 curl -s http://localhost:8080/health | jq .data.queue
