@@ -68,7 +68,7 @@ builds differ where noted.
   (nothing tested) · `2` could not run (token refused, server unreachable, timeout, empty run).
 - **Know:** the default `--fail-threshold critical` fails the job only for critical-priority scenarios; use
   `--fail-threshold low` to fail on any red scenario. An empty collection exits `2` (`--min-requests 0` allows
-  it). `CALLME_API_URL` must be set on-prem. `callme run` runs a collection depth-first in the
+  it). `CALLME_API_URL` (or `--api-url`) is required — the CLI stops without it. `callme run` runs a collection depth-first in the
   desktop runner's order, and a request that got no response says why on its status line
   (`--verbose` adds the code and the causes).
 
