@@ -140,6 +140,10 @@ services:
       # a memory-limited container is OOM-killed before V8 collects. Keep
       # ~25% below the container's memory limit (mem_limit / deploy.resources).
       NODE_OPTIONS: ${BACKEND_NODE_OPTIONS:---max-old-space-size=768}
+    # Above the API's own drain budget (SHUTDOWN_TIMEOUT_MS, default 30 s), so
+    # `docker compose up -d` / a restart lets in-flight requests finish instead
+    # of Docker's default 10 s SIGKILL.
+    stop_grace_period: 45s
     ports:
       - "${CALLMAN_PORT:-8080}:${CALLMAN_PORT:-8080}"
     depends_on:
@@ -325,6 +329,9 @@ services:
       CALLMAN_STORAGE_PORT: ${CALLMAN_STORAGE_PORT:-8081}
       # Nothing is buffered whole, so this stays small on purpose.
       NODE_OPTIONS: ${STORAGE_NODE_OPTIONS:---max-old-space-size=512}
+    # Above the gateway's drain budget (SHUTDOWN_TIMEOUT_MS, default 30 s), so a
+    # restart lets transfers in flight finish instead of Docker's 10 s SIGKILL.
+    stop_grace_period: 45s
     ports:
       # Published because clients download hundreds of MB from it directly.
       # Put it behind your reverse proxy as `/storage/*` → this port, and
@@ -373,6 +380,9 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-callman}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-}
+    # mongod flushes and checkpoints on SIGTERM; give a busy database more than
+    # Docker's default 10 s so it shuts down cleanly instead of being killed.
+    stop_grace_period: 30s
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -407,6 +417,9 @@ services:
       - "noeviction"
       - "--requirepass"
       - "${REDIS_PASSWORD:-}"
+    # Redis persists its data on SIGTERM (AOF fsync + final snapshot); allow more
+    # than Docker's default 10 s for that on a large dataset.
+    stop_grace_period: 30s
     volumes:
       - redis_data:/data
     healthcheck:
