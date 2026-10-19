@@ -49,10 +49,15 @@ kubectl -n callman create secret generic callman-secrets \
   --from-literal=ADMIN_BOOTSTRAP_PASSWORD='<strong password>' \
   --from-literal=MONGO_ROOT_PASSWORD=$(openssl rand -hex 16) \
   --from-literal=REDIS_PASSWORD=$(openssl rand -hex 16) \
-  --from-literal=MONGODB_URI='mongodb://callman:<MONGO_ROOT_PASSWORD>@<release>-mongo:27017/callman?authSource=admin' \
-  --from-literal=REDIS_URL='redis://:<REDIS_PASSWORD>@<release>-redis:6379' \
+  --from-literal=MONGODB_URI='mongodb://callman:<MONGO_ROOT_PASSWORD>@<fullname>-mongo:27017/callman?authSource=admin' \
+  --from-literal=REDIS_URL='redis://:<REDIS_PASSWORD>@<fullname>-redis:6379' \
   --from-literal=CALLMAN_MONGODB_URI='<same as MONGODB_URI>'
 ```
+
+`<fullname>` is the prefix of every resource the chart creates: the release name
+when it contains `callman` (release `callman` → `callman-mongo`), otherwise
+`<release>-callman` (release `prod` → `prod-callman-mongo`), or
+`fullnameOverride` when you set it.
 
 Rules (the same ones `preflight.sh` enforces for compose):
 
@@ -130,14 +135,75 @@ helm upgrade callman oci://ghcr.io/yurdtech/charts/callman \
 - Backend/admin roll with `maxUnavailable: 0` — no downtime.
 - **Migrations are irreversible.** `helm rollback callman` restores the
   previous images, but if the upgrade applied a migration you must also
-  restore the automatic pre-upgrade dump:
+  restore the automatic pre-upgrade dump (the migrate Job writes one to the
+  `<fullname>-backups` PVC before it migrates). A restore replaces the current
+  data — take a fresh dump first if anything since the upgrade matters.
 
 ```bash
-# find the archive on the backups PVC
-kubectl -n callman run backup-shell --rm -it --image=mongo:7 \
-  --overrides='{"spec":{"containers":[{"name":"backup-shell","image":"mongo:7","stdin":true,"tty":true,"command":["bash"],"volumeMounts":[{"name":"b","mountPath":"/backups"}]}],"volumes":[{"name":"b","persistentVolumeClaim":{"claimName":"callman-backups"}}]}}'
-# inside: mongorestore --uri="$MONGODB_URI" --archive=/backups/callman-backup-<stamp>.archive.gz --gzip --drop
+NS=callman
+REL=callman                                  # your Helm release name
+FULL=$(kubectl -n $NS get deploy -l app.kubernetes.io/instance=$REL,app.kubernetes.io/component=backend \
+         -o jsonpath='{.items[0].metadata.name}'); FULL=${FULL%-backend}
+# Run the restore with the image, pull secret and Secret your pods already use
+# (in an air-gapped cluster that is your internal registry, not Docker Hub).
+IMAGE=$(kubectl -n $NS get deploy $FULL-backend -o jsonpath='{.spec.template.spec.containers[0].image}')
+PULL=$(kubectl -n $NS get deploy $FULL-backend -o jsonpath='{.spec.template.spec.imagePullSecrets[0].name}')
+PULLS="[]"; [ -n "$PULL" ] && PULLS="[{name: $PULL}]"
+SECRET=$(kubectl -n $NS get deploy $FULL-backend -o jsonpath='{.spec.template.spec.containers[0].envFrom[?(@.secretRef)].secretRef.name}')
+
+# 1. Stop everything that writes. Note the replica counts first.
+kubectl -n $NS get deploy -l app.kubernetes.io/instance=$REL
+kubectl -n $NS scale deploy -l app.kubernetes.io/instance=$REL --replicas=0
+
+# 2. A throwaway pod with the backups PVC and the real MONGODB_URI.
+#    On OpenShift delete the runAsUser and fsGroup lines (the SCC assigns them).
+kubectl -n $NS apply -f - <<YAML
+apiVersion: v1
+kind: Pod
+metadata:
+  name: callman-restore
+spec:
+  restartPolicy: Never
+  imagePullSecrets: $PULLS
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile: { type: RuntimeDefault }
+  containers:
+    - name: restore
+      image: $IMAGE
+      command: ["sleep", "3600"]
+      env:
+        - name: MONGODB_URI
+          valueFrom: { secretKeyRef: { name: $SECRET, key: MONGODB_URI } }
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: { drop: [ALL] }
+      volumeMounts: [{ name: backups, mountPath: /backups }]
+  volumes:
+    - name: backups
+      persistentVolumeClaim: { claimName: $FULL-backups }
+YAML
+kubectl -n $NS wait --for=condition=Ready pod/callman-restore --timeout=5m
+
+# 3. Pick the dump taken just before the upgrade and restore it.
+kubectl -n $NS exec callman-restore -- ls -l /backups
+kubectl -n $NS exec callman-restore -- sh -c \
+  'mongorestore --uri="$MONGODB_URI" --archive=/backups/callman-backup-<stamp>.archive.gz --gzip --drop'
+kubectl -n $NS delete pod callman-restore
+
+# 4. Roll the release back (it brings the Deployments back to their replica
+#    counts), then scale up anything still at 0 — e.g. an HPA-managed worker.
+helm -n $NS history $REL
+helm -n $NS rollback $REL <previous revision>
+kubectl -n $NS get deploy -l app.kubernetes.io/instance=$REL
 ```
+
+  If the pod stays `Pending` with a `Multi-Attach` error, the ReadWriteOnce
+  backups volume is still attached to a finished migrate Job's node: delete
+  that Job (`kubectl -n $NS delete job -l app.kubernetes.io/instance=$REL,app.kubernetes.io/component=migrate`)
+  and the pod schedules.
 
 - **Old Oracle (11g).** Release 1.0.6 adds it and moves the backend images
   from Alpine to Debian slim: values do not change, the first pull is ~60–80 MB
@@ -179,7 +245,7 @@ The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 
 ### Upgrading to chart 0.3.0
 
-- **Mock server (new, on by default).** `helm upgrade` adds a `<release>-mock`
+- **Mock server (new, on by default).** `helm upgrade` adds a `<fullname>-mock`
   Deployment and Service that serve the public `/mock/*` surface, so mock
   traffic and load tests against mocks no longer share the API's pods. It needs
   a backend image that ships `dist/mock-server.js` — use the app version this
@@ -410,7 +476,7 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 ## 11. Troubleshooting quick hits
 
 - **Pods CrashLoopBackOff right after install/upgrade** — check
-  `kubectl logs job/<release>-migrate-<revision>`; the apps gate on it.
+  `kubectl logs job/<fullname>-migrate-<revision>`; the apps gate on it.
 - **`/health/ready` 503** — Mongo or Redis unreachable; the response body
   names the failing check.
 - **Bundled Mongo auth failures after changing the password** — root

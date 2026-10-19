@@ -90,7 +90,8 @@ Requirements:
 - **Database name.** Put it in the path (`/callman` above). Any name works,
   but everything — backend, worker and admin panel — must use the same one.
 - **Permissions.** The user needs `readWrite` **and** the ability to create
-  indexes on that database (Callman creates its own indexes at startup).
+  indexes on that database (Callman's one-shot `migrate` step builds its
+  indexes on every start/upgrade; the serving containers do not by default).
 - **A replica set is not required.** Callman uses no multi-document
   transactions, so a standalone server is fully supported.
 - **Percent-encode special characters** in the password. A password containing
