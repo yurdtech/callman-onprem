@@ -31,13 +31,14 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | --- | --- | --- |
 | Your MongoDB, Redis (if external) | Data, queue | Yes |
 | Your LDAP / AD on `636` | Sign-in | If LDAP is used |
-| The systems under test, databases, Kafka brokers, Redis | Scenario and schedule runs execute **on the host** | Yes: this is the job. There is no allow-list in the product, restrict at the firewall |
+| The systems under test, Kafka brokers, Redis | Scenario and schedule runs execute **on the host** | Yes: this is the job. There is no allow-list in the product, restrict at the firewall |
+| The databases your tests query (Oracle, PostgreSQL, MySQL, SQL Server, MongoDB) | Server runs, schedules and UI-test database steps connect from the worker and the UI-test runner; the server side of every connection test from the backend | When teams test databases. Ports and every test message: [DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md) |
 | Your object storage (S3 / MinIO / FileNet) | Large files | Only with the `storage` profile |
 | `ghcr.io` (or your registry) | Pulling images | Install and upgrade only; none with an air-gap bundle ([INSTALL.md](INSTALL.md)) |
 | `api.telegram.org` | Error forwarding | Only if `TELEGRAM_ENABLED` is on; leave it empty |
 | The AI provider set in **AI Settings** | AI assistant / AI node | Only if configured; switch the `ai*` flags off otherwise |
 | Slack webhook | Notification connections | Only if someone creates one |
-| `download.oracle.com` | Oracle thick client | Only when an admin clicks the download |
+| `download.oracle.com` | Oracle Instant Client for Oracle 11g | Only when an admin clicks **Download from Oracle**; uploading the package instead needs no internet |
 
 ## Outbound from a user's workstation (desktop app)
 
@@ -45,14 +46,18 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | --- | --- |
 | Your Callman backend | API, request history, crash reports, the hourly update check |
 | The systems under test | Requests run on the workstation |
+| The databases users test | Requests' database steps, the scenario builder's **Run**, UI tests run in the app, schema import and the desktop side of connection tests connect from the workstation ([DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md)) |
+| `download.oracle.com` | The Oracle client for Oracle 11g, once per machine when a user installs it — only if your server has no package for that platform under **Database drivers** |
 | Model providers (`api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`) | **AI Testing** only, with the user's own key; screenshots and page structure go with each step |
 | `github.com`, `api.github.com`, `pypi.org`, the Playwright CDN | **AI Testing** and **Android UI testing**, once per machine: the AI engine, browsers, the Callman Agent APK and the Android UI-test driver |
 | `api.figma.com` | Figma import / visual compare, only with a Figma token |
 
-A packaged desktop cannot be pointed at an internal mirror for the downloads in the
-fourth row, and AI Testing has no admin switch: a site that must keep it off simply
-does not use it. Pre-staging the Callman Agent APK at `~/.callman/portal/callman-agent.apk`
-skips its download.
+The first-use downloads in the `github.com` / `pypi.org` row come from the internet: a
+packaged desktop has no setting that points them at an internal mirror. Two can be pre-staged on a workstation to skip
+their download — the Callman Agent APK at `~/.callman/portal/callman-agent.apk` and
+the Android UI-test driver at `~/.callman/modules/callmanui.jar`. To keep AI Testing
+off, switch the **AI Testing** feature flag off in the admin panel (Feature Flags); it
+hides the studio in desktop 2.0.14 and later.
 
 The desktop sends each run's resolved request and response to your backend as
 request history. Switch the `history` feature flag off if that is not acceptable, and
@@ -62,10 +67,11 @@ keep production secrets in environment values and managed connections.
 
 | Tool | Reaches |
 | --- | --- |
-| `callme` | The Callman API address you set (`CALLME_API_URL`) and, for `callme run` / `perf run`, the systems under test |
+| `callme` | The Callman API address you set (`CALLME_API_URL`) and, for `callme run` / `perf run`, the systems under test — for `callme run`, also the databases its DB steps query |
 | `callman-mcp` | The Callman API address (`CALLMAN_API_URL`); tool output, including response-body previews, goes to the language model of the AI tool in use |
 
-Both fall back to the public cloud address when the variable is missing: set it.
+`callme` falls back to the public cloud address when `CALLME_API_URL` is missing (it
+says so on stderr): set it. `callman-mcp` 0.10.0 does not start without `CALLMAN_API_URL`.
 The CLI has no proxy or CA flags; use Node.js's (`NODE_EXTRA_CA_CERTS=/path/ca.pem`
 for a private CA).
 

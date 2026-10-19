@@ -288,6 +288,7 @@ a checksum mismatch, which is fixed by re-uploading that one file.
 
 ## Oracle: "This Oracle database is older than 12.1" / `NJS-138`
 
+A connection test reads *This Oracle version needs the Oracle Instant Client*.
 The database is Oracle 11g (or older than 12.1) and no Oracle client is
 installed yet. Install it once in the admin panel (**On-Prem → Database
 drivers → Download from Oracle** or upload the zip, then **Apply now**) — see
@@ -304,6 +305,20 @@ If a client is installed and it still fails, check the page's process table:
   Light*. `docker compose logs backend | grep -i oracle` shows the
   reason.
 - **Oracle 10g or older** is not supported by any current Oracle client.
+
+---
+
+## A database connection test fails on the server but works on the desktop (or the reverse)
+
+**Test connection** checks a database from two places at once — the Callman
+server and the user's workstation — and the two reach the network differently.
+Server runs and schedules connect from the worker and the UI-test runner; the
+desktop's own queries connect from the workstation. The failed row says what is
+wrong on that side: *No answer from the database (timeout)* is a firewall
+dropping that path, *Host name not found* is DNS on that side, *The server's
+certificate is not trusted* needs the company CA there (`NODE_EXTRA_CA_CERTS`).
+The full list of what connects from where, the ports to open and every message
+with its fix: [DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md).
 
 ---
 
@@ -415,9 +430,10 @@ license again.
    ```
 2. **Does the database accept remote connections?** MongoDB's default
    `bindIp: 127.0.0.1` refuses the Docker network. Check firewall rules too.
-3. **Test from inside a container**, which is what actually matters:
+3. **Test from inside a container**, which is what actually matters (the
+   images have Node.js, not `nc`):
    ```bash
-   docker compose exec -T backend sh -c 'nc -zv mongo.acme.local 27017'
+   docker compose exec -T backend node -e "const s=require('net').connect(27017,'mongo.acme.local');s.setTimeout(5000,()=>{console.log('no answer (timeout)');process.exit(1)});s.on('connect',()=>{console.log('reachable');process.exit(0)});s.on('error',e=>{console.log(e.code);process.exit(1)})"
    ```
 4. **`Authentication failed`?** Add `?authSource=admin` (or whichever database
    holds the user), and percent-encode special characters in the password —
