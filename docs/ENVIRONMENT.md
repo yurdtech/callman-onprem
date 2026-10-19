@@ -38,7 +38,7 @@ placeholders you must replace.
 > **The license is NOT an environment variable.** It is a signed certificate
 > installed once through the admin panel (**On-Prem → License**) and stored in
 > the database — so renewing it needs no `.env` edit and no restart. See
-> [INSTALL.md § 7](INSTALL.md). (`CALLMAN_LICENSE_KEY` is a leftover from an
+> [INSTALL.md § 8](INSTALL.md#8-activate-your-license). (`CALLMAN_LICENSE_KEY` is a leftover from an
 > older design and is ignored; you can delete it from your `.env`.)
 
 ## Databases
@@ -138,14 +138,16 @@ default. Full guide: **[EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md)**.
 The `admin` service (separate image + version) connects to the **same** MongoDB
 as the backend — bundled or your own, it follows `MONGODB_URI` automatically.
 Do **not** point it at a separate database. Its login is **independent** of the
-backend's (own JWT secrets, always local email + password — it does not support
-LDAP even when the backend does).
+backend's (own JWT secrets and its own admin accounts). Admins sign in with a
+local password, or through the same LDAP connection the backend uses once LDAP
+is enabled in the panel — see
+[AUTH_SETUP.md § 8](AUTH_SETUP.md#8-signing-in-to-the-admin-panel-with-ldap).
 
 | Variable | Required | Default | Description / how to create |
 |---|---|---|---|
 | `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin image version to run (e.g. `1.0.6`). Separate from `CALLMAN_VERSION`. |
 | `CALLMAN_ADMIN_PORT` | optional | `5100` | Port to reach the admin UI + API on (same origin). |
-| `CALLMAN_BACKEND_API_URL` | optional* | `http://backend:<CALLMAN_PORT>` | Base URL of the Callman **backend** API, used by the managed-connections **Test** action — see below. Defaults to the bundled backend service; set it only when the backend runs outside this compose file. |
+| `CALLMAN_BACKEND_API_URL` | optional* | `http://backend:<CALLMAN_PORT>` | Base URL of the Callman **backend** API, used for the actions whose code lives in the backend (connection and storage **Test**, desktop releases, the Oracle client) — see below. Defaults to the bundled backend service; set it only when the backend runs outside this compose file. |
 | `ADMIN_JWT_SECRET` | ✅ | — | Signs admin access tokens. ≥ 32 chars. `openssl rand -hex 32`. Separate from backend secrets. |
 | `ADMIN_JWT_REFRESH_SECRET` | ✅ | — | Signs admin refresh tokens. ≥ 32 chars, different from `ADMIN_JWT_SECRET`. |
 | `ADMIN_BOOTSTRAP_EMAIL` | optional* | _(unset)_ | Email of the first admin user, seeded on first start if no admins exist. |
@@ -167,11 +169,15 @@ refuses to boot without a valid URL) — it is "optional" here only because
 (`http://backend:<CALLMAN_PORT>`). If you deploy the admin panel outside this
 compose file, or your backend runs on another host, you MUST set it in `.env`.
 
-> **Why the admin panel needs the backend URL:** the managed-connections
-> **Test** button in the admin UI does not test from the panel — the real
-> DB/Kafka/Redis/Slack drivers live only in the backend, so the panel calls
-> `POST <CALLMAN_BACKEND_API_URL>/api/internal/connections/test` and shows the
-> backend's result. The connection config travels **encrypted** with the shared
+> **Why the admin panel needs the backend URL:** a few panel actions run code
+> that lives only in the backend, so the panel forwards them to
+> `<CALLMAN_BACKEND_API_URL>/api/internal/*` and shows the backend's result:
+> the managed-connections **Test** button (the real DB/Kafka/Redis/Slack
+> drivers are in the backend — `/api/internal/connections/test`), the Storage
+> **Test** button (`/api/internal/storage/test`), desktop releases
+> (`/api/internal/desktop-releases/*`) and the Oracle client install
+> (`/api/internal/oracle-client/*`). Everything else the panel does goes
+> straight to MongoDB, so it keeps working while the backend is down. The connection config travels **encrypted** with the shared
 > `CONNECTION_ENCRYPTION_KEY` (never plaintext), which is also why that key
 > must be identical for the backend and the admin panel. If Test fails with a
 > network error while saving connections still works, this URL (or the shared

@@ -439,9 +439,10 @@ services:
   # callman-onprem-admin-panel repo (the on-prem-only admin with org groups,
   # activity log, group access, dashboard analytics). It is INDEPENDENT of
   # backend/worker: it talks DIRECTLY to the SAME MongoDB, with its OWN
-  # auth + JWT secrets. It uses no Redis. The ONE backend-API call it makes
-  # is the managed-connections "Test" action (CALLMAN_BACKEND_API_URL below):
-  # the real DB/Kafka/Redis drivers live only in the backend, and the config
+  # auth + JWT secrets. It uses no Redis. It calls the backend API
+  # (CALLMAN_BACKEND_API_URL below, /api/internal/*) only for actions whose
+  # code lives in the backend: the managed-connections and storage "Test"
+  # buttons, desktop releases, and the Oracle client install. Connection config
   # travels ENCRYPTED with the shared CONNECTION_ENCRYPTION_KEY.
   # By default it can only READ Callman data (CALLMAN_DB_WRITE_ENABLED=false).
   admin:
@@ -463,8 +464,8 @@ services:
       # use a DIFFERENT Mongo than the backend (unusual; it reads the same
       # database).
       CALLMAN_MONGODB_URI: ${CALLMAN_MONGODB_URI:-${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-callman}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/callman?authSource=admin}}
-      # Backend API base URL for the managed-connections driver tests.
-      # Defaults to the bundled backend service; override in .env only when
+      # Backend API base URL for the backend-owned actions above (connection
+      # and storage tests, desktop releases, Oracle client). Defaults to the bundled backend service; override in .env only when
       # the backend runs elsewhere.
       CALLMAN_BACKEND_API_URL: ${CALLMAN_BACKEND_API_URL:-http://backend:${CALLMAN_PORT:-8080}}
     ports:
@@ -486,8 +487,8 @@ services:
         required: false
       # Wait for the one-shot migrate so admin reads an already-migrated
       # schema (it shares the DB). This is DB-readiness ordering, NOT a
-      # dependency on the backend/worker app tier — admin never calls the
-      # backend API.
+      # dependency on the backend/worker app tier: the panel boots and serves
+      # without the backend; only the actions listed above need it running.
       migrate:
         condition: service_completed_successfully
 
