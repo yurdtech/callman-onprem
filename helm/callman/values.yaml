@@ -243,8 +243,8 @@ uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
   # how long in-flight browser runs may finish on a rollout. Browser runs
   # take minutes, not seconds — with the shared 30 s every `helm upgrade`
   # killed every run in flight. terminationGracePeriodSeconds is derived
-  # (+30 s). Backend >= 1.1 accepts up to 900000 (= runMaxDurationMs);
-  # older images cap it at 120000.
+  # (+30 s). Current images accept up to 900000 (= runMaxDurationMs); very
+  # old ones cap it at 120000.
   drainTimeoutMs: 120000
   heapMb: 768                       # Node heap only — Chromium is separate
   mongoPool:
@@ -252,7 +252,7 @@ uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
     min: 1
   # Chromium shared memory. Backed by an in-memory emptyDir that COUNTS
   # against the container memory limit. The runner launches Chromium with
-  # --disable-dev-shm-usage (backend >= 1.1), so 1Gi is plenty; keep
+  # --disable-dev-shm-usage, so 1Gi is plenty; keep
   # resources.limits.memory >= shmSize + heapMb + ~700Mi per concurrent browser.
   shmSize: 1Gi
   resources:

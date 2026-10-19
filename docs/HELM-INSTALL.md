@@ -247,7 +247,8 @@ Memory knobs (chart 0.2.0+): every Node container gets a V8 heap cap from
 memory limit — and a per-replica Mongo pool from `*.mongoPool`. The worker
 runs at `worker.concurrency: 20` by default; raise it together with
 `worker.heapMb` and the memory limit. `worker.shutdownTimeoutMs` (120 s) and
-`uiRunner.drainTimeoutMs` (120 s; up to 900000 with backend ≥ 1.1) are the
+`uiRunner.drainTimeoutMs` (120 s; current images accept up to 900000, very old
+ones refuse more than 120000) are the
 rollout drain budgets — the pods' `terminationGracePeriodSeconds` derive from
 them. The backend pods read the same shared `SHUTDOWN_TIMEOUT_MS` as the worker,
 so their grace period is at least `worker.shutdownTimeoutMs` + 15 s;

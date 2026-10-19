@@ -61,7 +61,7 @@ after it fires, the run appears in the flow's **History** with a
 - **Scale under load:** `docker compose up -d --scale ui-runner=2` —
   parallel browser runs = replicas × `UITEST_WORKER_CONCURRENCY`. Budget
   ~2 GB RAM per replica. Full guidance: [SCALING.md](SCALING.md); every setting: [ENVIRONMENT.md](ENVIRONMENT.md).
-- **Hygiene:** from backend 1.1 the runner reaps crashed Chromium helper
+- **Hygiene:** the current runner image reaps crashed Chromium helper
   processes itself (`tini` PID 1), so memory no longer creeps up over days; a
   nightly `docker compose restart ui-runner` is harmless but no longer needed.
 - **Restarts and upgrades:** in-flight browser runs get `SHUTDOWN_TIMEOUT_MS`

@@ -413,7 +413,7 @@ your own backup before a major upgrade.
 ```bash
 docker compose stop         # pause everything, keep containers and data
 docker compose down         # remove containers (your DATA is preserved)
-docker compose down -v      # remove containers AND DELETE all data (destructive!)
+docker compose down -v      # remove containers AND DELETE all data, backups included (destructive!)
 ```
 
 ---

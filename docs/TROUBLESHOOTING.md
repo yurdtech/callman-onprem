@@ -402,14 +402,11 @@ docker compose logs migrate     # → "No pending migrations" / "Migrations appl
 curl http://localhost:8080/health/ready
 ```
 
-**3. Start completely over — destroys everything:**
-
-```bash
-docker compose down -v && docker compose up -d
-```
-
-Only do this if the install is disposable. You will have to activate your
-license again.
+There is no need to erase the database to fix this: option 2 keeps every
+user, the license and all data. If the install really is a disposable trial
+you want to reinitialise, follow
+[Start over from scratch](#start-over-from-scratch--deletes-all-data) below —
+never `docker compose down -v`, which also deletes the pre-migration backups.
 
 > `./scripts/preflight.sh` checks this before you start the stack and reports
 > the mismatch instead of letting the migrator fail.
@@ -525,8 +522,10 @@ curl http://localhost:5100/health   # → {"status":"ok","mongo":{"callman":true
 > only applies `MONGO_ROOT_USERNAME` / `MONGO_ROOT_PASSWORD` when it
 > **initialises an empty data volume**. Changing them later does NOT update the
 > existing user, so backend AND admin then fail with `Authentication failed`.
-> Either set the password back to the original, or wipe the volume and start
-> fresh (**destroys data**): `docker compose down -v && docker compose up -d`.
+> Either set the password back to the original, or reset it on the existing
+> volume while keeping all data — see
+> ["Authentication failed" after changing the password](#authentication-failed--and-the-credentials-in-env-look-correct)
+> above (option 2).
 
 ## Admin panel: can't log in
 
@@ -554,10 +553,22 @@ specifically need admin writes.
 
 ## Start over from scratch (⚠ deletes all data)
 
+Only for a disposable install. It erases the license activation, every user and
+all Callman data. Do **not** use `docker compose down -v`: it also deletes the
+`backups` volume (the pre-migration dumps, your only way back) and the
+`storage_local` files.
+
 ```bash
-docker compose down -v    # removes containers AND data volumes
+# 1. Take a last dump anyway (BACKUP.md), and keep a copy of .env.
+# 2. Remove the containers — volumes are kept.
+docker compose down
+# 3. Delete ONLY the database volumes (bundled MongoDB and Redis).
+docker volume rm callman_mongo_data callman_redis_data
+# 4. Start fresh; MongoDB initialises with the credentials now in .env.
 docker compose up -d
 ```
+
+Then activate the license again ([INSTALL.md §8](INSTALL.md#8-activate-your-license)).
 
 ---
 
@@ -597,8 +608,8 @@ empty data volume, and the PVC keeps the original ones.
 `mongo-data` PVC to re-init (destroys data).
 
 **Symptom:** ui-runner pods OOMKilled.
-**Cause:** the in-memory `/dev/shm` (default 2Gi) counts against the
-container memory limit.
+**Cause:** the in-memory `/dev/shm` (`uiRunner.shmSize`, default 1Gi) counts
+against the container memory limit.
 **Fix:** raise `uiRunner.resources.limits.memory` (keep it ≥ shmSize + 1Gi).
 
 **Symptom:** enabling `worker.mountBackups` fails or pods stay Pending.
