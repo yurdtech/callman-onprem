@@ -134,6 +134,22 @@ for v in CALLMAN_VERSION CALLMAN_ADMIN_VERSION; do
   fi
 done
 
+# The backend image's own default edition is `cloud`. docker-compose.yml falls
+# back to `onprem` when the line is missing, but an explicit other value wins —
+# and the cloud edition skips licensing and the on-prem migrations, and the
+# storage gateway refuses to start.
+edition="$(env_get CALLMAN_EDITION)"
+if ! env_defined CALLMAN_EDITION || [[ -z "$edition" ]]; then
+  ok "CALLMAN_EDITION not set — docker-compose.yml uses onprem"
+  info "Add CALLMAN_EDITION=onprem to .env to make it explicit."
+elif [[ "$edition" == "onprem" ]]; then
+  ok "CALLMAN_EDITION=onprem"
+else
+  bad "CALLMAN_EDITION=$edition — an on-prem install must run with CALLMAN_EDITION=onprem"
+  info "Any other value turns off licensing and the on-prem migrations, and the"
+  info "storage gateway exits on start. Set:  CALLMAN_EDITION=onprem"
+fi
+
 # ══════════════════════════════════════════════════════════════════════
 head_ "3. Secrets"
 

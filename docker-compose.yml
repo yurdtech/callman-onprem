@@ -82,7 +82,14 @@ x-app: &app
 # To use your own databases, set MONGODB_URI / REDIS_URL in `.env` and
 # remove the matching profile from COMPOSE_PROFILES. Nothing here changes.
 # See docs/EXTERNAL-DATABASES.md.
+#
+# CALLMAN_EDITION rides along here because every service that uses this block
+# runs the backend image, whose own default is `cloud` — and the cloud edition
+# skips licensing, the on-prem migrations and the Oracle client, and the storage
+# gateway refuses to start. `.env.example` sets `onprem`; this fallback keeps an
+# install that lost the line on the on-prem edition. A value in `.env` still wins.
 x-db-env: &db-env
+  CALLMAN_EDITION: ${CALLMAN_EDITION:-onprem}
   MONGODB_URI: ${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-callman}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/callman?authSource=admin}
   REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-}@redis:6379}
 
