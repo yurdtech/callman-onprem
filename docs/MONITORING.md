@@ -16,6 +16,14 @@ secret):
 The `/ops/*` endpoints exist **only on the on-prem edition** (404 on cloud)
 and keep answering while the deployment is unlicensed or in read-only mode.
 
+Both `/ops/*` and `/metrics` are open by default (the internal network is the
+trust boundary). To require a token, set `OPS_TOKEN` in `.env`: calls then
+need `Authorization: Bearer <OPS_TOKEN>` — in Prometheus,
+`authorization: { credentials: <OPS_TOKEN> }` on the scrape job. `/health/*`
+is never gated. Newer backends also list migrations under
+`mongo.migrations` in `/ops/snapshot` (`pending`, and `unknownApplied` when
+the database was migrated by a newer release than the one running).
+
 ---
 
 ## 1. Where to scrape

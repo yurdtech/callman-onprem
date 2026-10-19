@@ -61,7 +61,7 @@ the app just answers "UI runner unavailable" to schedule/run requests.
 |---|---|---|---|
 | `UITEST_WORKER_CONCURRENCY` | — | `2` | Browsers per runner replica (1–5). Parallel web tests = replicas × this. |
 | `UITEST_RUN_MAX_DURATION_MS` | — | `900000` | Per-run time limit (ms). A run over the limit is stopped and reported failed. |
-| `UITEST_REPORT_RETENTION_DAYS` | — | `90` | How long server run reports are kept. |
+| `UITEST_REPORT_RETENTION_DAYS` | — | `90` | How long server run reports are kept. Newer backends apply a changed value on the next `migrate` run (`0` = keep forever); leave it unset to keep the current window. |
 | `UITEST_FAILURE_SCREENSHOT_MAX_BYTES` | — | `300000` | Failure screenshot size budget; `0` disables screenshots. |
 
 ### Storage gateway (optional, profile `storage`)
@@ -220,6 +220,9 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 | `SCHEDULE_MONITOR_MAX_SCENARIO_IDS` | `2000` | Cap on the scenario set used to authorize run totals in **Scheduled runs**. Above it the totals count only runs attached to a schedule and the view says they are partial, rather than quietly under-reporting. Raise it only if a single user can see more scenarios than this. |
 | `UI_RUNNER_SHUTDOWN_TIMEOUT_MS` | `120000` | How long in-flight browser runs may finish when the ui-runner container stops (compose `stop_grace_period` is 150 s). |
 | `METRICS_ENABLED` | `true` | Expose Prometheus `/metrics` (incl. `bullmq_jobs_waiting`) and the collectors behind `/ops/*`. Set `false` to disable. See [MONITORING.md](MONITORING.md). |
+| `OPS_TOKEN` | _(unset)_ | When set, `/ops/*` and every `/metrics` endpoint require `Authorization: Bearer <OPS_TOKEN>` (give the same token to Prometheus). `/health/*` stays open. Unset = open, as before. |
+| `OUTBOUND_DENY_CIDRS` | _(cloud-metadata ranges)_ | IP ranges scenario / collection runs, mocks, webhooks and the AI integration may not call. Empty = `169.254.0.0/16, fd00:ec2::254/128, 100.100.100.200/32` (the cloud instance-metadata service). Your internal networks stay reachable. `none` disables the check. Not applied inside the UI runner's browser — see [NETWORK.md](NETWORK.md). |
+| `SCHEDULE_RECONCILE_INTERVAL_MS` | `300000` | How often the worker and the UI runner re-arm an enabled schedule whose next run went missing (a crash, a flushed Redis). `0` = only at start-up. |
 | `LOG_LEVEL` | `info` | Minimum log level (`debug` / `info` / `warn` / `error`). Health probes, `/metrics` scrapes and `/ops/*` are logged at `debug`, so they are invisible by default; set `debug` only while investigating. |
 | `HTTP_LOG_SKIP_PATHS` | `/health,/health/live,/health/ready,/version,/api/system-info,/metrics,/ops/*` | Paths the request logger writes at `debug` instead of `info` (CSV; a trailing `*` makes it a prefix). |
 | `HTTP_LOG_SLOW_MS` | `2000` | Requests at or above this many ms are logged at `warn` (`HTTP request slow`) even when on the skip list; `0` disables. |
@@ -316,7 +319,7 @@ required).
 
 | Variable | Default | Description |
 |---|---|---|
-| `TELEGRAM_ENABLED` | `true` | **To disable, set it EMPTY** (`TELEGRAM_ENABLED=`) — that works on every version. Newer backends also read `false`, `0`, `no`, `off` as off (older ones read *any* non-empty text, `false` included, as ON). When enabled in production you MUST also set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, or the app won't start. Enabled, it sends error reports to `api.telegram.org` (outbound internet). |
+| `TELEGRAM_ENABLED` | `true` | **To disable, set it EMPTY** (`TELEGRAM_ENABLED=`) — that works on every version. Newer backends also read `false`, `0`, `no`, `off` as off (older ones read *any* non-empty text, `false` included, as ON). When enabled in production you MUST also set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, or the app won't start. Newer backends also treat a missing line as OFF when `CALLMAN_EDITION=onprem`. Enabled, it sends error reports to `api.telegram.org` (outbound internet). |
 | `TELEGRAM_BOT_TOKEN` | _(unset)_ | Required only if Telegram is enabled. |
 | `TELEGRAM_CHAT_ID` | _(unset)_ | Required only if Telegram is enabled. |
 
@@ -327,6 +330,7 @@ required).
 | `SKIP_MIGRATION_CHECK` | `false` | Emergency override: let the app boot even with pending migrations. Leave `false`. |
 | `SKIP_MIGRATION_BACKUP` | `false` | Skip the pre-migration `mongodump`. Leave `false`. |
 | `BACKUP_REQUIRED` | `false` | If `true`, a failed backup aborts the migration (default: warn + continue). |
+| `BACKUP_KEEP_COUNT` | `0` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them. |
 
 ### Connecting to old Oracle databases
 
