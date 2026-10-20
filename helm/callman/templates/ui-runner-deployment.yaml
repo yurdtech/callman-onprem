@@ -16,10 +16,11 @@ spec:
     metadata:
       labels:
         {{- include "callman.selectorLabels" (dict "root" $ "component" "ui-runner") | nindent 8 }}
-      {{- with .Values.uiRunner.podAnnotations }}
       annotations:
+        {{- include "callman.checksumAnnotations" (dict "root" $ "configmap" "/configmap.yaml") | nindent 8 }}
+        {{- with .Values.uiRunner.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       serviceAccountName: {{ include "callman.serviceAccountName" . }}
       # Browser runs take minutes; the grace period must exceed the runner's

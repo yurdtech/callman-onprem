@@ -15,10 +15,11 @@ spec:
     metadata:
       labels:
         {{- include "callman.selectorLabels" (dict "root" $ "component" "worker") | nindent 8 }}
-      {{- with .Values.worker.podAnnotations }}
       annotations:
+        {{- include "callman.checksumAnnotations" (dict "root" $ "configmap" "/configmap.yaml") | nindent 8 }}
+        {{- with .Values.worker.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       serviceAccountName: {{ include "callman.serviceAccountName" . }}
       # Must exceed SHUTDOWN_TIMEOUT_MS so the BullMQ drain finishes before

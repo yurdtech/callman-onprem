@@ -223,6 +223,21 @@ envFrom:
 {{- end -}}
 
 {{/*
+Pod-template annotations that roll a Deployment when the configuration its pods
+read at start changes — env from a ConfigMap or Secret is only read when the
+container starts, so without them `helm upgrade` with a changed value leaves the
+old pods running on the old settings. The Secret is hashed only when the chart
+renders it; an existingSecret is managed outside the chart.
+Call: (dict "root" $ "configmap" "/configmap.yaml")
+*/}}
+{{- define "callman.checksumAnnotations" -}}
+checksum/config: {{ include (print .root.Template.BasePath .configmap) .root | sha256sum }}
+{{- if not .root.Values.secrets.existingSecret }}
+checksum/secret: {{ include (print .root.Template.BasePath "/secret.yaml") .root | sha256sum }}
+{{- end }}
+{{- end -}}
+
+{{/*
 Certs volume + mount (compose ./certs:/certs:ro parity). Rendered only when
 any cert source is configured.
 */}}

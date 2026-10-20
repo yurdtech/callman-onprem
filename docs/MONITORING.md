@@ -16,6 +16,14 @@ secret):
 The `/ops/*` endpoints exist **only on the on-prem edition** (404 on cloud)
 and keep answering while the deployment is unlicensed or in read-only mode.
 
+Both `/ops/*` and `/metrics` are open by default (the internal network is the
+trust boundary). To require a token, set `OPS_TOKEN` in `.env`: calls then
+need `Authorization: Bearer <OPS_TOKEN>` — in Prometheus,
+`authorization: { credentials: <OPS_TOKEN> }` on the scrape job. `/health/*`
+is never gated. Newer backends also list migrations under
+`mongo.migrations` in `/ops/snapshot` (`pending`, and `unknownApplied` when
+the database was migrated by a newer release than the one running).
+
 ---
 
 ## 1. Where to scrape
@@ -261,8 +269,8 @@ Install the **Infinity** datasource, point it at
 
 | Endpoint | Where | Checks | Used by |
 |---|---|---|---|
-| `GET /health/live` | backend `:8080`, worker `:9090`, ui-runner `:9091`, storage `:9092` | process answers | Docker `healthcheck`, K8s liveness / startup |
-| `GET /health/ready` | same | Mongo `readyState` + Redis `PING` (503 when degraded) | K8s readiness, `helm test` |
+| `GET /health/live` | backend `:8080`, worker `:9090`, ui-runner `:9091`, storage `:9092`, mock `:9093`, admin `:5100` | process answers | K8s liveness / startup |
+| `GET /health/ready` | same | Mongo `readyState` + Redis `PING` (503 when degraded); worker, ui-runner, storage and mock also wait until they are consuming / serving; admin checks Mongo only | Docker Compose `healthcheck`, K8s readiness, `helm test` |
 | `GET /health` | backend | queue counts + build info | `scripts/autoscale-worker.sh` (`.data.queue.waiting/.active` — this shape is frozen), humans |
 | `GET /version` | backend | build info | release tooling |
 

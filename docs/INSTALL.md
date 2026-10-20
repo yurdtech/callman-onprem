@@ -31,14 +31,17 @@ runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.11.0, MCP (`callman-mcp`)
   Both must print a version, and Compose must be **v2.20+**. If not, install
   Docker Engine and the Compose plugin from
   <https://docs.docker.com/engine/install/>.
-- **2 GB RAM** and **5 GB free disk** minimum for the all-in-one stack (more
-  for heavy use). Enabling the optional **UI-test runner** (`ui-runner`
-  profile — scheduled web UI tests in a headless browser) adds **~2 GB disk**
-  for its image and **~2 GB RAM per replica** on top of that. The optional
-  **storage gateway** (`storage` profile — large files, kept in storage you
-  own) needs no extra image and ~100 MB RAM.
-- Ports **8080** and **5100** free (both configurable), plus **8081** if you
-  enable the storage gateway.
+- **4 GB RAM** and **5 GB free disk** for the all-in-one stack. 2 GB is enough
+  only for a light trial: at the default `BULLMQ_WORKER_CONCURRENCY` (50) a busy
+  worker alone can need more than 2 GB — give the host more memory, or lower
+  the concurrency to 20 (see [ENVIRONMENT.md](ENVIRONMENT.md) and
+  [SCALING.md](SCALING.md)). Enabling the optional **UI-test runner**
+  (`ui-runner` profile — scheduled web UI tests in a headless browser) adds
+  **~2 GB disk** for its image and **~2 GB RAM per replica** on top of that.
+  The optional **storage gateway** (`storage` profile — large files, kept in
+  storage you own) needs no extra image and ~100 MB RAM.
+- Ports **8080** (API), **5100** (admin panel) and **8082** (mock server) free
+  — all configurable — plus **8081** if you enable the storage gateway.
 
 **From us, before you begin:**
 
@@ -135,6 +138,13 @@ Open `.env` in an editor and fill in every `<CHANGE_ME...>` value:
   `CONNECTION_ENCRYPTION_KEY`
   Admin panel (must differ from each other):
   `ADMIN_JWT_SECRET`, `ADMIN_JWT_REFRESH_SECRET`
+- **`PUBLIC_API_BASE_URL`** — the address your users reach the API on, as they
+  type it (scheme + host, no trailing slash, no `/api`), e.g.
+  `https://callman.yourcompany.local`. Every desktop fetches its updates from
+  it. `.env.example` ships `https://callman.example.com`; replace it (or comment
+  it out for a first local test) — `preflight.sh` refuses the example value.
+  Also set **`ONPREM_COMPANY_SLUG`** to the company slug from the delivered
+  `build-manifest.json` ([DESKTOP-APP.md](DESKTOP-APP.md)).
 
 > The app **refuses to start** if a secret is shorter than 32 characters, or if
 > any two of the four backend secrets are equal.
@@ -186,7 +196,7 @@ docker compose up -d
 ```
 
 This starts the databases, runs the one-time migration, then starts the
-backend, worker and admin panel.
+backend, worker, mock server and admin panel.
 
 ### First-run checks
 
@@ -198,9 +208,11 @@ Run each command and compare with the expected result.
 docker compose ps
 ```
 
-Expected — `callman-backend`, `callman-admin`, `callman-worker-1` and (with the
-bundled databases) `callman-mongo`, `callman-redis` all show **`running`**, and
-`healthy` once warmed up. `callman-migrate` shows **`Exited (0)`** — that is
+Expected — `callman-backend`, `callman-admin`, `callman-mock`,
+`callman-worker-1` and (with the bundled databases) `callman-mongo`,
+`callman-redis` all show **`running`**, and `healthy` once warmed up (the app
+containers report `healthy` only once they reach MongoDB and Redis). With the
+optional profiles you also see `callman-storage` and `callman-ui-runner-1`. `callman-migrate` shows **`Exited (0)`** — that is
 correct, the migrator is a one-shot job that finishes and stops.
 
 **b) Migration succeeded:**
@@ -305,7 +317,8 @@ Do these before handing the system to users.
   panel and disable the bootstrap one. It can read all Callman data.
 - **Do not expose the admin panel to the internet.** Put it behind your VPN or
   a reverse proxy with authentication. Its API documentation page
-  (`/admin/docs`) is reachable by anyone who can reach the port.
+  (`/admin/docs`) is off in production; leave `ADMIN_API_DOCS_ENABLED` unset —
+  when turned on, that page is readable by anyone who can reach the port.
 - **Keep `CALLMAN_DB_WRITE_ENABLED=false`** (the default) so the admin panel can
   read Callman data but never modify it.
 - **`chmod 600 .env`**, and keep it out of any repository.
@@ -313,6 +326,25 @@ Do these before handing the system to users.
   a `CALLMAN_PORT` of `8080` publishes on all interfaces; restrict it with your
   firewall.
 - **Set up backups** — [BACKUP.md](BACKUP.md).
+
+### TLS and the reverse proxy
+
+The containers speak plain HTTP. For real use, put your own reverse proxy
+(nginx, HAProxy, F5, …) with your TLS certificate in front of them; Callman
+needs no certificate itself. What goes where:
+
+| Upstream | Proxy route | Must-have settings | Details |
+|---|---|---|---|
+| API `:8080` | your Callman host, `/` | Forward `Host` and `X-Forwarded-Proto`; set `PUBLIC_API_BASE_URL` to the `https://` address; return 404 for `/ops`, `/metrics` and `/api/internal`; long timeouts, since desktops download their installers here | [NETWORK.md](NETWORK.md), [DESKTOP-APP.md](DESKTOP-APP.md) §2 |
+| Admin panel `:5100` | its own host, admin network / VPN only | Body limit off and long timeouts for installer uploads (nginx: `client_max_body_size 0; proxy_request_buffering off; proxy_read_timeout 1800s;`) | [DESKTOP-APP.md](DESKTOP-APP.md) §2 |
+| Mock server `:8082` | its own domain, or `/mock/` on the API host | 2 MB body limit, 120 s read timeout; then `MOCK_SERVE_ON_API=false` | [MOCK-SERVER.md](MOCK-SERVER.md) |
+| Storage gateway `:8081` *(storage profile)* | `/storage/` on the API host | Body limit off, buffering off, long timeouts; set `CALLMAN_STORAGE_PUBLIC_URL` | [STORAGE.md](STORAGE.md) |
+
+Once the proxy is in place, firewall the published container ports so that
+only the proxy (and your monitoring) reaches them. A private CA for the
+databases goes in `certs/` ([EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md));
+desktops and the CLI need your CA trusted on the workstation
+([NETWORK.md](NETWORK.md#from-ci-agents-and-engineers-laptops)).
 
 ---
 
@@ -381,7 +413,7 @@ your own backup before a major upgrade.
 ```bash
 docker compose stop         # pause everything, keep containers and data
 docker compose down         # remove containers (your DATA is preserved)
-docker compose down -v      # remove containers AND DELETE all data (destructive!)
+docker compose down -v      # remove containers AND DELETE all data, backups included (destructive!)
 ```
 
 ---

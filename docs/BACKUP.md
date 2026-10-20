@@ -98,11 +98,11 @@ users and their encrypted credentials.
 **1. Stop everything that writes:**
 
 ```bash
-docker compose stop backend worker admin storage
+docker compose stop backend worker mock ui-runner admin storage
 ```
 
-(`storage` is only present if you enabled that profile; naming it when it is not
-running is harmless.)
+(`ui-runner` and `storage` are only present if you enabled those profiles;
+naming them when they are not running is harmless.)
 
 **2. Restore into MongoDB.**
 
@@ -197,7 +197,7 @@ restored, or Callman will know about files whose bytes stayed behind.
 | Queued background jobs | Redis | Not needed — pending runs are re-queued or re-run |
 | The images themselves | Registry | Pull again by `CALLMAN_VERSION` |
 | **Large files** (build artifacts, recordings) — only if the `storage` profile is enabled | Your own S3 / MinIO / FileNet | Your storage's own backup policy. MongoDB keeps the file records, so restoring MongoDB alone leaves Callman pointing at bytes that must still be there. |
-| **Large files on a *Local volume* provider** | `storage_local` Docker volume on this host | `docker run --rm -v callman_storage_local:/data -v "$PWD":/out alpine tar czf /out/storage-files.tar.gz -C /data .` — and restore it the same way. Prefer connecting real object storage instead. |
+| **Large files on a *Local volume* provider** | `storage_local` Docker volume on this host | `docker run --rm --entrypoint tar -u 0 -v callman_storage_local:/data -v "$PWD":/out "$(docker inspect -f '{{.Config.Image}}' callman-backend)" czf /out/storage-files.tar.gz -C /data .` — it borrows the backend image you already have, so it works air-gapped too. Restore the same way with `xzf /out/storage-files.tar.gz -C /data` while `storage` and `backend` are stopped. Prefer connecting real object storage instead. |
 | **Desktop installers** (the uploaded releases every desktop auto-updates from) | The same storage as your other large files | The same policy. Restoring MongoDB without them leaves a published release whose files are gone: desktops fail to download, and anyone installing by hand fails too. If that happens, upload the delivered folder again — see [DESKTOP-APP.md](DESKTOP-APP.md). |
 
 ---
