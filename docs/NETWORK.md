@@ -31,7 +31,7 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | --- | --- | --- |
 | Your MongoDB, Redis (if external) | Data, queue | Yes |
 | Your LDAP / AD on `636` | Sign-in | If LDAP is used |
-| The systems under test, Kafka brokers, Redis | Scenario and schedule runs execute **on the host** | Yes: this is the job. There is no allow-list in the product, restrict at the firewall |
+| The systems under test, Kafka brokers, Redis | Scenario and schedule runs execute **on the host** | Yes: this is the job. There is no allow-list in the product, restrict at the firewall. Newer backends refuse the cloud instance-metadata service (`169.254.169.254` & co., `OUTBOUND_DENY_CIDRS` in [ENVIRONMENT.md](ENVIRONMENT.md)) for HTTP calls; the UI runner's **browser** is not covered — on a cloud VM or managed Kubernetes, also deny `169.254.169.254` egress for the `callman-ui-runner` container / pod (firewall or NetworkPolicy) |
 | The databases your tests query (Oracle, PostgreSQL, MySQL, SQL Server, MongoDB) | Server runs, schedules and UI-test database steps connect from the worker and the UI-test runner; the server side of every connection test from the backend | When teams test databases. Ports and every test message: [DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md) |
 | Your object storage (S3 / MinIO / FileNet) | Large files | Only with the `storage` profile |
 | `ghcr.io` (or your registry) | Pulling images | Install and upgrade only; none with an air-gap bundle ([INSTALL.md](INSTALL.md)) |

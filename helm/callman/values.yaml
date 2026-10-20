@@ -62,7 +62,13 @@ mongo:
   persistence:
     size: 20Gi
     storageClass: ""
-  resources: {}
+  # Requests only (no limits), so the scheduler reserves room for the database
+  # instead of packing it onto a full node. Override freely; `resources: null`
+  # drops them.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
   # UID overrides. Defaults: OpenShift — unset (SCC assigns); vanilla k8s —
   # runAsUser/fsGroup 999 (the image's mongodb user).
   podSecurityContext: {}
@@ -84,7 +90,12 @@ redis:
   persistence:
     size: 5Gi
     storageClass: ""
-  resources: {}
+  # Requests only (no limits), so the scheduler reserves room for the queue
+  # store. Override freely; `resources: null` drops them.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
   podSecurityContext: {}
   nodeSelector: {}
   tolerations: []
@@ -147,6 +158,9 @@ backend:
   httpRequestTimeoutMs: "1800000"
   # Any other backend env var from docs/ENVIRONMENT.md (string values).
   extraEnv: {}
+  # A FLOOR: the chart raises it to the API's drain budget + 15 s (the shared
+  # SHUTDOWN_TIMEOUT_MS = worker.shutdownTimeoutMs, or extraEnv.SHUTDOWN_TIMEOUT_MS),
+  # so a rollout never SIGKILLs requests the process is still allowed to finish.
   terminationGracePeriodSeconds: 45
   podAnnotations: {}
   nodeSelector: {}
@@ -332,8 +346,8 @@ uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
   # how long in-flight browser runs may finish on a rollout. Browser runs
   # take minutes, not seconds — with the shared 30 s every `helm upgrade`
   # killed every run in flight. terminationGracePeriodSeconds is derived
-  # (+30 s). Backend >= 1.1 accepts up to 900000 (= runMaxDurationMs);
-  # older images cap it at 120000.
+  # (+30 s). Current images accept up to 900000 (= runMaxDurationMs); very
+  # old ones cap it at 120000.
   drainTimeoutMs: 120000
   heapMb: 768                       # Node heap only — Chromium is separate
   mongoPool:
@@ -341,7 +355,7 @@ uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
     min: 1
   # Chromium shared memory. Backed by an in-memory emptyDir that COUNTS
   # against the container memory limit. The runner launches Chromium with
-  # --disable-dev-shm-usage (backend >= 1.1), so 1Gi is plenty; keep
+  # --disable-dev-shm-usage, so 1Gi is plenty; keep
   # resources.limits.memory >= shmSize + heapMb + ~700Mi per concurrent browser.
   shmSize: 1Gi
   resources:

@@ -21,8 +21,9 @@ spec:
       labels:
         {{- include "callman.selectorLabels" (dict "root" $ "component" "mock") | nindent 8 }}
       annotations:
-        # Roll the pods when the shared env changes (MOCK_PUBLIC_BASE_URL etc.).
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        # Roll the pods when the shared env or the chart Secret changes
+        # (MOCK_PUBLIC_BASE_URL etc.).
+        {{- include "callman.checksumAnnotations" (dict "root" $ "configmap" "/configmap.yaml") | nindent 8 }}
         {{- with .Values.mock.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

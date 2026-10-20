@@ -103,7 +103,11 @@ kubectl -n callman create secret generic callman-secrets \
   --from-literal=MONGO_ROOT_PASSWORD='<password>' \
   --from-literal=REDIS_PASSWORD='<password>' \
   --from-literal=MONGODB_URI='mongodb://callman:<mongo password>@callman-mongo:27017/callman?authSource=admin' \
-  --from-literal=REDIS_URL='redis://:<redis password>@callman-redis:6379'
+  --from-literal=REDIS_URL='redis://:<redis password>@callman-redis:6379' \
+  --from-literal=CALLMAN_MONGODB_URI='mongodb://callman:<mongo password>@callman-mongo:27017/callman?authSource=admin'
+# CALLMAN_MONGODB_URI is the admin panel's MongoDB (the same URI as MONGODB_URI);
+# the panel refuses to start without it. The host names callman-mongo /
+# callman-redis assume the release is named "callman" as in step 4.
 
 # 3. Minimal values file
 cat > my-values.yaml <<'EOF'
@@ -205,7 +209,9 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
   schema migrations, then exits. Everything else starts **only after** it
   succeeds.
 - **admin** — the web admin panel (its own UI + API on one port). It reads the
-  same MongoDB directly, has its own login, and never calls the backend API.
+  same MongoDB directly and has its own login. It calls the backend only for a
+  few internal actions the backend owns: connection and storage tests, desktop
+  releases, and the Oracle client install.
 - **ui-runner** *(optional, off by default)* — runs your team's **web UI test
   flows** on a schedule, in a headless browser on this server. Separate,
   larger image; enabled with one `.env` line — see
@@ -244,9 +250,10 @@ values; expose it with a Route/Ingress or `kubectl port-forward`.)
 
 > ⚠️ **Security.** Set a **strong** `ADMIN_BOOTSTRAP_PASSWORD` before first
 > start and change it right after your first login. Do **not** expose this port
-> to the internet — keep it behind your VPN or an authenticating reverse proxy;
-> its API documentation page (`/admin/docs`) is readable by anyone who can reach
-> the port. Leave `CALLMAN_DB_WRITE_ENABLED=false` unless you specifically need
+> to the internet — keep it behind your VPN or an authenticating reverse proxy.
+> (Its API documentation page, `/admin/docs`, is off in production; if you turn
+> it on with `ADMIN_API_DOCS_ENABLED=true`, anyone who can reach the port can
+> read it.) Leave `CALLMAN_DB_WRITE_ENABLED=false` unless you specifically need
 > admin writes.
 
 Full setup + verification: [docs/INSTALL.md](docs/INSTALL.md#8-activate-your-license).

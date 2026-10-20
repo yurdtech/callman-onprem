@@ -62,7 +62,7 @@ Rules of thumb:
 - `scripts/autoscale-worker.sh` is hardcoded to the **worker** service and its
   queue math (hundreds of cheap jobs per worker) — do **not** point it at
   `ui-runner`.
-- Since backend 1.1 the runner runs as a proper PID 1 (`tini`) that reaps
+- The current runner image runs a proper PID 1 (`tini`) that reaps
   crashed Chromium helper processes, launches Chromium with
   `--disable-dev-shm-usage` (so `shm_size` is 1 GB, not 2) and bounds
   `browser.close()`; the "restart it nightly" hygiene is no longer needed,

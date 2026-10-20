@@ -82,7 +82,14 @@ x-app: &app
 # To use your own databases, set MONGODB_URI / REDIS_URL in `.env` and
 # remove the matching profile from COMPOSE_PROFILES. Nothing here changes.
 # See docs/EXTERNAL-DATABASES.md.
+#
+# CALLMAN_EDITION rides along here because every service that uses this block
+# runs the backend image, whose own default is `cloud` — and the cloud edition
+# skips licensing, the on-prem migrations and the Oracle client, and the storage
+# gateway refuses to start. `.env.example` sets `onprem`; this fallback keeps an
+# install that lost the line on the on-prem edition. A value in `.env` still wins.
 x-db-env: &db-env
+  CALLMAN_EDITION: ${CALLMAN_EDITION:-onprem}
   MONGODB_URI: ${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-callman}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/callman?authSource=admin}
   REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-}@redis:6379}
 
@@ -133,6 +140,10 @@ services:
       # a memory-limited container is OOM-killed before V8 collects. Keep
       # ~25% below the container's memory limit (mem_limit / deploy.resources).
       NODE_OPTIONS: ${BACKEND_NODE_OPTIONS:---max-old-space-size=768}
+    # Above the API's own drain budget (SHUTDOWN_TIMEOUT_MS, default 30 s), so
+    # `docker compose up -d` / a restart lets in-flight requests finish instead
+    # of Docker's default 10 s SIGKILL.
+    stop_grace_period: 45s
     ports:
       - "${CALLMAN_PORT:-8080}:${CALLMAN_PORT:-8080}"
     depends_on:
@@ -140,13 +151,16 @@ services:
       migrate:
         condition: service_completed_successfully
     # Overrides the image's baked probe, which targets the image default
-    # port (4000) rather than your CALLMAN_PORT.
+    # port (4000) rather than your CALLMAN_PORT. Readiness, not liveness: the
+    # container reports `healthy` only while the API can reach MongoDB and
+    # Redis, so `docker compose ps` shows the real state. Nothing waits on this
+    # status and Docker does not restart an `unhealthy` container.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${CALLMAN_PORT:-8080}/health/live"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${CALLMAN_PORT:-8080}/health/ready"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   # Background job processor (scenario runs + schedules). Deliberately has
   # NO `container_name` so it can be scaled to many replicas under load:
@@ -184,12 +198,14 @@ services:
     # WORKER_HEALTH_PORT is deliberately NOT published to the host: the
     # worker registers itself in Redis every 10 s and the backend lists the
     # whole fleet on GET /ops/instances (see docs/MONITORING.md).
+    # /health/ready turns 200 once the worker consumes the queue and Mongo +
+    # Redis answer (the health server itself is up before that).
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/live"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/ready"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 90s
 
   # Dedicated Load Testing Lab workers (profile `load-lab`). Without this
   # profile the regular `worker` replicas run lab shards too (WORKER_QUEUES
@@ -261,12 +277,12 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_MOCK_HEALTH_PORT||9093)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_MOCK_HEALTH_PORT||9093)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   # ── UI-test runner (optional, profile "ui-runner") ─────────────────
   # Executes WEB UI test flows on a schedule in headless Chromium. A
@@ -314,12 +330,12 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:'+(process.env.UITEST_HEALTH_PORT||9091)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.UITEST_HEALTH_PORT||9091)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 90s
 
   # Storage gateway — the HTTP surface for LARGE files (mobile build
   # artifacts, screen recordings, oversized imports). Opt-in: add `storage`
@@ -351,6 +367,9 @@ services:
       CALLMAN_STORAGE_PORT: ${CALLMAN_STORAGE_PORT:-8081}
       # Nothing is buffered whole, so this stays small on purpose.
       NODE_OPTIONS: ${STORAGE_NODE_OPTIONS:---max-old-space-size=512}
+    # Above the gateway's drain budget (SHUTDOWN_TIMEOUT_MS, default 30 s), so a
+    # restart lets transfers in flight finish instead of Docker's 10 s SIGKILL.
+    stop_grace_period: 45s
     ports:
       # Published because clients download hundreds of MB from it directly.
       # Put it behind your reverse proxy as `/storage/*` → this port, and
@@ -375,12 +394,12 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_STORAGE_HEALTH_PORT||9092)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.CALLMAN_STORAGE_HEALTH_PORT||9092)+'/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   # ── Bundled data stores (optional) ─────────────────────────────────
   # Enabled by COMPOSE_PROFILES in .env (default: both on). Remove a
@@ -399,6 +418,9 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-callman}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-}
+    # mongod flushes and checkpoints on SIGTERM; give a busy database more than
+    # Docker's default 10 s so it shuts down cleanly instead of being killed.
+    stop_grace_period: 30s
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -433,6 +455,9 @@ services:
       - "noeviction"
       - "--requirepass"
       - "${REDIS_PASSWORD:-}"
+    # Redis persists its data on SIGTERM (AOF fsync + final snapshot); allow more
+    # than Docker's default 10 s for that on a large dataset.
+    stop_grace_period: 30s
     volumes:
       - redis_data:/data
     healthcheck:
@@ -447,9 +472,10 @@ services:
   # callman-onprem-admin-panel repo (the on-prem-only admin with org groups,
   # activity log, group access, dashboard analytics). It is INDEPENDENT of
   # backend/worker: it talks DIRECTLY to the SAME MongoDB, with its OWN
-  # auth + JWT secrets. It uses no Redis. The ONE backend-API call it makes
-  # is the managed-connections "Test" action (CALLMAN_BACKEND_API_URL below):
-  # the real DB/Kafka/Redis drivers live only in the backend, and the config
+  # auth + JWT secrets. It uses no Redis. It calls the backend API
+  # (CALLMAN_BACKEND_API_URL below, /api/internal/*) only for actions whose
+  # code lives in the backend: the managed-connections and storage "Test"
+  # buttons, desktop releases, and the Oracle client install. Connection config
   # travels ENCRYPTED with the shared CONNECTION_ENCRYPTION_KEY.
   # By default it can only READ Callman data (CALLMAN_DB_WRITE_ENABLED=false).
   admin:
@@ -471,12 +497,21 @@ services:
       # use a DIFFERENT Mongo than the backend (unusual; it reads the same
       # database).
       CALLMAN_MONGODB_URI: ${CALLMAN_MONGODB_URI:-${MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-callman}:${MONGO_ROOT_PASSWORD:-}@mongo:27017/callman?authSource=admin}}
-      # Backend API base URL for the managed-connections driver tests.
-      # Defaults to the bundled backend service; override in .env only when
+      # Backend API base URL for the backend-owned actions above (connection
+      # and storage tests, desktop releases, Oracle client). Defaults to the bundled backend service; override in .env only when
       # the backend runs elsewhere.
       CALLMAN_BACKEND_API_URL: ${CALLMAN_BACKEND_API_URL:-http://backend:${CALLMAN_PORT:-8080}}
     ports:
       - "${CALLMAN_ADMIN_PORT:-5100}:5100"
+    # Same probe as the image's baked one, but against readiness (MongoDB
+    # answers a ping) instead of liveness, so `docker compose ps` shows the
+    # real state. Nothing waits on this status.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5100/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     depends_on:
       # Hard requirement: admin connects directly to Mongo on boot — but
       # only wait for the bundled one when it is part of this deployment.
@@ -485,8 +520,8 @@ services:
         required: false
       # Wait for the one-shot migrate so admin reads an already-migrated
       # schema (it shares the DB). This is DB-readiness ordering, NOT a
-      # dependency on the backend/worker app tier — admin never calls the
-      # backend API.
+      # dependency on the backend/worker app tier: the panel boots and serves
+      # without the backend; only the actions listed above need it running.
       migrate:
         condition: service_completed_successfully
 
