@@ -26,6 +26,7 @@ spec:
 {{- $waiting := .Values.worker.keda.waitingPerReplica | default $concurrency }}
 ---
 # Production workers (scenario-runs: manual, CI and scheduled runs).
+# replicas = ceil((waiting + running jobs) / waitingPerReplica).
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -55,8 +56,16 @@ spec:
         # Runs take seconds to minutes — never evict a pod mid-burst.
         scaleDown:
           stabilizationWindowSeconds: {{ .Values.worker.keda.scaleDownStabilizationSeconds }}
+    # KEDA would take the LARGER of two triggers; the fleet must hold waiting
+    # PLUS running jobs, so the triggers are summed.
+    scalingModifiers:
+      formula: "wait + active"
+      target: {{ $waiting | quote }}
+      activationTarget: "0"
+      metricType: AverageValue
   triggers:
     - type: redis
+      name: wait
       authenticationRef:
         name: {{ $fullname }}-redis
       metadata:
@@ -66,12 +75,13 @@ spec:
         activationListLength: "0"
         enableTLS: {{ .Values.keda.redis.enableTLS | quote }}
     - type: redis
+      name: active
       authenticationRef:
         name: {{ $fullname }}-redis
       metadata:
         address: {{ $address | quote }}
         listName: {{ printf "%s:scenario-runs:active" $prefix | quote }}
-        listLength: {{ $concurrency | quote }}
+        listLength: {{ $waiting | quote }}
         activationListLength: "0"
         enableTLS: {{ .Values.keda.redis.enableTLS | quote }}
 {{- end }}
@@ -103,8 +113,15 @@ spec:
         # A shard holds its pod for the whole lab: scale in only well after.
         scaleDown:
           stabilizationWindowSeconds: {{ .Values.loadLabWorker.keda.cooldownPeriod }}
+    # One pod per shard, waiting OR running: sum the two lists.
+    scalingModifiers:
+      formula: "wait + active"
+      target: "1"
+      activationTarget: "0"
+      metricType: AverageValue
   triggers:
     - type: redis
+      name: wait
       authenticationRef:
         name: {{ $fullname }}-redis
       metadata:
@@ -114,6 +131,7 @@ spec:
         activationListLength: "0"
         enableTLS: {{ .Values.keda.redis.enableTLS | quote }}
     - type: redis
+      name: active
       authenticationRef:
         name: {{ $fullname }}-redis
       metadata:

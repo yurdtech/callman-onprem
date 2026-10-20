@@ -358,11 +358,13 @@ What the chart creates (`templates/keda.yaml`):
 
 - a `TriggerAuthentication` that reads the Redis password from the release
   Secret (`REDIS_PASSWORD`);
-- a `ScaledObject` on the `worker` Deployment with two Redis triggers:
-  `bull:scenario-runs:wait` (waiting jobs ÷ `waitingPerReplica`) and
-  `bull:scenario-runs:active` (running jobs ÷ `concurrency`). KEDA takes the
-  larger, so pods grow with the backlog and are kept while runs are still
-  executing;
+- a `ScaledObject` on the `worker` Deployment with two Redis triggers,
+  `bull:scenario-runs:wait` and `bull:scenario-runs:active`, **summed** with
+  `advanced.scalingModifiers` (`wait + active`): replicas =
+  ⌈(waiting + running jobs) ÷ `waitingPerReplica`⌉. On its own KEDA would
+  take the *larger* trigger, which under-sizes the fleet the moment jobs
+  move from waiting to running; the sum keeps pods while runs still execute
+  (needs KEDA ≥ 2.12);
 - HPA behaviour: scale **up** immediately (+100 % or +4 pods every 15 s),
   scale **down** only after `scaleDownStabilizationSeconds` — a pod is never
   removed in the middle of a burst.
@@ -377,7 +379,12 @@ target database, up to `dbPool.maxPerConnection` connections. Pick
 `maxReplicas` so that `maxReplicas × dbPool.maxPerConnection` stays below
 each target database's connection limit (MySQL `max_connections`, Oracle
 `PROCESSES`/`SESSIONS`, PostgreSQL `max_connections`) and the namespace has
-`maxReplicas × worker.resources.requests` to spare.
+`maxReplicas × worker.resources.requests` to spare. Count the load-lab pods
+too (`loadLabWorker.keda.maxReplicas`): they keep their pools for
+`dbPool.idleMs` after a lab, so a production-path lab that follows straight
+after a burst lab sees both fleets. Example: PostgreSQL `max_connections`
+100, `maxPerConnection` 15 → at most 6 pods in total. The lab reports
+"Database connection limit reached" with this arithmetic when it happens.
 
 **Prove it before the bank relies on it:** run a *Production path* lab in the
 admin panel (Load Testing Lab → target "Production path"). It enqueues N runs
