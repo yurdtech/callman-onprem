@@ -298,18 +298,132 @@ the same. Only the mechanics differ:
 | compose | helm |
 | --- | --- |
 | `docker compose up -d --scale worker=N` | `helm upgrade ... --set worker.replicaCount=N` |
-| `scripts/autoscale-worker.sh` (cron/systemd) | `worker.hpa.enabled=true` (`worker.hpa.metric: cpu` or `queue`) |
+| `scripts/autoscale-worker.sh` (cron/systemd) | **`worker.keda.enabled=true`** (recommended) or `worker.hpa.enabled=true` |
 | `BULLMQ_WORKER_CONCURRENCY` in `.env` | `worker.concurrency` value (chart default 20) |
 | `NODE_OPTIONS=--max-old-space-size` | `backend.heapMb` / `worker.heapMb` / `uiRunner.heapMb` |
 | `MONGODB_MAX_POOL_SIZE` | `backend.mongoPool` / `worker.mongoPool` / `uiRunner.mongoPool` (per replica) |
+| `DB_POOL_MAX_PER_CONNECTION` | `dbPool.maxPerConnection` (per replica, per target database) |
 | ui-runner scaling | `uiRunner.replicaCount` / `uiRunner.hpa.enabled` |
 
-Scenario runs are I/O-bound, so CPU is a poor scaling signal for the worker.
-With `worker.hpa.metric: queue` the HPA scales on `bullmq_jobs_waiting`
-(target `worker.hpa.targetWaitingJobsPerReplica`, default 10) — this needs a
-metrics adapter that serves the gauge through the External Metrics API
-(prometheus-adapter with a rule for `bullmq_jobs_waiting`); `cpu` stays the
-portable default. See [HELM-INSTALL.md](HELM-INSTALL.md) §6.
+### How many runs at once
+
+```
+runs in parallel = worker pods × worker.concurrency
+```
+
+Every server run — schedules, *Run on server*, CI (`callme scenario run`) —
+goes through the one `scenario-runs` queue. A run that finds no free slot
+**waits in the queue** (it does not fail). With 1 pod × 20 the 21st run waits.
+Autoscaling turns that backlog into more pods.
+
+### Autoscaling the workers on the queue (recommended: KEDA)
+
+Scenario runs are I/O-bound (they wait on APIs and databases), so **CPU is the
+wrong signal**: a pod can hold 20 runs at 10 % CPU while 500 more wait in the
+queue. Scale on the **backlog**. The chart does that with
+[KEDA](https://keda.sh), which reads the queue length straight from Redis —
+no Prometheus, no metrics adapter.
+
+1. Install KEDA once per cluster (cluster admin):
+
+   ```bash
+   helm repo add kedacore https://kedacore.github.io/charts
+   helm install keda kedacore/keda -n keda --create-namespace
+   # air-gapped: mirror ghcr.io/kedacore/keda, keda-metrics-apiserver,
+   # keda-admission-webhooks and set image.*.registry in the KEDA chart
+   ```
+
+2. Turn it on for the workers:
+
+   ```yaml
+   # values.yaml
+   worker:
+     concurrency: 20          # runs per pod
+     keda:
+       enabled: true
+       minReplicas: 2         # always-on capacity (schedules, CI)
+       maxReplicas: 20        # ceiling: 20 pods × 20 = 400 runs at once
+       waitingPerReplica: ""  # "" = worker.concurrency (20 waiting runs add a pod)
+       pollingInterval: 5     # seconds
+       cooldownPeriod: 300    # quiet seconds before scaling in
+       scaleDownStabilizationSeconds: 300
+   ```
+
+   ```bash
+   helm upgrade callman ./callman --reuse-values -f values.yaml
+   kubectl get scaledobject,hpa -n <namespace>
+   ```
+
+What the chart creates (`templates/keda.yaml`):
+
+- a `TriggerAuthentication` that reads the Redis password from the release
+  Secret (`REDIS_PASSWORD`);
+- a `ScaledObject` on the `worker` Deployment with two Redis triggers:
+  `bull:scenario-runs:wait` (waiting jobs ÷ `waitingPerReplica`) and
+  `bull:scenario-runs:active` (running jobs ÷ `concurrency`). KEDA takes the
+  larger, so pods grow with the backlog and are kept while runs are still
+  executing;
+- HPA behaviour: scale **up** immediately (+100 % or +4 pods every 15 s),
+  scale **down** only after `scaleDownStabilizationSeconds` — a pod is never
+  removed in the middle of a burst.
+
+With an external Redis set `keda.redis.address` (`host:port`) and, for TLS,
+`keda.redis.enableTLS: true`. `worker.keda` and `worker.hpa` are mutually
+exclusive (KEDA creates its own HPA). Keep `worker.replicaCount` out of your
+values once KEDA owns the replica count.
+
+**Sizing the ceiling.** Each pod adds `worker.concurrency` runs and, per
+target database, up to `dbPool.maxPerConnection` connections. Pick
+`maxReplicas` so that `maxReplicas × dbPool.maxPerConnection` stays below
+each target database's connection limit (MySQL `max_connections`, Oracle
+`PROCESSES`/`SESSIONS`, PostgreSQL `max_connections`) and the namespace has
+`maxReplicas × worker.resources.requests` to spare.
+
+**Prove it before the bank relies on it:** run a *Production path* lab in the
+admin panel (Load Testing Lab → target "Production path"). It enqueues N runs
+on the real queue at once and reports how long they waited, when the first
+extra worker came up, the peak worker count and the throughput —
+[LOAD-LAB.md](LOAD-LAB.md).
+
+### Alternative: HPA on Prometheus (no KEDA)
+
+If the cluster runs Prometheus and prometheus-adapter but no KEDA, use the
+chart's HPA on the `bullmq_jobs_waiting` gauge every worker exports:
+
+```yaml
+worker:
+  hpa:
+    enabled: true
+    metric: queue
+    minReplicas: 2
+    maxReplicas: 20
+    targetWaitingJobsPerReplica: 20
+```
+
+prometheus-adapter rule (serves the gauge through the External Metrics API):
+
+```yaml
+# prometheus-adapter values.yaml
+rules:
+  external:
+    - seriesQuery: 'bullmq_jobs_waiting{queue="scenario-runs"}'
+      resources:
+        overrides:
+          namespace: { resource: namespace }
+      name:
+        as: bullmq_jobs_waiting
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>}) by (queue)'
+```
+
+Prometheus must scrape the worker pods' `/metrics` (`serviceMonitor.enabled:
+true` with the Prometheus Operator). Check:
+`kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/<ns>/bullmq_jobs_waiting"`.
+This path reacts on Prometheus' scrape interval, so it is slower than KEDA.
+
+`worker.hpa.metric: cpu` (the chart default when `hpa.enabled`) works without
+any adapter but rarely scales for scenario workloads — prefer the queue.
+
+### Memory per pod
 
 Worker memory on k8s is bounded by `worker.concurrency` (20), the V8 heap cap
 (`worker.heapMb`, 1024 for the 1536Mi limit) and the worker's own heap-aware

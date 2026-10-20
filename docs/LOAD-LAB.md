@@ -18,6 +18,21 @@ report.
 
 ---
 
+## Two kinds of lab
+
+| Target | Where the runs execute | It answers |
+|---|---|---|
+| **Lab workers** (load generator) | The lab's own pods fire every run at the same instant. | *Can the API / databases / Kafka behind our scenarios take N runs at once?* |
+| **Production path** | Every run is enqueued on the real `scenario-runs` queue at t0 — exactly like schedules and CI — and executed by the production workers with their real concurrency and autoscaler. | *How does our Callman deployment cope: how long do runs wait, does it scale out, how fast, what throughput?* |
+
+A *Production path* lab is the test of the production setup itself (see
+[SCALING.md](SCALING.md) for autoscaling the workers with KEDA). Its report
+adds a **Production** tab: queue wait (enqueue → started on a worker), workers
+and run slots over time, time to the first extra worker and to the peak,
+peak backlog. Its runs share the queue with real schedules and CI, and the run
+reports they write are removed when the lab finishes
+(`LOAD_LAB_KEEP_PRODUCTION_REPORTS=true` keeps them).
+
 ## How a lab runs
 
 ```
@@ -104,7 +119,8 @@ Only one lab executes at a time; a second one waits for the first to finish.
 ## Kubernetes (Helm)
 
 By default the regular `worker` pods also take lab shards
-(`loadLab.onRegularWorkers: true`). For real bursts give labs their own pods:
+(`loadLab.onRegularWorkers: true`). For real bursts give labs their own,
+autoscaled pods (needs [KEDA](https://keda.sh) — see [SCALING.md](SCALING.md)):
 
 ```yaml
 # values.yaml
@@ -113,26 +129,26 @@ loadLab:
   onRegularWorkers: false      # keep labs off the production workers
 loadLabWorker:
   enabled: true
-  replicaCount: 5              # 5 × 150 = 750 runs at once
   heapMb: 2048
   uvThreadpoolSize: 32
-  resources:
-    requests: { cpu: 500m, memory: 1Gi }
-    limits:   { memory: 3Gi }
+  keda:
+    enabled: true
+    minReplicas: 1             # the lab coordinator runs here
+    maxReplicas: 10            # 10 × 150 = 1 500 runs at the same instant
+    scaleUpTimeoutMs: 300000   # how long a lab waits for its pods
 ```
 
-Scale before a lab, and back down after it:
+How it scales: the lab cuts the burst into one shard per
+`maxRunsPerPod` runs (at most `maxReplicas`) and queues the shards; KEDA adds
+one pod per waiting shard; each pod prepares its shard and arms; when every
+shard is armed (or `scaleUpTimeoutMs` passed) all of them fire at t0. The pods
+are removed again after `cooldownPeriod`.
 
-```bash
-helm upgrade callman ./callman --reuse-values --set loadLabWorker.replicaCount=5
-# … run the lab …
-helm upgrade callman ./callman --reuse-values --set loadLabWorker.replicaCount=1
-```
-
-Wait until the new pods are *Ready* (they appear in the lab's fleet strip
-within ~10 s) before starting a burst.
-
-All `loadLab.*` values map to the `LOAD_LAB_*` variables below.
+Any run count up to `loadLab.maxTotalRuns` is accepted. When even
+`maxReplicas` pods cannot hold the whole burst, the first
+`maxReplicas × maxRunsPerPod` runs start at t0 and the rest follow in waves —
+the report says so. Without KEDA the lab runs on the pods that exist (scale
+them by hand: `--set loadLabWorker.replicaCount=N`).
 
 ## Docker Compose
 
