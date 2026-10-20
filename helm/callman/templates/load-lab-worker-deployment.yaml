@@ -47,6 +47,8 @@ spec:
               value: {{ printf "--max-old-space-size=%d" (int .Values.loadLabWorker.heapMb) | quote }}
             - name: UV_THREADPOOL_SIZE
               value: {{ .Values.loadLabWorker.uvThreadpoolSize | quote }}
+            - name: SCRIPT_WORKER_POOL_SIZE
+              value: {{ .Values.loadLabWorker.scriptWorkerPoolSize | quote }}
             - name: MONGODB_MAX_POOL_SIZE
               value: {{ .Values.loadLabWorker.mongoPool.max | quote }}
             - name: MONGODB_MIN_POOL_SIZE

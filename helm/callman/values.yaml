@@ -251,6 +251,9 @@ loadLabWorker:
   # on it, so it caps the Oracle calls in flight per pod — raise it with the
   # burst size (DNS lookups of HTTP steps share it too).
   uvThreadpoolSize: 32
+  # ≈ SCRIPT_WORKER_POOL_SIZE (0–16): warm threads that run the script steps of
+  # the burst's runs. More than the regular worker's 2 — 150 runs per pod share it.
+  scriptWorkerPoolSize: 8
   mongoPool:
     max: 20
     min: 2
