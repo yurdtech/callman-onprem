@@ -313,7 +313,7 @@ loadLabWorker:
 # enableTLS) here — the password is read from the release Secret.
 keda:
   redis:
-    address: ""                      # host:port; "" = the bundled <release>-redis:6379
+    address: ""                      # host:port reachable from the KEDA operator; "" = <release>-redis.<namespace>.svc:6379
     passwordSecretKey: REDIS_PASSWORD
     enableTLS: false
     # BullMQ key prefix (Callman uses BullMQ's default).

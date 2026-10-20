@@ -5,7 +5,8 @@
 {{- fail "worker.keda.enabled and worker.hpa.enabled are mutually exclusive — KEDA creates its own HPA" }}
 {{- end }}
 {{- $fullname := include "callman.fullname" . }}
-{{- $address := .Values.keda.redis.address | default (printf "%s-redis:6379" $fullname) }}
+{{- /* The KEDA operator resolves names from ITS namespace: always namespace-qualify. */}}
+{{- $address := .Values.keda.redis.address | default (printf "%s-redis.%s.svc:6379" $fullname .Release.Namespace) }}
 {{- $prefix := .Values.keda.redis.keyPrefix | default "bull" }}
 # Queue-driven autoscaling (KEDA). The scalers read BullMQ's Redis lists
 # directly: <prefix>:<queue>:wait (waiting jobs) and <prefix>:<queue>:active.
