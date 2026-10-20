@@ -10,7 +10,9 @@ metadata:
   labels:
     {{- include "callman.labels" (dict "root" $ "component" "load-lab-worker") | nindent 4 }}
 spec:
+  {{- if not (and .Values.loadLabWorker.keda .Values.loadLabWorker.keda.enabled) }}
   replicas: {{ .Values.loadLabWorker.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "callman.selectorLabels" (dict "root" $ "component" "load-lab-worker") | nindent 6 }}

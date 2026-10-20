@@ -1,0 +1,125 @@
+{{- $workerKeda := and .Values.worker.keda .Values.worker.keda.enabled }}
+{{- $labKeda := and .Values.loadLab.enabled .Values.loadLabWorker.enabled .Values.loadLabWorker.keda .Values.loadLabWorker.keda.enabled }}
+{{- if or $workerKeda $labKeda }}
+{{- if and $workerKeda .Values.worker.hpa.enabled }}
+{{- fail "worker.keda.enabled and worker.hpa.enabled are mutually exclusive — KEDA creates its own HPA" }}
+{{- end }}
+{{- $fullname := include "callman.fullname" . }}
+{{- $address := .Values.keda.redis.address | default (printf "%s-redis:6379" $fullname) }}
+{{- $prefix := .Values.keda.redis.keyPrefix | default "bull" }}
+# Queue-driven autoscaling (KEDA). The scalers read BullMQ's Redis lists
+# directly: <prefix>:<queue>:wait (waiting jobs) and <prefix>:<queue>:active.
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ $fullname }}-redis
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "autoscaling") | nindent 4 }}
+spec:
+  secretTargetRef:
+    - parameter: password
+      name: {{ include "callman.secretName" . }}
+      key: {{ .Values.keda.redis.passwordSecretKey }}
+{{- if $workerKeda }}
+{{- $concurrency := int .Values.worker.concurrency }}
+{{- $waiting := .Values.worker.keda.waitingPerReplica | default $concurrency }}
+---
+# Production workers (scenario-runs: manual, CI and scheduled runs).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $fullname }}-worker
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "worker") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ $fullname }}-worker
+  minReplicaCount: {{ .Values.worker.keda.minReplicas }}
+  maxReplicaCount: {{ .Values.worker.keda.maxReplicas }}
+  pollingInterval: {{ .Values.worker.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.worker.keda.cooldownPeriod }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+            - type: Pods
+              value: 4
+              periodSeconds: 15
+          selectPolicy: Max
+        # Runs take seconds to minutes — never evict a pod mid-burst.
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.worker.keda.scaleDownStabilizationSeconds }}
+  triggers:
+    - type: redis
+      authenticationRef:
+        name: {{ $fullname }}-redis
+      metadata:
+        address: {{ $address | quote }}
+        listName: {{ printf "%s:scenario-runs:wait" $prefix | quote }}
+        listLength: {{ $waiting | quote }}
+        activationListLength: "0"
+        enableTLS: {{ .Values.keda.redis.enableTLS | quote }}
+    - type: redis
+      authenticationRef:
+        name: {{ $fullname }}-redis
+      metadata:
+        address: {{ $address | quote }}
+        listName: {{ printf "%s:scenario-runs:active" $prefix | quote }}
+        listLength: {{ $concurrency | quote }}
+        activationListLength: "0"
+        enableTLS: {{ .Values.keda.redis.enableTLS | quote }}
+{{- end }}
+{{- if $labKeda }}
+---
+# Load Testing Lab pods: one pod per lab shard (waiting or running).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $fullname }}-load-lab-worker
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "load-lab-worker") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ $fullname }}-load-lab-worker
+  minReplicaCount: {{ max 1 (int .Values.loadLabWorker.keda.minReplicas) }}
+  maxReplicaCount: {{ .Values.loadLabWorker.keda.maxReplicas }}
+  pollingInterval: {{ .Values.loadLabWorker.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.loadLabWorker.keda.cooldownPeriod }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Pods
+              value: 50
+              periodSeconds: 10
+        # A shard holds its pod for the whole lab: scale in only well after.
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.loadLabWorker.keda.cooldownPeriod }}
+  triggers:
+    - type: redis
+      authenticationRef:
+        name: {{ $fullname }}-redis
+      metadata:
+        address: {{ $address | quote }}
+        listName: {{ printf "%s:load-lab-shards:wait" $prefix | quote }}
+        listLength: "1"
+        activationListLength: "0"
+        enableTLS: {{ .Values.keda.redis.enableTLS | quote }}
+    - type: redis
+      authenticationRef:
+        name: {{ $fullname }}-redis
+      metadata:
+        address: {{ $address | quote }}
+        listName: {{ printf "%s:load-lab-shards:active" $prefix | quote }}
+        listLength: "1"
+        activationListLength: "0"
+        enableTLS: {{ .Values.keda.redis.enableTLS | quote }}
+{{- end }}
+{{- end }}

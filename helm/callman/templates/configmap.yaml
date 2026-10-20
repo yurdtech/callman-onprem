@@ -43,9 +43,17 @@ data:
   LOAD_LAB_ENABLED: {{ .Values.loadLab.enabled | quote }}
   LOAD_LAB_MAX_TOTAL_RUNS: {{ .Values.loadLab.maxTotalRuns | int64 | quote }}
   LOAD_LAB_MAX_RUNS_PER_POD: {{ .Values.loadLab.maxRunsPerPod | int64 | quote }}
+  {{- if not (and .Values.loadLabWorker.enabled .Values.loadLabWorker.keda .Values.loadLabWorker.keda.enabled) }}
   LOAD_LAB_ARM_TIMEOUT_MS: {{ .Values.loadLab.armTimeoutMs | int64 | quote }}
+  {{- end }}
   LOAD_LAB_START_LEAD_MS: {{ .Values.loadLab.startLeadMs | int64 | quote }}
   LOAD_LAB_SAMPLES_PER_GROUP: {{ .Values.loadLab.samplesPerGroup | int64 | quote }}
+  {{- if and .Values.loadLabWorker.enabled .Values.loadLabWorker.keda .Values.loadLabWorker.keda.enabled }}
+  # Lab pods are autoscaled by KEDA from the waiting shards.
+  LOAD_LAB_SHARD_AUTOSCALE: "true"
+  LOAD_LAB_MAX_PODS: {{ .Values.loadLabWorker.keda.maxReplicas | int64 | quote }}
+  LOAD_LAB_ARM_TIMEOUT_MS: {{ .Values.loadLabWorker.keda.scaleUpTimeoutMs | int64 | quote }}
+  {{- end }}
   # libuv thread pool (bcrypt, crypto, DNS, zlib). Node's default 4 is the
   # bottleneck during a login burst; 8 is safe at the pods' CPU requests.
   UV_THREADPOOL_SIZE: "8"

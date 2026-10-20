@@ -215,6 +215,22 @@ worker:
     metric: cpu
     targetCPUUtilizationPercentage: 75
     targetWaitingJobsPerReplica: 10
+  # Queue-driven autoscaling with KEDA (https://keda.sh, must be installed in
+  # the cluster) — the recommended way to scale workers: it reads the
+  # scenario-runs backlog straight from Redis (no Prometheus / metrics adapter
+  # needed). Mutually exclusive with worker.hpa. replicas = max(
+  #   waiting jobs / waitingPerReplica,  active jobs / worker.concurrency)
+  # so a burst of schedules / CI runs adds pods within ~pollingInterval and
+  # pods are only removed after cooldownPeriod of quiet. See docs/SCALING.md.
+  keda:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    # Waiting jobs one more pod should absorb ("" = worker.concurrency).
+    waitingPerReplica: ""
+    pollingInterval: 5               # seconds between backlog checks
+    cooldownPeriod: 300              # seconds of no backlog before scaling in
+    scaleDownStabilizationSeconds: 300
 
 # Database connection pooling for scenario DB steps (≈ DB_POOL_*). On, steps
 # that hit the same database share warm pooled connections per pod instead of
@@ -279,6 +295,29 @@ loadLabWorker:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+  # KEDA for the lab pods: a lab cuts its runs into shards (one per pod,
+  # ceil(runs / maxRunsPerPod), at most maxReplicas) and every waiting shard
+  # job adds a pod; the burst fires once they are all up. Requires KEDA.
+  keda:
+    enabled: false
+    minReplicas: 1                   # >= 1: the lab coordinator runs on these pods
+    maxReplicas: 10
+    pollingInterval: 5
+    cooldownPeriod: 600
+    # How long a lab waits for its pods (image pull + start) before it fires
+    # on the ones that came up (≈ LOAD_LAB_ARM_TIMEOUT_MS).
+    scaleUpTimeoutMs: 300000
+
+# Redis connection KEDA's scalers use to read the BullMQ queue lengths.
+# Defaults follow the bundled Redis; for externalRedis set address (and
+# enableTLS) here — the password is read from the release Secret.
+keda:
+  redis:
+    address: ""                      # host:port; "" = the bundled <release>-redis:6379
+    passwordSecretKey: REDIS_PASSWORD
+    enableTLS: false
+    # BullMQ key prefix (Callman uses BullMQ's default).
+    keyPrefix: bull
 
 uiRunner:                           # ≈ COMPOSE_PROFILES ui-runner
   enabled: false

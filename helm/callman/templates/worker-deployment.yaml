@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "callman.labels" (dict "root" $ "component" "worker") | nindent 4 }}
 spec:
-  {{- if not .Values.worker.hpa.enabled }}
+  {{- if not (or .Values.worker.hpa.enabled (and .Values.worker.keda .Values.worker.keda.enabled)) }}
   replicas: {{ .Values.worker.replicaCount }}
   {{- end }}
   selector:
