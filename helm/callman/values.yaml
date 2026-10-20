@@ -216,6 +216,17 @@ worker:
     targetCPUUtilizationPercentage: 75
     targetWaitingJobsPerReplica: 10
 
+# Database connection pooling for scenario DB steps (≈ DB_POOL_*). On, steps
+# that hit the same database share warm pooled connections per pod instead of
+# logging in for every step — a 450-run burst then opens at most
+# pods × maxPerConnection connections to that database. Off = one fresh
+# connection per step (the behaviour before pooling; useful for an A/B lab).
+dbPool:
+  enabled: true                     # ≈ DB_POOL_ENABLED
+  maxPerConnection: 10              # ≈ DB_POOL_MAX_PER_CONNECTION, per pod
+  idleMs: 60000                     # ≈ DB_POOL_IDLE_MS
+  acquireTimeoutMs: 30000           # ≈ DB_POOL_ACQUIRE_TIMEOUT_MS
+
 # Load Testing Lab (admin panel → "Load Testing Lab"): fire N × scenario runs
 # at the same instant across the worker pods and report the result. Labs run
 # on every worker that consumes the load-lab queues — by default the regular

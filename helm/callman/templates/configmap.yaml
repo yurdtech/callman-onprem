@@ -34,6 +34,11 @@ data:
   # error-report rate limiters default to Mongo buckets otherwise, which is
   # two extra Mongo round-trips per login.
   RATE_LIMIT_STORE: redis
+  # Scenario DB connection pooling (values: dbPool).
+  DB_POOL_ENABLED: {{ .Values.dbPool.enabled | quote }}
+  DB_POOL_MAX_PER_CONNECTION: {{ .Values.dbPool.maxPerConnection | int64 | quote }}
+  DB_POOL_IDLE_MS: {{ .Values.dbPool.idleMs | int64 | quote }}
+  DB_POOL_ACQUIRE_TIMEOUT_MS: {{ .Values.dbPool.acquireTimeoutMs | int64 | quote }}
   # Load Testing Lab (values: loadLab).
   LOAD_LAB_ENABLED: {{ .Values.loadLab.enabled | quote }}
   LOAD_LAB_MAX_TOTAL_RUNS: {{ .Values.loadLab.maxTotalRuns | int64 | quote }}

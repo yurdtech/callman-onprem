@@ -88,9 +88,14 @@ scenarios with large responses lower it, or raise the pod memory.
 so `UV_THREADPOOL_SIZE` caps how many Oracle calls one pod has in flight. The
 dedicated lab workers default to 32; the regular workers use 8.
 
-**Database logins:** a DB step opens its own connection today. A burst of N
-runs means up to N simultaneous logins to that database — check the target's
-`PROCESSES`/`SESSIONS` (Oracle) or `max_connections` first.
+**Database connections:** DB steps share pooled connections
+(`dbPool` / `DB_POOL_*`, on by default): a burst opens at most
+`pods × DB_POOL_MAX_PER_CONNECTION` connections to each database, and steps
+queue for a free one (the Targets tab shows that wait as *connect*). With
+`DB_POOL_ENABLED=false` every DB step logs in on its own — a burst of N runs is
+then up to N simultaneous logins, which is what exhausts `max_connections` /
+Oracle `PROCESSES`. Run the same lab both ways and use **Compare** to see the
+difference.
 
 Only one lab executes at a time; a second one waits for the first to finish.
 
