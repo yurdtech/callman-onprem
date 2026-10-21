@@ -38,6 +38,7 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | `api.telegram.org` | Error forwarding | Only if `TELEGRAM_ENABLED` is on; leave it empty |
 | The AI provider set in **AI Settings** | AI assistant / AI node | Only if configured; switch the `ai*` flags off otherwise |
 | Slack webhook | Notification connections | Only if someone creates one |
+| An OpenAPI URL in **AI Knowledge** | The backend and worker fetch the definition (and re-fetch it daily if set so) | Only if an admin adds a source by URL; uploading the file instead needs no network ([AI-KNOWLEDGE.md](AI-KNOWLEDGE.md)) |
 | `download.oracle.com` | Oracle Instant Client for Oracle 11g | Only when an admin clicks **Download from Oracle**; uploading the package instead needs no internet |
 
 ## Outbound from a user's workstation (desktop app)

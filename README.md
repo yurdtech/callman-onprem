@@ -192,6 +192,8 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/LOAD-LAB.md`](docs/LOAD-LAB.md) | Load Testing Lab: fire N × scenario runs at once and read the report |
 | [`docs/MONITORING.md`](docs/MONITORING.md) | DevOps monitoring: Prometheus `/metrics` catalog, the `/ops/*` JSON diagnostics API, log levels and rotation |
 | [`docs/NETWORK.md`](docs/NETWORK.md) | Ports, firewall rules and every optional feature that reaches the internet |
+| [`docs/AI-KNOWLEDGE.md`](docs/AI-KNOWLEDGE.md) | AI Knowledge: give the AI your OpenAPI definitions, collections, conventions and known defects, scoped to tribes and squads |
+| [`docs/AI-POLICY.md`](docs/AI-POLICY.md) | AI policy: which AI sources (AI connections, company key, personal keys, accounts on the computer, self-run models) each AI feature may use |
 | [`docs/THIRD-PARTY.md`](docs/THIRD-PARTY.md) | The open-source components of the desktop's AI testing, their pinned versions and what they send |
 | [`docs/PILOT-QUICKSTART.md`](docs/PILOT-QUICKSTART.md) | From a running server to a first approved, scheduled and CI-triggered scenario in about an hour |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common errors and how to fix them |
