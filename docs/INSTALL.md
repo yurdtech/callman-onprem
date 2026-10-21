@@ -10,7 +10,7 @@ as containers on one server.
 
 This guide describes Callman on-prem 1.0.6 — backend, admin panel and UI-test
 runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.11.0, MCP (`callman-mcp`)
-0.10.0.
+0.10.1.
 
 ---
 
