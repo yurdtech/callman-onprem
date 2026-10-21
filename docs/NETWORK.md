@@ -49,13 +49,33 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | The databases users test | Requests' database steps, the scenario builder's **Run**, UI tests run in the app, schema import and the desktop side of connection tests connect from the workstation ([DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md)) |
 | `download.oracle.com` | The Oracle client for Oracle 11g, once per machine when a user installs it — only if your server has no package for that platform under **Database drivers** |
 | Model providers (`api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`) | **AI Testing** only, with the user's own key; screenshots and page structure go with each step |
-| `github.com`, `api.github.com`, `pypi.org`, the Playwright CDN | **AI Testing** and **Android UI testing**, once per machine: the AI engine, browsers, the Callman Agent APK and the Android UI-test driver |
+| `github.com`, `api.github.com`, `pypi.org`, `files.pythonhosted.org`, the Playwright CDN | **AI Testing** and **Android UI testing**, once per machine: the AI engine, browsers, the Callman Agent APK and the Android UI-test driver — the AI engine and the Agent APK only if your server has no AI engine bundle for that platform (below) |
 | `api.figma.com` | Figma import / visual compare, only with a Figma token |
 
-The first-use downloads in the `github.com` / `pypi.org` row come from the internet: a
-packaged desktop has no setting that points them at an internal mirror. Two can be pre-staged on a workstation to skip
-their download — the Callman Agent APK at `~/.callman/portal/callman-agent.apk` and
-the Android UI-test driver at `~/.callman/modules/callmanui.jar`. To keep AI Testing
+**The AI engine without internet access (desktop 2.0.14 and later).** An admin
+uploads an *AI engine bundle* per desktop platform in the admin panel (**On-Prem →
+AI engine**): the engine, its Python runtime and packages, uv and the Callman Agent
+app, built on a connected machine (`node tools/build-ai-engine-bundle.mjs
+<platform>` from the desktop source; your Callman contact delivers them with each
+desktop release). The backend keeps them on the active storage provider (**Storage**
+in the admin panel, e.g. MinIO / S3) when one is connected, and in MongoDB otherwise.
+A desktop signed in to your backend installs the engine from
+there first, offline, and only falls back to the internet when the server has no
+bundle for its platform. A bundle must match the desktop's engine version; the
+admin panel shows it.
+
+The other first-use downloads in that row still come from the internet. Two can be
+pre-staged on a workstation to skip their download — the Callman Agent APK at
+`~/.callman/portal/callman-agent.apk` (also part of the bundle) and the Android
+UI-test driver at `~/.callman/modules/callmanui.jar`.
+
+**TLS inspection.** Behind a proxy that re-signs HTTPS with a company certificate,
+the desktop's AI engine verifies certificates against the operating system's
+certificate store (desktop 2.0.14 and later), so a company root installed there by
+IT is trusted with nothing else to configure. Where it is not in the OS store, put
+the root certificate's PEM file in `~/.callman/certs/` on the workstation (or point
+`CALLMAN_EXTRA_CA_CERTS` at it); the engine then trusts it too. A certificate
+failure is reported as one, with these steps. To keep AI Testing
 off, switch the **AI Testing** feature flag off in the admin panel (Feature Flags); it
 hides the studio in desktop 2.0.14 and later.
 

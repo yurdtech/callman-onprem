@@ -9,7 +9,7 @@ inside the admin panel (see [AUTH_SETUP.md](AUTH_SETUP.md)).
 Works on vanilla Kubernetes (Ingress) and OpenShift (Route, restricted-v2
 SCC) from the same chart.
 
-This guide describes Callman on-prem 1.0.6 — Helm chart 0.4.0, backend, admin
+This guide describes Callman on-prem 1.0.6 — Helm chart 0.5.0, backend, admin
 panel and UI-test runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.11.0, MCP
 (`callman-mcp`) 0.10.0.
 
@@ -218,6 +218,29 @@ kubectl -n $NS get deploy -l app.kubernetes.io/instance=$REL
 The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 `helm uninstall`.
 
+### Upgrading to chart 0.5.0
+
+Chart 0.5.0 is the chart of on-prem 1.0.6. It also carries every change listed
+under 0.4.0 below — that version was never published on its own — so coming
+from 0.2.x, read both.
+
+- **Load Testing Lab.** The admin panel's *Load Testing Lab* fires N runs of
+  chosen scenarios at once and reports the result ([LOAD-LAB.md](LOAD-LAB.md)).
+  New values: `loadLab.*` (limits) and an optional `loadLabWorker` Deployment
+  (off by default — the regular workers take the lab's shards).
+- **Queue-based autoscaling (optional).** `worker.keda.enabled: true` scales
+  the workers on the scenario queue (waiting + running jobs) with
+  [KEDA](https://keda.sh), installed once per cluster by the cluster admin;
+  `loadLabWorker.keda` does the same for lab pods. Off by default; see
+  [SCALING.md](SCALING.md#autoscaling-the-workers-on-the-queue-recommended-keda).
+- **Database connection pooling, on by default.** Scenario database steps
+  reuse pooled connections per pod instead of logging in for every step
+  (`dbPool.*`, `enabled: true`, `maxPerConnection: 10`). Every worker pod can
+  hold up to `dbPool.maxPerConnection` connections per target database: keep
+  `pods × dbPool.maxPerConnection` under each database's connection limit
+  (Oracle `PROCESSES`/`SESSIONS`, `max_connections` elsewhere).
+  `dbPool.enabled: false` restores one connection per step.
+
 ### Upgrading to chart 0.4.0
 
 - **Mock engine v2.** Mocks gain resources with their own data, sign-in
@@ -295,7 +318,7 @@ Read this before running the upgrade; one item can stop the chart rendering.
 | compose | helm |
 | --- | --- |
 | `docker compose up -d --scale worker=3` | `--set worker.replicaCount=3` |
-| `scripts/autoscale-worker.sh` (cron) | `worker.hpa.enabled=true` (CPU-based) |
+| `scripts/autoscale-worker.sh` (cron) | `worker.keda.enabled=true` (queue-based, needs KEDA) or `worker.hpa.enabled=true` (CPU-based) |
 | ui-runner replicas | `uiRunner.replicaCount` / `uiRunner.hpa.enabled` |
 | storage gateway replicas | `storage.replicaCount` (stateless — no shared volume needed) |
 | `BULLMQ_WORKER_CONCURRENCY` | `worker.concurrency` |

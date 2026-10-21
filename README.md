@@ -11,7 +11,7 @@ one command gives you a working install. You can point it at your company's
 existing databases instead.
 
 This documentation describes Callman on-prem 1.0.6 — backend, admin panel and
-UI-test runner 1.0.6, Helm chart 0.4.0, desktop 2.0.14, CLI (`callme-cli`)
+UI-test runner 1.0.6, Helm chart 0.5.0, desktop 2.0.14, CLI (`callme-cli`)
 1.11.0, MCP (`callman-mcp`) 0.10.0.
 
 ---
@@ -192,6 +192,7 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/LOAD-LAB.md`](docs/LOAD-LAB.md) | Load Testing Lab: fire N × scenario runs at once and read the report |
 | [`docs/MONITORING.md`](docs/MONITORING.md) | DevOps monitoring: Prometheus `/metrics` catalog, the `/ops/*` JSON diagnostics API, log levels and rotation |
 | [`docs/NETWORK.md`](docs/NETWORK.md) | Ports, firewall rules and every optional feature that reaches the internet |
+| [`docs/THIRD-PARTY.md`](docs/THIRD-PARTY.md) | The open-source components of the desktop's AI testing, their pinned versions and what they send |
 | [`docs/PILOT-QUICKSTART.md`](docs/PILOT-QUICKSTART.md) | From a running server to a first approved, scheduled and CI-triggered scenario in about an hour |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common errors and how to fix them |
 | [`scripts/preflight.sh`](scripts/preflight.sh) | Config check — run it before `docker compose up -d` |
