@@ -57,7 +57,9 @@ uploads an *AI engine bundle* per desktop platform in the admin panel (**On-Prem
 AI engine**): the engine, its Python runtime and packages, uv and the Callman Agent
 app, built on a connected machine (`node tools/build-ai-engine-bundle.mjs
 <platform>` from the desktop source; your Callman contact delivers them with each
-desktop release). A desktop signed in to your backend installs the engine from
+desktop release). The backend keeps them on the active storage provider (**Storage**
+in the admin panel, e.g. MinIO / S3) when one is connected, and in MongoDB otherwise.
+A desktop signed in to your backend installs the engine from
 there first, offline, and only falls back to the internet when the server has no
 bundle for its platform. A bundle must match the desktop's engine version; the
 admin panel shows it.
