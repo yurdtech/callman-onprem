@@ -24,7 +24,7 @@ else's.
 - Desktop **2.0.14** or newer for the AI features that run on the user's own
   model (see [Where it is used](#where-it-is-used)). Older desktops still get
   knowledge on the company's hosted model, because the server adds it there.
-- For AI tools (Claude Code, Cursor and others): **callman-mcp** with the
+- For AI tools (Claude Code, Cursor and others): **callman-mcp 0.10.1** or newer with the
   `search_knowledge` tool.
 
 ## Adding knowledge
