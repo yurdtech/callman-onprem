@@ -36,7 +36,7 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | Your object storage (S3 / MinIO / FileNet) | Large files | Only with the `storage` profile |
 | `ghcr.io` (or your registry) | Pulling images | Install and upgrade only; none with an air-gap bundle ([INSTALL.md](INSTALL.md)) |
 | `api.telegram.org` | Error forwarding | Only if `TELEGRAM_ENABLED` is on; leave it empty |
-| The AI provider set in **AI Settings** | AI assistant / AI node | Only if configured; switch the `ai*` flags off otherwise |
+| The AI providers on the server: the one set in **AI Settings**, your AI connections (**Managed connections**) and the providers of users' personal keys — `api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com`, `api.deepseek.com`, or an OpenAI-compatible server someone names | AI assistants, the AI node, and AI Testing steps that run on one of these (a screenshot and the page structure go with each step) | Only if configured; turn sources off in the AI policy ([AI-POLICY.md](AI-POLICY.md)) or switch the `ai*` flags off |
 | Slack webhook | Notification connections | Only if someone creates one |
 | An OpenAPI URL in **AI Knowledge** | The backend and worker fetch the definition (and re-fetch it daily if set so) | Only if an admin adds a source by URL; uploading the file instead needs no network ([AI-KNOWLEDGE.md](AI-KNOWLEDGE.md)) |
 | `download.oracle.com` | Oracle Instant Client for Oracle 11g | Only when an admin clicks **Download from Oracle**; uploading the package instead needs no internet |
@@ -49,34 +49,22 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | The systems under test | Requests run on the workstation |
 | The databases users test | Requests' database steps, the scenario builder's **Run**, UI tests run in the app, schema import and the desktop side of connection tests connect from the workstation ([DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md)) |
 | `download.oracle.com` | The Oracle client for Oracle 11g, once per machine when a user installs it — only if your server has no package for that platform under **Database drivers** |
-| Model providers (`api.anthropic.com`, `api.openai.com`, `generativelanguage.googleapis.com`) | **AI Testing** only, with the user's own key; screenshots and page structure go with each step |
-| `github.com`, `api.github.com`, `pypi.org`, `files.pythonhosted.org`, the Playwright CDN | **AI Testing** and **Android UI testing**, once per machine: the AI engine, browsers, the Callman Agent APK and the Android UI-test driver — the AI engine and the Agent APK only if your server has no AI engine bundle for that platform (below) |
+| Model providers, when a user picks an AI connection that runs on their computer: a subscription they signed in to in the app — Claude (`claude.ai`, `console.anthropic.com`, `api.anthropic.com`), ChatGPT (`auth.openai.com`, `chatgpt.com`), Gemini (`accounts.google.com`, `oauth2.googleapis.com`, `cloudcode-pa.googleapis.com`) — or an AI CLI's own hosts | AI features on that connection; for **AI Testing** a screenshot and the page structure go with each step. Connections on the Callman server (company key, AI connections, personal keys) go through the backend instead (row above). A model the user runs (Ollama) is reached at the address they set, `localhost:11434` by default |
+| `github.com`, `api.github.com`, the Playwright CDN | Once per machine: the browser for web **AI Testing** and web UI tests (Playwright CDN), and the Android UI-test driver (GitHub) |
 | `api.figma.com` | Figma import / visual compare, only with a Figma token |
 
-**The AI engine without internet access (desktop 2.0.14 and later).** An admin
-uploads an *AI engine bundle* per desktop platform in the admin panel (**On-Prem →
-AI engine**): the engine, its Python runtime and packages, uv and the Callman Agent
-app, built on a connected machine (`node tools/build-ai-engine-bundle.mjs
-<platform>` from the desktop source; your Callman contact delivers them with each
-desktop release). The backend keeps them on the active storage provider (**Storage**
-in the admin panel, e.g. MinIO / S3) when one is connected, and in MongoDB otherwise.
-A desktop signed in to your backend installs the engine from
-there first, offline, and only falls back to the internet when the server has no
-bundle for its platform. A bundle must match the desktop's engine version; the
-admin panel shows it.
-
-The other first-use downloads in that row still come from the internet. Two can be
-pre-staged on a workstation to skip their download — the Callman Agent APK at
-`~/.callman/portal/callman-agent.apk` (also part of the bundle) and the Android
-UI-test driver at `~/.callman/modules/callmanui.jar`.
+AI Testing downloads nothing else: it runs in the desktop app's own code (no
+Python runtime, no agent app). On an Android device it installs only a small
+Callman keyboard to type with, which ships inside the desktop app. The Android
+UI-test driver can be pre-staged on a workstation at
+`~/.callman/modules/callmanui.jar` to skip its download.
 
 **TLS inspection.** Behind a proxy that re-signs HTTPS with a company certificate,
-the desktop's AI engine verifies certificates against the operating system's
-certificate store (desktop 2.0.14 and later), so a company root installed there by
-IT is trusted with nothing else to configure. Where it is not in the OS store, put
-the root certificate's PEM file in `~/.callman/certs/` on the workstation (or point
-`CALLMAN_EXTRA_CA_CERTS` at it); the engine then trusts it too. A certificate
-failure is reported as one, with these steps. To keep AI Testing
+the desktop's AI requests that fail the certificate check are retried through the
+operating system's network stack, which verifies against the OS certificate store
+and uses the system proxy (desktop 2.0.14 and later) — so a company root installed
+there by IT is trusted with nothing else to configure. A certificate failure is
+reported as one. To keep AI Testing
 off, switch the **AI Testing** feature flag off in the admin panel (Feature Flags); it
 hides the studio in desktop 2.0.14 and later.
 
