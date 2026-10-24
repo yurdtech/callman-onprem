@@ -84,18 +84,19 @@ builds differ where noted.
 
 ## AI Testing (web, Android, iOS)
 - **Run:** the same plain-English task twice; Android on an emulator, iOS on a simulator (Mac with Xcode),
-  synthetic data only. Then **Save as UI test** on a passed Android/iOS run.
-- **Capture:** the two runs' duration and step count (History shows both, plus a Repeatability card for
-  scenarios run more than once); the exported UI test; the device permission list
-  (`adb shell dumpsys package com.mobilerun.portal`).
+  synthetic data only — once on a server connection (company key or a personal key) and once on a connection on
+  the computer (a subscription sign-in or a CLI) if you allow both. Then **Save as UI test** on a passed
+  Android/iOS run.
+- **Capture:** the two runs' duration and step count (History shows both, plus a Repeatability card
+  for scenarios run more than once); the exported UI test; the AI policy row for AI Testing.
 - **Know:** runs are not deterministic. Web AI runs cannot be saved as a replayable UI test. Each step sends the
-  test text and the screen's element list — and a screenshot on web, or on mobile with Vision on — to the model
-  provider you chose (see UI testing docs §19.15); the first run downloads the engine and the on-device agent
-  from the internet (no mirror setting; the agent APK can be pre-staged). The Callman Agent package declares
-  broad permissions (SMS and contacts, notification listener, all-files storage, install packages); from
-  desktop 2.0.14 Callman grants it only the notification permission, takes back SMS, contacts and storage an
-  older install granted, and turns on its accessibility service and keyboard — still use test devices. An
-  admin can hide AI Testing with the AI Testing feature flag.
+  test text and the screen's element list — and a screenshot when the step needs one — to the AI connection you
+  picked: through your Callman server for the company key, an AI connection or a personal key; from the
+  workstation for a subscription, a CLI or a local model (see UI testing docs §19.15 and
+  [AI-POLICY.md](AI-POLICY.md)). Only models that can read screenshots are offered. AI Testing runs on Callman's
+  own agent: nothing is downloaded for it except the browser for web runs; on Android it installs only a Callman
+  keyboard to type with — still use test devices. An admin can hide AI Testing with the AI Testing feature flag
+  and choose its AI sources in the AI policy.
 
 ## Migration of existing test assets
 - **Run:** import one real suite (Postman, Insomnia, Bruno, OpenAPI) and read the import report; run it.

@@ -96,8 +96,9 @@ check for, and that it must not invent endpoints the knowledge doesn't contain.
 The hosted paths (the company's model, an AI connection or a personal key) add
 the knowledge on the server. When the user runs a feature on a model on their
 own computer, the desktop asks the server for the same knowledge
-(`POST /api/ai/grounding`) and adds it itself. Either way the server decides
-what a user may see.
+(`POST /api/ai/grounding`) and adds it itself. AI Testing always works the
+second way, whichever AI connection runs its steps. Either way the server
+decides what a user may see.
 
 ## Switching it on and off
 

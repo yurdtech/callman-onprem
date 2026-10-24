@@ -1,47 +1,44 @@
 # Third-party components of the desktop's AI testing
 
-This page names the open-source components the Callman desktop's **AI Testing**
-runs on, the versions each release pins, and what they send where. It describes
-desktop **2.0.14** (on-prem 1.0.6).
+This page names what the Callman desktop's **AI Testing** runs on and what it
+sends where. It describes desktop **2.0.14** (on-prem 1.0.6).
 
-## The AI engine
+## Callman's own agent
 
-| Component | Version | License | Supplier |
-| --- | --- | --- | --- |
-| **Mobilerun** (formerly DroidRun) — the agent that drives Android and iOS devices; Python package `mobilerun` | **0.6.11** (pinned) | MIT | Mobilerun / DroidRun project, `github.com/droidrun/mobilerun` |
-| `mobilerun-core-local` — its device driver | 0.6.0 (a dependency of the pinned engine) | MIT | same project |
-| **truststore** — makes the engine verify TLS against the operating system's certificate store | 0.10.4 (pinned) | MIT | `github.com/sethmlarson/truststore` |
-| **uv** — creates the engine's Python environment and installs its packages | 0.12.0 (pinned, sha256-checked) | MIT or Apache-2.0 | Astral, `github.com/astral-sh/uv` |
-| **CPython** | 3.12 | PSF License | python.org (the standalone build uv installs) |
+AI Testing runs on Callman's own agent code inside the desktop app — for web,
+Android and iOS runs and for writing test scenarios. It downloads and runs no
+third-party agent, Python runtime or package manager. (Earlier preview builds
+installed an upstream open-source Python agent with its own runtime and an
+on-device companion app; that engine has been removed, and the app deletes the
+files it left behind when it starts.)
 
-The engine runs on the tester's computer, in its own Python environment under
-`~/.callman/ai-engine`. Every desktop release pins the engine version; a release
-that moves it says so in its notes. The engine's on-device companion is the
-**Callman Agent** app (Android package id `com.mobilerun.portal`), Callman's
-build of the engine's companion app; Callman installs it and grants it only the
-notification permission ([POC-EVALUATION-GUIDE.md](POC-EVALUATION-GUIDE.md)).
+| Component | Used for | Where it comes from |
+| --- | --- | --- |
+| **Playwright** (`playwright-core`, Apache-2.0) | Driving the browser in web runs | Part of the desktop app; the browser itself is downloaded once per machine from the Playwright CDN ([NETWORK.md](NETWORK.md#outbound-from-a-users-workstation-desktop-app)) |
+| **Android platform tools** (`adb`) | Android devices and emulators | The tester's own Android SDK |
+| **Xcode** (`xcrun simctl`) and Callman's XCUITest runner | iOS simulators | The tester's Mac; the runner is part of the desktop app |
+| **Callman keyboard** | Typing on Android devices | Callman; ships inside the desktop app and is installed on the device for the run |
 
-## What the engine sends, and where
+## What a run sends, and where
 
-- **To the AI provider the tester picked**, on every step: the scenario text
-  with its test data filled in, the screen's element list and, when *Vision*
-  is on, a screenshot. With a local model (Ollama) nothing leaves the computer.
-- **To nobody else.** The engine ships anonymous usage analytics switched on by
-  default (task text, visited screens, model settings — sent to a third-party
-  analytics service). Callman switches it off for every engine process it
-  starts, in two independent ways: the engine's own opt-out variables are set
-  on every spawn, and Callman's patch inside the engine makes its analytics
-  module inert, so nothing is sent and no persistent analytics id is written
-  (an id left by an older build in `~/.droidrun/user_id` is deleted). The
-  engine's update and companion-app downloads from its upstream project are
-  closed the same way: it never contacts the project's servers.
-- **First-use downloads.** Installing the engine fetches uv, Python and the
-  packages above from GitHub and PyPI — unless your server has an **AI engine
-  bundle** for the platform, in which case everything comes from your server
-  and nothing from the internet ([NETWORK.md](NETWORK.md#outbound-from-a-users-workstation-desktop-app)).
+- **To the AI connection the tester picked**, on every step: the scenario text
+  with its test data filled in, the screen's element list and, when the step
+  needs it, a screenshot. Which way it goes depends on the connection:
+  - a **server connection** (the company key, an AI connection, or the user's
+    personal key) — from the desktop to your Callman server, which calls the
+    provider; the server never logs the step's text or screenshot;
+  - a **subscription or CLI on the computer** — from the tester's computer
+    straight to the provider;
+  - a **model the tester runs** (Ollama) — to that model; with a local one
+    nothing leaves the computer.
+
+  The administrator decides which of these AI Testing may use
+  ([AI-POLICY.md](AI-POLICY.md)).
+- **To nobody else.** The agent sends no analytics and makes no update or
+  download calls of its own.
 
 ## The UI-test flow engine
 
 Recorded UI tests (web and mobile flows, branded **M** in the product) run on
 Callman's own runner and on-device driver (**Callman Driver**); they do not use
-the AI engine or any model provider.
+the AI agent or any model provider.
