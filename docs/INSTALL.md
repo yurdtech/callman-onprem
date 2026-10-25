@@ -335,7 +335,7 @@ needs no certificate itself. What goes where:
 
 | Upstream | Proxy route | Must-have settings | Details |
 |---|---|---|---|
-| API `:8080` | your Callman host, `/` | Forward `Host` and `X-Forwarded-Proto`; set `PUBLIC_API_BASE_URL` to the `https://` address; return 404 for `/ops`, `/metrics` and `/api/internal`; long timeouts, since desktops download their installers here | [NETWORK.md](NETWORK.md), [DESKTOP-APP.md](DESKTOP-APP.md) §2 |
+| API `:8080` | your Callman host, `/` | Forward `Host` and `X-Forwarded-Proto`; set `PUBLIC_API_BASE_URL` to the `https://` address; return 404 for `/ops`, `/metrics` and `/api/internal`; long timeouts, since desktops download their installers here; do not buffer responses on `/api/realtime/` (nginx already doesn't — check with `scripts/check-realtime.sh`) | [NETWORK.md](NETWORK.md), [DESKTOP-APP.md](DESKTOP-APP.md) §2, [REALTIME.md](REALTIME.md) |
 | Admin panel `:5100` | its own host, admin network / VPN only | Body limit off and long timeouts for installer uploads (nginx: `client_max_body_size 0; proxy_request_buffering off; proxy_read_timeout 1800s;`) | [DESKTOP-APP.md](DESKTOP-APP.md) §2 |
 | Mock server `:8082` | its own domain, or `/mock/` on the API host | 2 MB body limit, 120 s read timeout; then `MOCK_SERVE_ON_API=false` | [MOCK-SERVER.md](MOCK-SERVER.md) |
 | Storage gateway `:8081` *(storage profile)* | `/storage/` on the API host | Body limit off, buffering off, long timeouts; set `CALLMAN_STORAGE_PUBLIC_URL` | [STORAGE.md](STORAGE.md) |
@@ -396,6 +396,14 @@ start on the new version. Confirm with `curl http://localhost:8080/version`.
 > [ENVIRONMENT.md › Connecting to old Oracle databases](ENVIRONMENT.md#connecting-to-old-oracle-databases).
 > Which machines must reach your test databases is in
 > [DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md).
+
+> Release **1.0.6** also brings **live updates**: desktops keep one streaming
+> request open (`/api/realtime/stream`) instead of polling the backend every
+> few seconds, which takes most of the steady load off it. Nothing to set — it
+> uses the Redis you already run. Afterwards, run
+> `./scripts/check-realtime.sh https://<your Callman host>` once from the
+> users' network: if a proxy buffers the stream, desktops keep working but
+> keep polling ([REALTIME.md](REALTIME.md)).
 
 ### Rollback note
 

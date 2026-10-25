@@ -240,6 +240,14 @@ from 0.2.x, read both.
   `pods × dbPool.maxPerConnection` under each database's connection limit
   (Oracle `PROCESSES`/`SESSIONS`, `max_connections` elsewhere).
   `dbPool.enabled: false` restores one connection per step.
+- **Live updates, on by default.** Desktops keep one server-sent-events
+  request open (`GET /api/realtime/stream`) instead of polling every few
+  seconds; the backend pods fan events out through the bundled (or your)
+  Redis. New value `backend.realtimeEnabled` (default `true`). No new image,
+  Secret or PVC. ingress-nginx (proxy buffering off by default) and OpenShift
+  Routes pass the stream as they are; a load balancer in FRONT of the ingress
+  must not buffer `/api/realtime/` — check with `scripts/check-realtime.sh`.
+  More backend replicas need no sticky sessions. See [REALTIME.md](REALTIME.md).
 
 ### Upgrading to chart 0.4.0
 
@@ -480,6 +488,7 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `CALLMAN_STORAGE_PUBLIC_URL` | `storage.publicUrl` (required when `storage.enabled`) |
 | `STORAGE_MAX_UPLOAD_BYTES` | `storage.maxUploadBytes` |
 | `METRICS_ENABLED` | `backend.metricsEnabled` |
+| `REALTIME_ENABLED` | `backend.realtimeEnabled` |
 | `CLIENT_ORIGIN` | `backend.clientOrigin` |
 | `PUBLIC_API_BASE_URL` | `backend.publicApiBaseUrl` |
 | `MOCK_PUBLIC_BASE_URL` | `mock.publicUrl` (legacy `backend.mockPublicBaseUrl`); derived from the mock Ingress/Route host when unset |
