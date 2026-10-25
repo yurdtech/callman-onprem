@@ -221,8 +221,8 @@ The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 ### Upgrading to chart 0.5.0
 
 Chart 0.5.0 is the chart of on-prem 1.0.6. It also carries every change listed
-under 0.4.0 below — that version was never published on its own — so coming
-from 0.2.x, read both.
+under 0.4.0 and 0.3.0 below — neither was published on its own — so coming
+from 0.2.x, read all three.
 
 - **Load Testing Lab.** The admin panel's *Load Testing Lab* fires N runs of
   chosen scenarios at once and reports the result ([LOAD-LAB.md](LOAD-LAB.md)).
