@@ -88,8 +88,11 @@ buffers.
 
 ### Which desktops fell back
 
-A desktop that cannot use the stream (no first event within 10 s) reports it
-once and keeps polling. `GET /ops/realtime` shows the count and when it last
+A desktop that cannot use the stream reports it once and keeps polling — when
+no first event arrives within 10 s, or when the stream goes silent (not even
+the heartbeat) twice in a row, which is what a hop that lets the first bytes
+through but holds small ones back looks like. It tries the stream again after
+10 minutes. `GET /ops/realtime` shows the count and when it last
 happened (`fallbackReports.buffered`, `buffered:lastAt`), next to how many
 streams this backend holds right now — see [MONITORING.md](MONITORING.md).
 

@@ -54,7 +54,7 @@ URL="$BASE/api/realtime/probe"
 
 printf '%sCallman — live updates check%s\n  %s\n\n' "$B" "$N" "$URL"
 
-STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H 'Accept: text/event-stream' "$URL" || true)
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H 'Accept: text/event-stream' -H 'Connection: close' "$URL" || true)
 if [[ "$STATUS" == "404" ]]; then
   printf '  %s!%s The backend answered 404: it is older than 1.0.6, or REALTIME_ENABLED=false.\n' "$Y" "$N"
   printf '    Desktops keep polling as before — nothing is broken.\n'
@@ -73,7 +73,7 @@ while IFS= read -r line; do
     FIRST_MS=$(( $(now_ms) - START ))
     break
   fi
-done < <(curl -sN --max-time 10 -H 'Accept: text/event-stream' "$URL")
+done < <(curl -sN --max-time 10 -H 'Accept: text/event-stream' -H 'Connection: close' "$URL")
 
 if [[ -z "$FIRST_MS" ]]; then
   printf '  %s✗%s The stream opened but no event arrived within 10 s.\n' "$R" "$N"
