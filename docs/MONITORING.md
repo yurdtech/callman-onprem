@@ -174,6 +174,10 @@ Queues: `scenario-runs` (`BULLMQ_QUEUE_NAME`) and `ui-test-runs`
 | `rate_limit_rejections_total` | counter | `limiter` | 429s by limiter (`login:email`, `oauth:start:ip`, `mock:ip`, `mock:rate`, `mock:total`, …). |
 | `mock_requests_total` | counter | `status_class` | Traffic served by the public mock router — exported by the mock server (health port 9093) once it serves `/mock/*`, by the backend before that. |
 | `error_reports_submitted_total` | counter | `severity`, `category`, `delivered`, `deduped` | Desktop crash reports received (and whether Telegram accepted them). |
+| `realtime_streams` | gauge | — | Live-updates streams this backend process holds right now ≈ desktops connected to it. |
+| `realtime_events_published_total` | counter | `type` | Events written to the Redis Stream by this process (backend, worker, ui-runner). |
+| `realtime_events_delivered_total` | counter | — | Event frames this backend process wrote to its streams. |
+| `realtime_slow_drops_total` | counter | — | Streams closed because the desktop stopped reading (it reconnects and catches up). |
 
 Deliberately **not** exposed: a response-size metric (compression makes
 `Content-Length` unreliable) and anything keyed by user, workspace or
@@ -237,6 +241,7 @@ up as `{ "ok": false, "error": "…" }` inside an otherwise complete document.
 | `/ops/http` | Rolling **1 / 5 / 15 minute** windows computed in-process from the last 50 000 requests: total, rps, error rate, status classes, `p50/p95/p99`, and the top routes with per-route percentiles. `coveredSeconds` tells you how much of the window the buffer actually holds. | none |
 | `/ops/config` | The **effective, non-secret** configuration (ports, pool sizes, concurrency, timeouts, retention, feature switches) plus `derived` booleans (`redisConfigured`, `bullBoardEnabled`, `telegramConfigured`). Never a URI, secret, token or password — a unit test rejects such keys. | none |
 | `/ops/license` | Status, read-only flag, warning level, days remaining, validity window, company, seats max / used, rejection reason. | Mongo (60 s cached) |
+| `/ops/realtime` | Live updates ([REALTIME.md](REALTIME.md)) on **this** backend process: `enabled`, `accepting`, open `streams`, distinct `users`, counters since start (`opened`, `delivered`, `slowDrops`, `replays`, `resyncs`), `readerLagMs`; plus `fallbackReports` — how many desktops (deployment-wide, last 7 days) could not use the stream and kept polling, by reason, with `<reason>:lastAt`. | one Redis `HGETALL` |
 
 Examples:
 

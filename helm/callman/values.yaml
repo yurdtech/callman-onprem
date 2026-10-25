@@ -133,6 +133,11 @@ backend:
     max: 20
     min: 2
   metricsEnabled: true              # ≈ METRICS_ENABLED
+  # ≈ REALTIME_ENABLED. Live updates: desktops listen on GET /api/realtime/stream
+  # (server-sent events) instead of polling every few seconds. Works through
+  # ingress-nginx and OpenShift Routes as is; `false` makes desktops poll as
+  # before. See docs/REALTIME.md.
+  realtimeEnabled: true
   logLevel: info                    # ≈ LOG_LEVEL (debug|info|warn|error); probes/scrapes log at debug
   clientOrigin: ""                  # ≈ CLIENT_ORIGIN (CSV of extra CORS origins)
   # ≈ PUBLIC_API_BASE_URL. SET IT once desktop auto-update is in use: it is the

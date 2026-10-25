@@ -68,7 +68,8 @@ location / {
 ```
 
 The backend vhost needs the same, because that is where the desktops download
-from.
+from. (It also carries the desktops' live-updates stream, `/api/realtime/` —
+nginx passes that through unbuffered on its own; see [REALTIME.md](REALTIME.md).)
 
 **On Kubernetes there is nothing to do** — the chart sets these annotations on the
 admin, backend and storage Ingresses and Routes itself. It has to: an OpenShift
