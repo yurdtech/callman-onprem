@@ -100,6 +100,15 @@ own computer, the desktop asks the server for the same knowledge
 second way, whichever AI connection runs its steps. Either way the server
 decides what a user may see.
 
+## How strict the search is
+
+A part found by the search is sent only if it scores at least a set share of the
+best match for that question. Set it in the admin panel under **AI Knowledge →
+Search strictness**: send every match, 25%, 50% (the default) or 75%. Endpoint
+material and sources marked always included are not affected. A change reaches
+every backend process within 30 seconds, and Preview on the same page shows the
+result.
+
 ## Switching it on and off
 
 - The feature flag **AI Knowledge** (`ai_knowledge`, admin panel → Features) is
