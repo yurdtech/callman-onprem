@@ -1,0 +1,21 @@
+name: versions
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "docs/**"
+      - "helm/callman/Chart.yaml"
+      - "release-manifest.json"
+      - "scripts/check-versions.mjs"
+      - ".github/workflows/versions.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-versions.mjs

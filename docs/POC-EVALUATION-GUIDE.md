@@ -6,7 +6,7 @@ how to exercise it, the evidence worth keeping, and the limits we know about —
 [PILOT-QUICKSTART.md](PILOT-QUICKSTART.md); network and egress: [NETWORK.md](NETWORK.md).
 
 Versions this guide describes: Callman on-prem 1.0.6 — backend, admin panel and UI-test runner
-1.0.6, desktop 2.0.14, `callme-cli` 1.13.1, `callman-mcp` 0.12.1 (`callman-core` 1.40.0). Older
+1.0.6, desktop 2.0.14, `callme-cli` 1.13.1, `callman-mcp` 0.12.1. Older
 builds differ where noted.
 
 ## Admin panel (users, groups, roles, tokens, workspaces)
