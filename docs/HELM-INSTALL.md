@@ -10,8 +10,8 @@ Works on vanilla Kubernetes (Ingress) and OpenShift (Route, restricted-v2
 SCC) from the same chart.
 
 This guide describes Callman on-prem 1.0.6 — Helm chart 0.5.0, backend, admin
-panel and UI-test runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.11.0, MCP
-(`callman-mcp`) 0.10.1.
+panel and UI-test runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.13.0, MCP
+(`callman-mcp`) 0.12.1.
 
 ---
 

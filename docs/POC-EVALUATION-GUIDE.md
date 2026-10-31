@@ -6,7 +6,7 @@ how to exercise it, the evidence worth keeping, and the limits we know about —
 [PILOT-QUICKSTART.md](PILOT-QUICKSTART.md); network and egress: [NETWORK.md](NETWORK.md).
 
 Versions this guide describes: Callman on-prem 1.0.6 — backend, admin panel and UI-test runner
-1.0.6, desktop 2.0.14, `callme-cli` 1.11.0, `callman-mcp` 0.10.1 (`callman-core` 1.40.0). Older
+1.0.6, desktop 2.0.14, `callme-cli` 1.13.0, `callman-mcp` 0.12.1 (`callman-core` 1.40.0). Older
 builds differ where noted.
 
 ## Admin panel (users, groups, roles, tokens, workspaces)
@@ -122,9 +122,9 @@ builds differ where noted.
 - **Run:** a read-only personal token in an AI tool; `callman-mcp doctor`; ask for `whoami`.
 - **Capture:** the tool list (a read-only token sees only the tools it can use), a session transcript, the
   token's permission list.
-- **Know:** 116 tools (a token sees only those it can use); tool output, including response-body previews,
-  goes to the language model of the AI tool. `CALLMAN_API_URL` is required — `callman-mcp` 0.10.0 does not
-  start without it.
+- **Know:** 120 tools (a token sees only those it can use); tool output, including response-body previews,
+  goes to the language model of the AI tool. `CALLMAN_API_URL` is required — `callman-mcp` does not start
+  without it (since 0.10.0).
 
 ## Database connections
 - **Run:** a connection per engine you use (Oracle, PostgreSQL, MySQL, SQL Server, MongoDB) with **Test

@@ -79,8 +79,8 @@ keep production secrets in environment values and managed connections.
 | `callme` | The Callman API address you set (`CALLME_API_URL`) and, for `callme run` / `perf run`, the systems under test — for `callme run`, also the databases its DB steps query |
 | `callman-mcp` | The Callman API address (`CALLMAN_API_URL`); tool output, including response-body previews, goes to the language model of the AI tool in use |
 
-Both need the address set: `callme` 1.11.0 stops with a usage error without
-`--api-url` / `CALLME_API_URL`, and `callman-mcp` 0.10.0 does not start without
+Both need the address set: `callme` (since 1.11.0) stops with a usage error without
+`--api-url` / `CALLME_API_URL`, and `callman-mcp` (since 0.10.0) does not start without
 `CALLMAN_API_URL` (older versions fell back to the public cloud address).
 The CLI has no proxy or CA flags; use Node.js's (`NODE_EXTRA_CA_CERTS=/path/ca.pem`
 for a private CA).

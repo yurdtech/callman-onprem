@@ -94,8 +94,8 @@ history and the schedule monitor.
 - **Feature flags**: every feature, including AI tools (MCP) and AI Testing, is on
   until an admin switches it off under *Feature Flags*.
 - **CLI and MCP environment names differ**: `CALLME_API_URL` for `callme`,
-  `CALLMAN_API_URL` for `callman-mcp`. Both are required: `callme` 1.11.0 and
-  `callman-mcp` 0.10.0 stop and say what to set instead of falling back to the
+  `CALLMAN_API_URL` for `callman-mcp`. Both are required: `callme` (since 1.11.0) and
+  `callman-mcp` (since 0.10.0) stop and say what to set instead of falling back to the
   public cloud address.
 - **Databases are reached from two sides**: the desktop's own queries from each
   workstation, server runs and schedules from the worker and UI-test runner — open
