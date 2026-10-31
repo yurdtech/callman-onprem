@@ -9,7 +9,7 @@ admin panel, and (unless you bring your own) a MongoDB and Redis — all running
 as containers on one server.
 
 This guide describes Callman on-prem 1.0.6 — backend, admin panel and UI-test
-runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.13.0, MCP (`callman-mcp`)
+runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.13.1, MCP (`callman-mcp`)
 0.12.1.
 
 ---
