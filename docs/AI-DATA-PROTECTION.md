@@ -85,3 +85,21 @@ code ternaries and assignments (`hidden ? "password" : "text"`,
 `token: tokenValue`) produced 81 secret hits; that rule is why a plain-word
 secret is missed. A false positive only means the model sees a token instead of
 the value; the answer gets the real value back.
+
+## Your own formats and names
+
+**Your own formats.** Add a name and a regular expression for each kind of
+value your systems use that Callman doesn't know (a customer number, a
+contract code). Matches become `[<NAME>-1]`. Flags `i`, `m`, `s` and `u` are
+allowed. A pattern that matches empty text, is longer than 500 characters, or
+repeats a group that itself repeats (`(a+)+`) is refused. **Try your formats**
+shows what a sample text becomes.
+
+**Field names that are always secret.** One per line. A value written under
+one of these names is hidden whatever it looks like: in test data, JSON
+(`"contractRef": "…"`), `contractRef=…`, and response schemas
+(`contractRef: string e.g. …`).
+
+The server and the desktops pick up a change within a minute. Every change is
+in **Audit Log** as `ai-data-controls.update`, with each changed setting's
+value before and after.
