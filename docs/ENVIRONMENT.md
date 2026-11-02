@@ -19,6 +19,8 @@ placeholders you must replace.
 | `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin panel image version (e.g. `1.0.6`). Separate from `CALLMAN_VERSION`. |
 | `SESSION_TOKEN_ENCRYPTION_SECRET` | ✅ | — | Encrypts stored sessions. ≥ 32 chars, **different**. |
 | `CONNECTION_ENCRYPTION_KEY` | ✅ | — | Encrypts saved DB/connection credentials. ≥ 32 chars, **different**. **Shared with the admin panel** — see below. |
+| `INTERNAL_API_SECRET` | recommended | `CONNECTION_ENCRYPTION_KEY` | The password the admin panel uses on the backend's internal API. ≥ 32 chars, **different** from the four. Without it the panel sends `CONNECTION_ENCRYPTION_KEY` there and the backend logs a warning. |
+| `CONNECTION_ENCRYPTION_KEY_PREVIOUS` | — | — | Only while replacing the key — see [Rotating `CONNECTION_ENCRYPTION_KEY`](#rotating-connection_encryption_key). |
 
 > The four secrets must be **four distinct values**, each **≥ 32
 > characters**, or the app exits at startup. Generate each with
@@ -34,6 +36,53 @@ placeholders you must replace.
 > (`SESSION_TOKEN_ENCRYPTION_SECRET`, `CONNECTION_ENCRYPTION_KEY`). Keep a safe
 > copy of `.env`: a database backup restored against different values cannot be
 > decrypted. See [BACKUP.md](BACKUP.md).
+
+### Rotating `CONNECTION_ENCRYPTION_KEY`
+
+Nothing becomes unreadable at any step; users notice nothing.
+
+1. Generate a new key: `openssl rand -hex 32`.
+2. In `.env` (or the Helm secret): put the **new** key in
+   `CONNECTION_ENCRYPTION_KEY` and the **old** one in
+   `CONNECTION_ENCRYPTION_KEY_PREVIOUS` (several old keys: comma-separated).
+   Both services read the same values.
+3. Restart the backend, the worker and the admin panel. Everything still
+   decrypts; new and changed secrets are written with the new key.
+4. Re-encrypt what is stored:
+
+   ```bash
+   docker compose exec backend npm run secrets:rotate -- --dry-run   # counts only
+   docker compose exec backend npm run secrets:rotate
+   ```
+
+   (Helm: `kubectl exec deploy/<release>-backend -- npm run secrets:rotate`.)
+   It takes a database backup first (like a migration), re-encrypts every
+   stored secret — connection credentials, managed connections, the company
+   and personal AI keys, storage, LDAP and notification-channel secrets — and
+   reports how many it changed. `failed: 0` means every secret now uses the
+   new key. A secret no key opens is listed and left as it is.
+5. Remove `CONNECTION_ENCRYPTION_KEY_PREVIOUS` and restart again. Keep the
+   old key with your backups until no backup older than step 4 is needed.
+
+### Secrets from Vault or a cloud key manager
+
+Every secret above can be read from a **file** instead of the environment:
+set `<NAME>_FILE=/path/to/file` (for example
+`CONNECTION_ENCRYPTION_KEY_FILE=/vault/secrets/connection_encryption_key`).
+The file's content wins over any other value. This is what all the usual
+integrations produce:
+
+| Integration | How |
+|---|---|
+| **HashiCorp Vault Agent** (injector or sidecar) | Render each secret to a file with a template (`{{ with secret "secret/data/callman" }}{{ .Data.data.connection_encryption_key }}{{ end }}`) and set the `_FILE` variables. Tested with Vault 1.18 and `vault agent` rendering both keys. |
+| **Secrets Store CSI driver** (Vault, AWS Secrets Manager / KMS, Azure Key Vault, Google Secret Manager) | Mount the secrets as files and set the `_FILE` variables, or sync them to the Kubernetes Secret named in `secrets.existingSecret`. |
+| **External Secrets Operator** | Sync into the Kubernetes Secret named in `secrets.existingSecret` (keys = the variable names). |
+| **Docker secrets** | `/run/secrets/<name>` + the `_FILE` variables. |
+
+The backend and the admin panel read the files once at start: after the key
+manager rotates a value, restart them (and for `CONNECTION_ENCRYPTION_KEY`
+follow the rotation steps above, so the old key stays in `_PREVIOUS` until
+`secrets:rotate` ran).
 
 > **The license is NOT an environment variable.** It is a signed certificate
 > installed once through the admin panel (**On-Prem → License**) and stored in

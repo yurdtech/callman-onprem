@@ -184,6 +184,13 @@ check_secret_set() {
 
 check_secret_set "backend" JWT_SECRET JWT_REFRESH_SECRET \
   SESSION_TOKEN_ENCRYPTION_SECRET CONNECTION_ENCRYPTION_KEY
+if [[ -n "$(env_get INTERNAL_API_SECRET)" ]]; then
+  check_secret_set "backend + internal API" JWT_SECRET JWT_REFRESH_SECRET \
+    SESSION_TOKEN_ENCRYPTION_SECRET CONNECTION_ENCRYPTION_KEY INTERNAL_API_SECRET
+else
+  warn "INTERNAL_API_SECRET is not set — the admin panel will use CONNECTION_ENCRYPTION_KEY as its password on the backend's internal API"
+  info "Set INTERNAL_API_SECRET (openssl rand -hex 32) so the encryption key never travels on the network."
+fi
 check_secret_set "admin panel" ADMIN_JWT_SECRET ADMIN_JWT_REFRESH_SECRET
 
 admin_pw="$(env_get ADMIN_BOOTSTRAP_PASSWORD)"

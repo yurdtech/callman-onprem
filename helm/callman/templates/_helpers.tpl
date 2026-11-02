@@ -350,6 +350,14 @@ validation and /health/ready remain the backstop there).
 {{- end -}}
 {{- $_ := set $seen $v true -}}
 {{- end -}}
+{{- with $s.INTERNAL_API_SECRET -}}
+{{- if lt (len .) 32 -}}
+{{- fail "secrets.values.INTERNAL_API_SECRET must be at least 32 characters (generate with: openssl rand -hex 32)" -}}
+{{- end -}}
+{{- if hasKey $seen . -}}
+{{- fail "secrets.values.INTERNAL_API_SECRET must differ from the four backend secrets" -}}
+{{- end -}}
+{{- end -}}
 {{- $adminKeys := list "ADMIN_JWT_SECRET" "ADMIN_JWT_REFRESH_SECRET" -}}
 {{- $adminSeen := dict -}}
 {{- range $k := $adminKeys -}}

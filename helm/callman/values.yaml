@@ -40,6 +40,8 @@ secrets:
     JWT_REFRESH_SECRET: ""
     SESSION_TOKEN_ENCRYPTION_SECRET: ""
     CONNECTION_ENCRYPTION_KEY: ""   # shared backend + admin, byte-identical
+    CONNECTION_ENCRYPTION_KEY_PREVIOUS: ""  # only while rotating (docs/ENVIRONMENT.md)
+    INTERNAL_API_SECRET: ""         # admin → backend internal API; recommended
     ADMIN_JWT_SECRET: ""
     ADMIN_JWT_REFRESH_SECRET: ""
     ADMIN_BOOTSTRAP_EMAIL: ""
