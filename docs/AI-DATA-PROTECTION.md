@@ -104,6 +104,12 @@ The server and the desktops pick up a change within a minute. Every change is
 in **Audit Log** as `ai-data-controls.update`, with each changed setting's
 value before and after.
 
+The same detection, your formats and names included, also runs on **AI
+Knowledge** sources when they are indexed: values are hidden in the stored
+parts (`[hidden card number]`), or the source is not indexed at all — the
+admin's choice per source. See
+[AI Knowledge → Secrets and personal data](AI-KNOWLEDGE.md#secrets-and-personal-data-in-a-source).
+
 ## Trusted model servers
 
 A model the tester runs on their own computer (Ollama on `localhost`) sees

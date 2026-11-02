@@ -90,6 +90,35 @@ rely on it.
 Limits: 5 million characters per source, 5,000 parts per source (the status
 says so when a source is cut), 8 MB per upload.
 
+### Secrets and personal data in a source
+
+Every part is checked while it is indexed, with the same detection as AI
+calls ([AI data protection](AI-DATA-PROTECTION.md)): card and account numbers,
+IBANs, FINs, phones, emails, JWTs, API keys, bearer tokens, labelled
+passwords, CVV / PIN / codes, and your own formats and secret field names.
+A collection's test scripts, a defect CSV or a runbook can hold real ones.
+
+Each source has a **Secrets and personal data** setting:
+
+| Choice | What happens |
+|---|---|
+| **Hide them** (default) | The value is replaced in the stored part: `Test card [hidden card number], key [hidden secret]`. The value itself is never stored in the index, and no AI feature or AI tool receives it |
+| **Don't index the source** | Nothing new is indexed while the source holds any. The source shows *Blocked: secrets or personal data* with what was found, and keeps serving its last good parts (already hidden). Remove the values and **Reindex** |
+
+The list says what was found, by kind and count — never the values: *Holds
+secrets or personal data: 1 card number, 1 JWT. They are hidden in its parts.*
+The re-index toast says it too, and the Audit Log entry of a re-index
+(`ai-knowledge.source.reindex`) carries the counts (`sensitiveFound`).
+
+Parts are checked again whenever they are read (Preview, every AI feature,
+`search_knowledge` in AI tools), so parts indexed before this check existed,
+and formats you add later, are hidden without a re-index. A **Reindex** makes
+it permanent in the stored parts.
+
+Only the value is replaced, not the text around it, so the AI still learns
+"a test card is used here". The original source text (what you pasted or
+uploaded) is kept unchanged so you can edit it; only admins see it.
+
 ## Where it is used
 
 | AI feature | Knowledge it gets |
@@ -175,6 +204,7 @@ result.
 | **The source produced nothing to use** | Empty content, an OpenAPI file without `paths`, or collections without requests |
 | **Only the first 5000 parts are used** | Split the source, for example one OpenAPI file per domain |
 | **N parts were longer than 1,800 characters; only the start is used** | Rows, requests or an overview that are too long. Split them (one CSV row per defect, shorter test scripts), or move long text under its own heading in a document source |
+| **Blocked: secrets or personal data** | The source is set to *Don't index the source* and holds secrets or personal data (listed in the message). Remove them, or switch the setting to *Hide them* |
 | **Error**, but the AI still uses the source | The last re-index failed; the parts from the last good index stay in use until one succeeds. Fix the reason and **Reindex**, or turn the source off |
 | Preview shows nothing for a group | The source isn't shared with that group (or its tribe), isn't assigned to that feature, or is turned off |
 | The AI ignores a convention | Mark the conventions source **Always include**, or put the words people type into its headings |
