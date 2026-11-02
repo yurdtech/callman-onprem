@@ -256,6 +256,30 @@ deployment changes.
 
 ---
 
+## 9. Computers without a system keychain
+
+The desktop app keeps the sign-in, the device id, local-only environments
+and Kubernetes cluster sign-ins encrypted with the operating system's
+keychain (Keychain on macOS, DPAPI on Windows, a Secret Service such as GNOME
+Keyring on Linux). An on-prem build never writes them in plain text:
+
+| Without a keychain | What happens |
+|---|---|
+| Signing in | Works. The sign-in is kept in memory until the app quits; the user is told once, and signs in again next time |
+| Device id | Kept for the run only (it resumes the device's sessions on the server, so it is treated as a secret). Each run shows as a new device under **Devices** |
+| Local-only environments | Not saved; the user sees why. Workspace environments are stored on the server and work as usual |
+| Kubernetes cluster sign-in | Not remembered after the app quits |
+| AI subscription sign-ins | Not saved (as on every build) |
+
+Database connections are stored on the Callman server, encrypted there, and
+are not affected.
+
+IT can allow the old plain-text fallback on a machine by setting the
+environment variable `CALLMAN_ALLOW_PLAINTEXT_SECRETS=1` for the user, or
+require the keychain on any build with `=0`. Prefer enabling a keychain:
+plain-text files in the user profile can be read by anything running as that
+user.
+
 ## See also
 
 - [`STORAGE.md`](./STORAGE.md) — connecting the storage the installers live in
