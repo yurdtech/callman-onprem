@@ -141,6 +141,46 @@ users must reach a server of their own.
 **Changed in this release.** A personal key saved earlier with its own base URL
 stops working until the setting is turned on.
 
+## Accounts on the computer and provider plans
+
+Whether a provider may train on what is sent, and how long it keeps it,
+depends on the **plan** behind the key or account, not on Callman. Callman
+can't tell a free key from a paid one. As of November 2026, the providers'
+own terms say:
+
+| Plan | Trains on what is sent | Kept |
+|---|---|---|
+| Gemini API, free tier | **Yes**, and people may review it ("do not submit sensitive, confidential, or personal information") | Not stated; abuse logs 55 days |
+| Gemini API, paid | No | "Limited period"; abuse logs 55 days |
+| Vertex AI | No, without permission | Cache up to 24 hours; flagged prompts up to 90 days unless you have zero data retention |
+| OpenAI API | No, unless you opt in | Abuse logs up to 30 days; zero retention on approval |
+| ChatGPT Free, Plus | **Yes, by default** | Temporary chats 30 days |
+| ChatGPT Business, Enterprise | No, by default | Workspace setting |
+| Anthropic API | No | The provider's pages differ (30 days, or not kept by default); zero retention through sales |
+| Claude Free, Pro, Max | **Yes, unless the user opts out** | Up to 5 years with training on |
+| Claude Team, Enterprise | No, by default | Deleted chats 30 days |
+| DeepSeek API | **No clause against it found** | While the account exists; stored in China |
+| Azure OpenAI, Amazon Bedrock | No | Ask the provider in writing |
+
+Check these against the providers' current pages and your contract before you
+rely on them. For real data, use a paid plan with a data processing agreement
+through the company key or an AI connection.
+
+**Accounts on the computer** (a Claude, ChatGPT or Gemini sign-in, or an AI
+command-line tool) run under that person's own account and its terms. On a
+new on-prem installation, and on one where the AI policy was never saved, they
+are **off** for every feature until an administrator ticks them. AI Settings
+shows a reminder next to the company key and in the AI policy.
+
+**Changed in this release.** If you never saved the AI policy, testers who used
+a sign-in or a command-line tool on their computer lose it until you allow it.
+A policy you saved keeps your choices.
+
+Callman signs in to these accounts with the vendors' own command-line sign-in
+clients. Whether that use fits each vendor's terms is under legal review; until
+it is settled, keep accounts on the computer off for data you would not send
+under a consumer plan.
+
 ## AI audit
 
 **Admin panel → AI audit** lists every AI model call, one row each:
