@@ -382,6 +382,23 @@ required).
 | `BACKUP_REQUIRED` | `false` | If `true`, a failed backup aborts the migration (default: warn + continue). |
 | `BACKUP_KEEP_COUNT` | `0` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them. |
 
+### AI calls through your proxy
+
+| Variable | Default | Description |
+|---|---|---|
+| `AI_PROXY_URL` | _(unset — direct)_ | Forward proxy for **every AI provider call the server makes**: the AI Settings key, managed AI connections and users' personal keys — chats, AI Testing steps, the scenario AI node, model lists and key checks. `http://host:port` or `https://host:port`; credentials in the URL if the proxy wants them (`http://user:pass@proxy:3128`, redacted in logs). |
+| `AI_NO_PROXY` | `NO_PROXY` | Hosts reached directly despite the proxy, comma-separated: `ollama.bank.local`, `10.1.2.3:11434`, `.ai.bank.local` (subdomains), `*` (all). |
+| `NODE_EXTRA_CA_CERTS` | _(unset)_ | The CA of a proxy that re-signs HTTPS (TLS inspection), or of an internal model server: put the PEM in `certs/` and set `/certs/<bundle>.pem`. |
+
+Only AI traffic uses `AI_PROXY_URL`: the requests users send from scenarios
+and schedules, database connections and other outbound calls are not affected
+(Node.js ignores `HTTPS_PROXY` for them, as before). Set the variables for the
+backend **and** the worker (in compose both read `.env`; in Helm use
+`backend.extraEnv` and `worker.extraEnv`). Tested through a logging proxy:
+company / managed / personal calls and HTTPS providers go through it, a host in
+`AI_NO_PROXY` goes direct, and with the proxy down AI calls fail with
+*Could not reach … (proxy address)* rather than going around it.
+
 ### Connecting to old Oracle databases
 
 Callman connects to Oracle **12.1 and newer** without any setup. Older
