@@ -1,0 +1,97 @@
+{{- if .Values.aiWorker.enabled }}
+# AI assistant test runs: the backend image running the worker with
+# WORKER_QUEUES=ai-scenarios. These runs can take hours, so they get their own
+# pods and never touch the time or parallelism of ordinary scenario runs. The
+# API refuses a run with 503 when no such pod is alive, so keep at least one.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "callman.fullname" . }}-ai-worker
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "ai-worker") | nindent 4 }}
+spec:
+  replicas: {{ .Values.aiWorker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "callman.selectorLabels" (dict "root" $ "component" "ai-worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "callman.selectorLabels" (dict "root" $ "component" "ai-worker") | nindent 8 }}
+      {{- with .Values.aiWorker.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "callman.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ add (div (int .Values.aiWorker.shutdownTimeoutMs) 1000) 15 }}
+      {{- include "callman.imagePullSecrets" . | nindent 6 }}
+      {{- include "callman.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: ai-worker
+          image: {{ include "callman.image" (dict "root" $ "image" .Values.backend.image) }}
+          args: ["node", "dist/worker.js"]
+          {{- include "callman.containerSecurityContext" . | nindent 10 }}
+          ports:
+            - name: health
+              containerPort: {{ .Values.aiWorker.healthPort }}
+          {{- include "callman.sharedEnvFrom" . | nindent 10 }}
+          env:
+            - name: WORKER_QUEUES
+              value: "ai-scenarios"
+            - name: WORKER_HEALTH_PORT
+              value: {{ .Values.aiWorker.healthPort | quote }}
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: {{ .Values.aiWorker.shutdownTimeoutMs | quote }}
+            - name: NODE_OPTIONS
+              value: {{ printf "--max-old-space-size=%d" (int .Values.aiWorker.heapMb) | quote }}
+            - name: MONGODB_MAX_POOL_SIZE
+              value: {{ .Values.aiWorker.mongoPool.max | quote }}
+            - name: MONGODB_MIN_POOL_SIZE
+              value: {{ .Values.aiWorker.mongoPool.min | quote }}
+            - name: AI_WORKER_CONCURRENCY
+              value: {{ .Values.aiWorker.concurrency | quote }}
+            {{- with .Values.aiWorker.extraEnv }}
+            {{- include "callman.extraEnv" . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: health
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- with .Values.aiWorker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "callman.certsMount" . | nindent 12 }}
+      volumes:
+        {{- include "callman.certsVolume" . | nindent 8 }}
+      {{- with .Values.aiWorker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aiWorker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aiWorker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

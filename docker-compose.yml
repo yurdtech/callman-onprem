@@ -207,6 +207,34 @@ services:
       retries: 5
       start_period: 90s
 
+  # AI assistant test runs (scenario Type "AI assistant test"). These can take
+  # hours, so they have their own queue and container and never touch the time
+  # or parallelism of the regular `worker`. Same image. Without this container
+  # those runs answer 503. `docker compose up -d --scale ai-worker=N` adds more.
+  ai-worker:
+    <<: *app
+    command: ["node", "dist/worker.js"]
+    init: true
+    environment:
+      <<: *db-env
+      WORKER_QUEUES: ai-scenarios
+      AI_WORKER_CONCURRENCY: ${AI_WORKER_CONCURRENCY:-4}
+      NODE_OPTIONS: ${AI_WORKER_NODE_OPTIONS:---max-old-space-size=1024}
+      SHUTDOWN_TIMEOUT_MS: ${AI_WORKER_SHUTDOWN_TIMEOUT_MS:-60000}
+    stop_grace_period: 90s
+    volumes:
+      - ./certs:/certs:ro
+    depends_on:
+      <<: *db-depends
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${WORKER_HEALTH_PORT:-9090}/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
   # Dedicated Load Testing Lab workers (profile `load-lab`). Without this
   # profile the regular `worker` replicas run lab shards too (WORKER_QUEUES
   # default "scenarios,load-lab"). With it, set WORKER_QUEUES=scenarios in .env
