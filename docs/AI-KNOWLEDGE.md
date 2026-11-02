@@ -88,7 +88,17 @@ question:
 2. **Always-include sources**, up to 40% of the space.
 3. **The best text matches** for the question's words. This is word matching, not
    meaning: "pays 0 AZN" does not find a part titled "Zero amount". Write the
-   words people use into your conventions and defect titles.
+   words people use into your conventions and defect titles. The words are the
+   question's own (punctuation removed, common words like "test", "create",
+   "screen" left out) and the request's path words; the host, query values and
+   ids are not used. A match is sent only if all three hold:
+   - it scores at least the **search strictness** share of the best match
+     (below);
+   - it shares **at least two** of the question's words when the question has
+     three words or more. One shared word is never enough then: a part that is
+     the only, and so the best, match for one word ("merchant") is not sent;
+   - its source has not used up **half of the space** (3,000 of 6,000
+     characters) already, so one large source can't push the others out.
 
 The AI is told that conventions are binding, that known defects are things to
 check for, and that it must not invent endpoints the knowledge doesn't contain.
@@ -99,6 +109,9 @@ own computer, the desktop asks the server for the same knowledge
 (`POST /api/ai/grounding`) and adds it itself. AI Testing always works the
 second way, whichever AI connection runs its steps. Either way the server
 decides what a user may see.
+
+Every AI call that used knowledge lists its sources in **AI audit** (admin
+panel), whether the call went through the server or from the desktop.
 
 ## How strict the search is
 
