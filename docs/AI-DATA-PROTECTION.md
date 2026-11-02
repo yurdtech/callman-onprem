@@ -103,3 +103,22 @@ one of these names is hidden whatever it looks like: in test data, JSON
 The server and the desktops pick up a change within a minute. Every change is
 in **Audit Log** as `ai-data-controls.update`, with each changed setting's
 value before and after.
+
+## Trusted model servers
+
+A model the tester runs on their own computer (Ollama on `localhost`) sees
+data unmasked: nothing leaves the computer. Any other model server is masked
+unless an administrator lists it under **Trusted model servers** — one host or
+`host:port` per line (`llm.bank.internal:11434`, `10.20.0.15`). This applies
+to Ollama and OpenAI-compatible servers on the desktop, and to an
+OpenAI-compatible AI connection or company key on the Callman server. A cloud
+provider (OpenAI, Anthropic, Google, DeepSeek) and an Ollama `-cloud` model are
+never trusted.
+
+**Changed in this release.** Earlier versions treated every private address
+(`10.x`, `192.168.x`, `172.16–31.x`), `.local`, `.lan`, `.internal` and
+bare hostnames as local and turned masking off for them. Such a server can
+forward requests to a cloud service, so they are now masked until listed. If
+your testers use a company model server, add it to the list to keep the old
+behaviour. On the Callman server even `localhost` is not trusted by default:
+a model server next to the backend is often a proxy to a cloud provider.
