@@ -25,6 +25,7 @@ Admin panel → **AI Settings** → **AI policy**.
 | Workspace assistant | the same |
 | Diagram assistant | the same |
 | AI Testing (writing scenarios and runs) | All five: AI connections, company key, personal keys, accounts on the computer, self-run models |
+| Scenario AI node | AI connections (wherever the scenario runs: on the server, or from the desktop app) |
 
 A box you untick takes that source away from that feature for everyone:
 
@@ -36,8 +37,11 @@ A box you untick takes that source away from that feature for everyone:
 - **In the desktop app (2.0.14+).** Sources that aren't allowed disappear from the
   feature's model list. AI Testing also lists only models that can read
   screenshots. If the source someone used last is no longer allowed, the app
-  switches to one that is. The app checks the policy before every request on the
-  computer. It picks up a change within about a minute.
+  switches to one that is. Every model call the app makes from the computer —
+  each AI Testing step included — is checked again in the app's main process,
+  so a modified screen can't skip the check. The app keeps the policy for 30
+  seconds, so a change reaches the next call within that; the server's own
+  copy is also 30 seconds.
 
 AI Testing sends a screenshot and the page structure with each step. With a
 server source (AI connection, company key, personal key) those go from the
@@ -65,5 +69,17 @@ provider hosts at your proxy as well ([NETWORK.md](NETWORK.md)).
 - Who can see the policy: `ai-settings:read`. Who can change it:
   `ai-settings:manage`. Every change is in the audit log as `ai-policy.update`,
   with each feature's sources before and after.
-- The scenario **AI node** (a step in a scenario run on the server) uses the AI
-  connection the step names. The policy doesn't cover it.
+- The scenario **AI node** uses the AI connection the step names. Untick
+  **Scenario AI node → AI connections** to stop AI nodes everywhere: the step
+  fails with `AI_SOURCE_NOT_ALLOWED` and nothing is sent.
+- **When the policy can't be read** (the database is unreachable), the server
+  refuses every AI source (`503 AI_POLICY_UNAVAILABLE`) while **Refuse AI when
+  the policy can't be read** is on — the default on-prem, under AI Settings → AI
+  data protection. A desktop that can't reach the server refuses AI on the
+  computer too, once its 30-second copy runs out. Turned off, everything is
+  allowed meanwhile, as before the policy existed.
+- **AI Knowledge for a feature** (`POST /api/ai/grounding`, used by the desktop
+  and AI tools) checks that feature's flag for the user and that the policy
+  leaves it a source; otherwise `403`.
+- Which providers may be used at all, and what is masked before anything is
+  sent: [AI-DATA-PROTECTION.md](AI-DATA-PROTECTION.md).
