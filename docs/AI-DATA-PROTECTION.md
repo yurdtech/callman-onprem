@@ -123,6 +123,24 @@ your testers use a company model server, add it to the list to keep the old
 behaviour. On the Callman server even `localhost` is not trusted by default:
 a model server next to the backend is often a proxy to a cloud provider.
 
+## Providers
+
+**Allowed AI providers** limits AI to the providers you have a contract with.
+It covers the Callman server's AI (company key, AI connections, personal keys,
+the scenario AI node) and what the desktop app calls from the computer (Claude,
+ChatGPT and Gemini sign-ins and command-line tools, Cursor, Ollama). The server
+refuses a provider off the list (`AI_PROVIDER_NOT_ALLOWED`) and the app hides
+it. With every provider ticked there is no allowlist.
+
+**Personal AI keys may use their own server address** is off by default: a key
+a user saves for themselves always goes to its provider's public API. The
+server refuses a key with its own base URL (`AI_BASE_URL_NOT_ALLOWED`) before
+it contacts that address, also when the key is checked. Turn it on only if
+users must reach a server of their own.
+
+**Changed in this release.** A personal key saved earlier with its own base URL
+stops working until the setting is turned on.
+
 ## AI audit
 
 **Admin panel → AI audit** lists every AI model call, one row each:
