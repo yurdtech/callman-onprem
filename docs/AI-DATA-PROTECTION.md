@@ -65,7 +65,7 @@ OCR.
   (images, canvas, an app without accessibility labels). See AI Testing below.
 
 A value the shield misses goes to the model as it is. Callman does not block
-the call.
+the call (see [No block mode](#no-block-mode)).
 
 ### False positives (measured)
 
@@ -149,3 +149,26 @@ A desktop older than this release does not report its on-computer calls.
 
 **Retention.** AI data protection → **Keep AI audit records for** (7–3650
 days, default 365). The worker deletes older rows once a day.
+
+### Masking counts and unmasked calls
+
+Each AI audit row says how many values were hidden, by kind (`card 1, email 2,
+secret 1`), never the values. A call whose model got the data unmasked — on the
+tester's computer or on a trusted server — is marked **Not masked**; the
+**Masking: none** filter lists only those, and the totals above the table count
+them. In the desktop app, an AI Testing run on such a model shows **Not masked**
+in its History.
+
+### No block mode
+
+Callman does not offer a mode that blocks a call when masking finds or misses
+something. Whatever detection finds is already hidden, so blocking on it would
+only stop calls that are safe; what detection misses, a block rule cannot see
+either. To keep data in:
+
+- allow only the company key and AI connections under AI policy, so every call
+  goes through the Callman server and its masking;
+- list only the model servers you run yourself as trusted;
+- add your own formats and secret field names;
+- review **Not masked** calls in AI audit.
+
