@@ -122,3 +122,30 @@ forward requests to a cloud service, so they are now masked until listed. If
 your testers use a company model server, add it to the list to keep the old
 behaviour. On the Callman server even `localhost` is not trusted by default:
 a model server next to the backend is often a proxy to a cloud provider.
+
+## AI audit
+
+**Admin panel → AI audit** lists every AI model call, one row each:
+
+| Field | |
+|---|---|
+| When, user | Who made the call |
+| Feature | Request AI, an assistant, the scenario AI node, AI Testing (runs and scenario writing), AI assistant tests |
+| AI | The AI source (AI connection, company key, personal key, account or CLI on the computer, self-run model), provider and model |
+| Sent from | **Callman server** (the server called the provider) or **Desktop app** (a subscription, CLI or Ollama on the tester's computer) |
+| Result | OK, or the error code |
+| Masking | How many values were hidden, by kind; or **Not masked** for a model on the tester's computer or a trusted server |
+| Tokens, screenshot | Tokens the provider reported; whether a screenshot went |
+| AI Knowledge | The Knowledge sources whose parts went into the prompt |
+
+Prompts, answers, screenshots and keys are never recorded. Filter by user,
+feature, source, where the call was sent from, result, masking and date, and
+export the filtered rows as **CSV** or **JSON Lines** for a SIEM (up to 50,000
+rows per export; each export is itself in Audit Log as `ai-audit.export`).
+
+A desktop that can't reach the server keeps its events in its data folder
+(`ai-audit-queue.json`) and sends them when it can, with their original time.
+A desktop older than this release does not report its on-computer calls.
+
+**Retention.** AI data protection → **Keep AI audit records for** (7–3650
+days, default 365). The worker deletes older rows once a day.
