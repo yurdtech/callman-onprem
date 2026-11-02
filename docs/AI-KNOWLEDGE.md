@@ -57,6 +57,30 @@ parts, or *Error* with the reason) and when it was last indexed. **Reindex**
 re-reads a source on demand. Turning a source off removes it from every answer
 without deleting it.
 
+### What happens while a source is re-indexed
+
+- **No gap.** The new parts are written next to the old ones; the AI switches
+  to them only when all of them are in, and the old ones are deleted after.
+  A question asked during a re-index gets the previous parts, never none and
+  never both.
+- **A failed re-index keeps the last good parts.** The source shows *Error*
+  with the reason, and the AI keeps using the parts from its last good index
+  (the list says how many) until a re-index succeeds. Turn the source off if
+  that old material must not be used.
+- **Who it is for, which features use it, and on/off apply at once.** They are
+  checked against the source itself on every question, so narrowing a source
+  to one squad takes effect immediately, without waiting for the re-index that
+  saving starts.
+- **One re-index at a time per source**, across every backend instance. A
+  re-index asked for while one runs (an edit, the daily refresh) runs again
+  once it is done, so a change made meanwhile is not lost.
+- **Deleted collections.** When a collection is deleted in Callman, its parts
+  stop being used the same moment, and every collections source that included
+  it is re-indexed without it.
+- **Long parts are cut.** A request, a CSV row or an OpenAPI overview longer
+  than 1,800 characters keeps only its start; the status says how many parts
+  were cut. Headings and operations are split instead, nothing is lost there.
+
 **Preview** (below the list) shows exactly what the AI would receive. Pick a
 feature and the asker's groups, type what they ask, and optionally the endpoint
 (`POST https://…/payments/123/refunds`). You see the parts and the text block
@@ -150,5 +174,7 @@ result.
 | **Error: … blocked: the address is in a denied range** | The URL points into `OUTBOUND_DENY_CIDRS`. Use another address or upload the file |
 | **The source produced nothing to use** | Empty content, an OpenAPI file without `paths`, or collections without requests |
 | **Only the first 5000 parts are used** | Split the source, for example one OpenAPI file per domain |
+| **N parts were longer than 1,800 characters; only the start is used** | Rows, requests or an overview that are too long. Split them (one CSV row per defect, shorter test scripts), or move long text under its own heading in a document source |
+| **Error**, but the AI still uses the source | The last re-index failed; the parts from the last good index stay in use until one succeeds. Fix the reason and **Reindex**, or turn the source off |
 | Preview shows nothing for a group | The source isn't shared with that group (or its tribe), isn't assigned to that feature, or is turned off |
 | The AI ignores a convention | Mark the conventions source **Always include**, or put the words people type into its headings |
