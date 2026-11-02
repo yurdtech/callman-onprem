@@ -172,3 +172,25 @@ either. To keep data in:
 - add your own formats and secret field names;
 - review **Not masked** calls in AI audit.
 
+
+## AI conversations: how long they stay, and deleting them
+
+What people ask the AI and what it answers is stored in the Callman database:
+Request AI and assistant chats, scenario assistant proposals, and the prompt and
+answer of an AI node in a scenario run report.
+
+- **Keep AI conversations for** (AI data protection, 0–3650 days, default 0 =
+  until a user or an admin deletes them). Once a day the worker deletes older
+  messages and the conversations left empty, and clears the AI node prompt and
+  answer in older run reports (the report itself stays).
+- **Delete AI conversations** (AI Settings): one user's, everyone's before a
+  date, or both. Irreversible; in Audit Log as `ai-content.purge` with the
+  counts.
+- **Deleting a Callman user** deletes their AI conversations and their personal
+  AI keys too (counts in the `callman.user.cascade_delete` audit entry). Their
+  AI audit records stay until the audit retention removes them: they hold no
+  content.
+- A scenario assistant proposal never stores environment values; proposals
+  saved by older versions get them hidden by the first daily run.
+
+Backups taken before a deletion still hold the data; see [BACKUP.md](BACKUP.md).
