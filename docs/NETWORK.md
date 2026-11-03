@@ -36,7 +36,7 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | Your object storage (S3 / MinIO / FileNet) | Large files | Only with the `storage` profile |
 | `ghcr.io` (or your registry) | Pulling images | Install and upgrade only; none with an air-gap bundle ([INSTALL.md](INSTALL.md)) |
 | `api.telegram.org` | Error forwarding | Only if `TELEGRAM_ENABLED` is on; leave it empty |
-| The AI providers on the server: the one set in **AI Settings**, your AI connections (**Managed connections**) and the providers of users' personal keys — `api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com`, `api.deepseek.com`, or an OpenAI-compatible server someone names | AI assistants, the AI node, and AI Testing steps that run on one of these (a screenshot and the page structure go with each step) | Only if configured; turn sources off in the AI policy ([AI-POLICY.md](AI-POLICY.md)) or switch the `ai*` flags off |
+| The AI providers on the server: the one set in **AI Settings**, your AI connections (**Managed connections**) and the providers of users' personal keys — `api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com`, `api.deepseek.com`, or an OpenAI-compatible server someone names | AI assistants, the AI node, and AI Testing steps that run on one of these (a screenshot and the page structure go with each step) | Only if configured; turn sources off in the AI policy ([AI-POLICY.md](AI-POLICY.md)) or switch the `ai*` flags off. To send all of it through your proxy / DLP instead of opening these hosts, set `AI_PROXY_URL` (and `AI_NO_PROXY` for model servers on your network) — [ENVIRONMENT.md](ENVIRONMENT.md#ai-calls-through-your-proxy) |
 | Slack webhook | Notification connections | Only if someone creates one |
 | An OpenAPI URL in **AI Knowledge** | The backend and worker fetch the definition (and re-fetch it daily if set so) | Only if an admin adds a source by URL; uploading the file instead needs no network ([AI-KNOWLEDGE.md](AI-KNOWLEDGE.md)) |
 | `download.oracle.com` | Oracle Instant Client for Oracle 11g | Only when an admin clicks **Download from Oracle**; uploading the package instead needs no internet |
@@ -49,15 +49,20 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | The systems under test | Requests run on the workstation |
 | The databases users test | Requests' database steps, the scenario builder's **Run**, UI tests run in the app, schema import and the desktop side of connection tests connect from the workstation ([DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md)) |
 | `download.oracle.com` | The Oracle client for Oracle 11g, once per machine when a user installs it — only if your server has no package for that platform under **Database drivers** |
-| Model providers, when a user picks an AI connection that runs on their computer: a subscription they signed in to in the app — Claude (`claude.ai`, `console.anthropic.com`, `api.anthropic.com`), ChatGPT (`auth.openai.com`, `chatgpt.com`), Gemini (`accounts.google.com`, `oauth2.googleapis.com`, `cloudcode-pa.googleapis.com`) — or an AI CLI's own hosts | AI features on that connection; for **AI Testing** a screenshot and the page structure go with each step. Connections on the Callman server (company key, AI connections, personal keys) go through the backend instead (row above). A model the user runs (Ollama) is reached at the address they set, `localhost:11434` by default |
-| `github.com`, `api.github.com`, the Playwright CDN | Once per machine: the browser for web **AI Testing** and web UI tests (Playwright CDN), and the Android UI-test driver (GitHub) |
+| Model providers, when a user picks an AI connection that runs on their computer: a subscription they signed in to in the app — Claude (`claude.com` for the sign-in page, `platform.claude.com` for its token, `api.anthropic.com`), ChatGPT (`auth.openai.com`, `chatgpt.com`), Gemini (`accounts.google.com`, `oauth2.googleapis.com`, `www.googleapis.com`, `cloudcode-pa.googleapis.com`) — an API key kept on the computer (`api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com`), or an AI CLI's own hosts. (Checked against the desktop's code for 2.0.15.) | AI features on that connection; for **AI Testing** a screenshot and the page structure go with each step. Connections on the Callman server (company key, AI connections, personal keys) go through the backend instead (row above). A model the user runs (Ollama) is reached at the address they set, `localhost:11434` by default |
+| The Playwright CDN | Once per machine: the browser for web **AI Testing** and web UI tests |
 | `api.figma.com` | Figma import / visual compare, only with a Figma token |
 
 AI Testing downloads nothing else: it runs in the desktop app's own code (no
 Python runtime, no agent app). On an Android device it installs only a small
-Callman keyboard to type with, which ships inside the desktop app. The Android
-UI-test driver can be pre-staged on a workstation at
-`~/.callman/modules/callmanui.jar` to skip its download.
+Callman keyboard to type with, which ships inside the desktop app.
+
+**The mobile UI-test engine and the iOS simulator driver come from your
+Callman server**, not from the internet: an admin uploads them once under
+**Desktop modules** ([DESKTOP-APP.md](DESKTOP-APP.md#10-desktop-modules)) and
+an on-prem desktop downloads them from the backend over the user's session,
+checking each file's SHA-256. On-prem builds carry no GitHub address or token
+for them.
 
 **TLS inspection.** Behind a proxy that re-signs HTTPS with a company certificate,
 the desktop's AI requests that fail the certificate check are retried through the

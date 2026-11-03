@@ -40,6 +40,8 @@ secrets:
     JWT_REFRESH_SECRET: ""
     SESSION_TOKEN_ENCRYPTION_SECRET: ""
     CONNECTION_ENCRYPTION_KEY: ""   # shared backend + admin, byte-identical
+    CONNECTION_ENCRYPTION_KEY_PREVIOUS: ""  # only while rotating (docs/ENVIRONMENT.md)
+    INTERNAL_API_SECRET: ""         # admin → backend internal API; recommended
     ADMIN_JWT_SECRET: ""
     ADMIN_JWT_REFRESH_SECRET: ""
     ADMIN_BOOTSTRAP_EMAIL: ""
@@ -618,6 +620,8 @@ admin:
 migrate:
   backup:
     enabled: true                   # false ≈ SKIP_MIGRATION_BACKUP=1
+    keepCount: 0                    # newest pre-migration dumps kept (0 = all, as before; 10 recommended)
+    keepDays: 0                     # none older than this (0 = no age limit; 30 recommended)
   backoffLimit: 10
   ttlSecondsAfterFinished: 86400
   resources: {}

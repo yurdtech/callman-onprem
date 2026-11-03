@@ -256,6 +256,59 @@ deployment changes.
 
 ---
 
+## 9. Computers without a system keychain
+
+The desktop app keeps these encrypted with the operating system's keychain:
+
+- the Callman sign-in (access and refresh token) and the device id;
+- local-only environments;
+- Kubernetes cluster sign-ins;
+- passwords of local database, Redis and Kafka connections;
+- AI Testing test data (the Data tab).
+
+Windows always has a keychain (DPAPI, tied to the Windows sign-in) and so does
+macOS (Keychain). Only a computer without one — in practice Linux without a
+Secret Service such as GNOME Keyring or KWallet, or a stripped-down VDI image —
+is affected. There the desktop keeps these in a plain file in the
+user's profile, readable by anything running as that user, as it always did.
+
+Users stay signed in across restarts in every case. On a computer without a
+keychain, the plain file is the only way to keep the sign-in without asking
+for it at every start, so the file is protected only by the user's account
+(and the disk's full-disk encryption). For real data on Linux, install and
+enable a Secret Service (GNOME Keyring or KWallet) for the users' session:
+Callman uses it from the next start, and a value it saved in plain text is
+encrypted the next time it is saved. AI subscription sign-ins are never saved
+without a keychain.
+
+## 10. Desktop modules
+
+Two parts of the desktop are downloaded the first time a tester needs them,
+because they are large: the **mobile UI-test engine** (`callmanui.jar`, about
+140 MB — recorded Android and iOS flows, and AI Testing on devices) and the
+**iOS simulator driver** (a .zip). An on-prem desktop takes them **from your
+Callman server** once you upload them there:
+
+1. We publish each module with its version and SHA-256 in the release notes.
+2. In the admin panel → **Desktop modules**, give the version, paste the
+   SHA-256 and upload the file. A file whose SHA-256 doesn't match is refused.
+   Uploads and removals are in the Activity Log.
+3. A tester's desktop downloads the module from the backend when they first
+   need it (the engine and, on a Mac, the iOS simulator driver together). It
+   checks the SHA-256 again and installs nothing that doesn't match; the
+   module it already had stays in place.
+
+When your server can't give a module — you haven't uploaded it, the server is
+older, nobody is signed in yet, or the download fails or doesn't match its
+checksum — the desktop downloads the engine from where it always did, our
+release host, as before; testers never have to wait for the admin panel. A company whose desktops must never reach the internet for it
+gets an installer built with no download token at all
+(`CALLMAN_MODULES_SERVER_ONLY=1` when we build it): it takes modules only from
+your server, and before you upload one a desktop that needs it says so ("Your
+administrator hasn't put the mobile UI-test engine on the Callman server
+yet"). The engine still needs a Java runtime on the computer; the engine
+replacing it will not.
+
 ## See also
 
 - [`STORAGE.md`](./STORAGE.md) — connecting the storage the installers live in

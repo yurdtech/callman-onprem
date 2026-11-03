@@ -19,6 +19,8 @@ placeholders you must replace.
 | `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin panel image version (e.g. `1.0.6`). Separate from `CALLMAN_VERSION`. |
 | `SESSION_TOKEN_ENCRYPTION_SECRET` | ✅ | — | Encrypts stored sessions. ≥ 32 chars, **different**. |
 | `CONNECTION_ENCRYPTION_KEY` | ✅ | — | Encrypts saved DB/connection credentials. ≥ 32 chars, **different**. **Shared with the admin panel** — see below. |
+| `INTERNAL_API_SECRET` | recommended | `CONNECTION_ENCRYPTION_KEY` | The password the admin panel uses on the backend's internal API. ≥ 32 chars, **different** from the four. Without it the panel sends `CONNECTION_ENCRYPTION_KEY` there and the backend logs a warning. |
+| `CONNECTION_ENCRYPTION_KEY_PREVIOUS` | — | — | Only while replacing the key — see [Rotating `CONNECTION_ENCRYPTION_KEY`](#rotating-connection_encryption_key). |
 
 > The four secrets must be **four distinct values**, each **≥ 32
 > characters**, or the app exits at startup. Generate each with
@@ -34,6 +36,53 @@ placeholders you must replace.
 > (`SESSION_TOKEN_ENCRYPTION_SECRET`, `CONNECTION_ENCRYPTION_KEY`). Keep a safe
 > copy of `.env`: a database backup restored against different values cannot be
 > decrypted. See [BACKUP.md](BACKUP.md).
+
+### Rotating `CONNECTION_ENCRYPTION_KEY`
+
+Nothing becomes unreadable at any step; users notice nothing.
+
+1. Generate a new key: `openssl rand -hex 32`.
+2. In `.env` (or the Helm secret): put the **new** key in
+   `CONNECTION_ENCRYPTION_KEY` and the **old** one in
+   `CONNECTION_ENCRYPTION_KEY_PREVIOUS` (several old keys: comma-separated).
+   Both services read the same values.
+3. Restart the backend, the worker and the admin panel. Everything still
+   decrypts; new and changed secrets are written with the new key.
+4. Re-encrypt what is stored:
+
+   ```bash
+   docker compose exec backend npm run secrets:rotate -- --dry-run   # counts only
+   docker compose exec backend npm run secrets:rotate
+   ```
+
+   (Helm: `kubectl exec deploy/<release>-backend -- npm run secrets:rotate`.)
+   It takes a database backup first (like a migration), re-encrypts every
+   stored secret — connection credentials, managed connections, the company
+   and personal AI keys, storage, LDAP and notification-channel secrets — and
+   reports how many it changed. `failed: 0` means every secret now uses the
+   new key. A secret no key opens is listed and left as it is.
+5. Remove `CONNECTION_ENCRYPTION_KEY_PREVIOUS` and restart again. Keep the
+   old key with your backups until no backup older than step 4 is needed.
+
+### Secrets from Vault or a cloud key manager
+
+Every secret above can be read from a **file** instead of the environment:
+set `<NAME>_FILE=/path/to/file` (for example
+`CONNECTION_ENCRYPTION_KEY_FILE=/vault/secrets/connection_encryption_key`).
+The file's content wins over any other value. This is what all the usual
+integrations produce:
+
+| Integration | How |
+|---|---|
+| **HashiCorp Vault Agent** (injector or sidecar) | Render each secret to a file with a template (`{{ with secret "secret/data/callman" }}{{ .Data.data.connection_encryption_key }}{{ end }}`) and set the `_FILE` variables. Tested with Vault 1.18 and `vault agent` rendering both keys. |
+| **Secrets Store CSI driver** (Vault, AWS Secrets Manager / KMS, Azure Key Vault, Google Secret Manager) | Mount the secrets as files and set the `_FILE` variables, or sync them to the Kubernetes Secret named in `secrets.existingSecret`. |
+| **External Secrets Operator** | Sync into the Kubernetes Secret named in `secrets.existingSecret` (keys = the variable names). |
+| **Docker secrets** | `/run/secrets/<name>` + the `_FILE` variables. |
+
+The backend and the admin panel read the files once at start: after the key
+manager rotates a value, restart them (and for `CONNECTION_ENCRYPTION_KEY`
+follow the rotation steps above, so the old key stays in `_PREVIOUS` until
+`secrets:rotate` ran).
 
 > **The license is NOT an environment variable.** It is a signed certificate
 > installed once through the admin panel (**On-Prem → License**) and stored in
@@ -331,7 +380,25 @@ required).
 | `SKIP_MIGRATION_CHECK` | `false` | Emergency override: let the app boot even with pending migrations. Leave `false`. |
 | `SKIP_MIGRATION_BACKUP` | `false` | Skip the pre-migration `mongodump`. Leave `false`. |
 | `BACKUP_REQUIRED` | `false` | If `true`, a failed backup aborts the migration (default: warn + continue). |
-| `BACKUP_KEEP_COUNT` | `0` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them. |
+| `BACKUP_KEEP_COUNT` | `0` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them, as before; `10` is a sensible value. |
+| `BACKUP_KEEP_DAYS` | `0` | Also remove archives older than N days (never the newest one), so deleted data doesn't live on in old dumps. `0` = no age limit, as before; `30` is a sensible value. |
+
+### AI calls through your proxy
+
+| Variable | Default | Description |
+|---|---|---|
+| `AI_PROXY_URL` | _(unset — direct)_ | Forward proxy for **every AI provider call the server makes**: the AI Settings key, managed AI connections and users' personal keys — chats, AI Testing steps, the scenario AI node, model lists and key checks. `http://host:port` or `https://host:port`; credentials in the URL if the proxy wants them (`http://user:pass@proxy:3128`, redacted in logs). |
+| `AI_NO_PROXY` | `NO_PROXY` | Hosts reached directly despite the proxy, comma-separated: `ollama.bank.local`, `10.1.2.3:11434`, `.ai.bank.local` (subdomains), `*` (all). |
+| `NODE_EXTRA_CA_CERTS` | _(unset)_ | The CA of a proxy that re-signs HTTPS (TLS inspection), or of an internal model server: put the PEM in `certs/` and set `/certs/<bundle>.pem`. |
+
+Only AI traffic uses `AI_PROXY_URL`: the requests users send from scenarios
+and schedules, database connections and other outbound calls are not affected
+(Node.js ignores `HTTPS_PROXY` for them, as before). Set the variables for the
+backend **and** the worker (in compose both read `.env`; in Helm use
+`backend.extraEnv` and `worker.extraEnv`). Tested through a logging proxy:
+company / managed / personal calls and HTTPS providers go through it, a host in
+`AI_NO_PROXY` goes direct, and with the proxy down AI calls fail with
+*Could not reach … (proxy address)* rather than going around it.
 
 ### Connecting to old Oracle databases
 
