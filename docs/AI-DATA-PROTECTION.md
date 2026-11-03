@@ -237,6 +237,40 @@ either. To keep data in:
 - review **Not masked** calls in AI audit.
 
 
+## AI Testing files on testers' computers
+
+An AI Testing run keeps, on the tester's computer under `~/.callman/ai-engine/runs/<run>/`,
+a screenshot per step, the recorded screens (texts and positions) and the
+steps. Admin panel → **AI Settings → AI data protection → AI Testing on
+testers' computers**:
+
+| Setting | Default on-prem | What it does |
+|---|---|---|
+| **Keep only the masked copy of screenshots** | on | Personal data — card and account numbers, IBANs, FINs, phones, emails, keys and your own formats — is blacked out on every screenshot the run keeps, hidden in the recorded screen texts and in the steps, **whatever the model is** (a model on the tester's computer sees the screen in full; the files still keep only the masked copy). A screenshot where the data can't be placed (the page couldn't be read in full, a text no element owns) is not kept. Exported reports are built from these files, so they carry the masked copy too. Off: the original screenshots are kept. |
+| **Keep AI Testing runs for** | 90 days | Older runs are deleted when the app starts, every 6 hours and after each run. |
+
+Testers can also:
+
+- **Delete runs** — History → tick runs → **Delete**: the runs leave History
+  and their files are deleted at once.
+- **Export without screenshots** — History → tick runs → untick **With
+  screenshots** before **Export**: the report has the steps, verdicts and
+  checks, no picture. The setting is remembered for later exports.
+
+**Test data** (Data tab: the PINs, passwords and phone numbers a scenario
+types) is kept encrypted with the computer's keychain (`ai-test-data.bin`),
+no longer in the app's local storage. On a computer without a keychain an
+on-prem build keeps it until the app quits and says so.
+
+**Run files are not encrypted by Callman** (a decision, not a gap left open):
+the app has to show them to the same user, so a key the app holds protects
+nothing from that user's account or from malware running as it, and every
+report would have to be decrypted to be read. What keeps them safe instead:
+only the masked copy is kept by default, the run folders are readable only
+by the user (mode 700), they are deleted after the retention above, and the
+disk is protected by the operating system's full-disk encryption (FileVault
+/ BitLocker / LUKS), which a bank's workstations already require.
+
 ## AI conversations: how long they stay, and deleting them
 
 What people ask the AI and what it answers is stored in the Callman database:
