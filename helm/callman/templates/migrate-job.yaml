@@ -34,6 +34,10 @@ spec:
             {{- if .Values.migrate.backup.enabled }}
             - name: MONGODB_BACKUP_DIR
               value: /backups
+            - name: BACKUP_KEEP_COUNT
+              value: {{ .Values.migrate.backup.keepCount | default 0 | quote }}
+            - name: BACKUP_KEEP_DAYS
+              value: {{ .Values.migrate.backup.keepDays | default 0 | quote }}
             {{- else }}
             - name: SKIP_MIGRATION_BACKUP
               value: "1"

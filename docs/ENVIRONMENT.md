@@ -380,7 +380,8 @@ required).
 | `SKIP_MIGRATION_CHECK` | `false` | Emergency override: let the app boot even with pending migrations. Leave `false`. |
 | `SKIP_MIGRATION_BACKUP` | `false` | Skip the pre-migration `mongodump`. Leave `false`. |
 | `BACKUP_REQUIRED` | `false` | If `true`, a failed backup aborts the migration (default: warn + continue). |
-| `BACKUP_KEEP_COUNT` | `0` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them. |
+| `BACKUP_KEEP_COUNT` | `10` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them. |
+| `BACKUP_KEEP_DAYS` | `30` | Also remove archives older than N days (never the newest one), so deleted data doesn't live on in old dumps. `0` = no age limit. |
 
 ### AI calls through your proxy
 

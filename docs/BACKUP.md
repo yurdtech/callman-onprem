@@ -29,9 +29,22 @@ the `backups` Docker volume as:
 /backups/callman-backup-<timestamp>.archive.gz
 ```
 
-This is an **upgrade safety net, not a backup policy.** It only runs on start,
-it is never pruned, and it lives on the same host as the database. Set up the
-scheduled backup below as well.
+This is an **upgrade safety net, not a backup policy.** It only runs on start
+and it lives on the same host as the database. Set up the scheduled backup
+below as well.
+
+Old dumps are removed after each new one, so deleted data (an AI Knowledge
+source, a user's chats) does not live on in them indefinitely:
+
+| Setting | Default (compose / Helm) | |
+|---|---|---|
+| `BACKUP_KEEP_COUNT` | `10` (Helm `migrate.backup.keepCount`) | Keep only the newest N dumps |
+| `BACKUP_KEEP_DAYS` | `30` (Helm `migrate.backup.keepDays`) | Remove dumps older than N days — never the newest one |
+
+`0` turns a limit off. Your own scheduled backups are yours to expire: keep
+them no longer than your retention policy requires, on encrypted storage
+(dumps are not encrypted — see
+[EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md#encryption-at-rest--whose-job-it-is)).
 
 List what is there:
 
@@ -48,7 +61,8 @@ docker compose run --rm --entrypoint cat migrate \
 ```
 
 Related settings (see [ENVIRONMENT.md](ENVIRONMENT.md)):
-`MONGODB_BACKUP_DIR`, `SKIP_MIGRATION_BACKUP`, `BACKUP_REQUIRED`.
+`MONGODB_BACKUP_DIR`, `SKIP_MIGRATION_BACKUP`, `BACKUP_REQUIRED`,
+`BACKUP_KEEP_COUNT`, `BACKUP_KEEP_DAYS`.
 
 > The automatic dump runs against whatever `MONGODB_URI` points at — so it
 > works the same when you use [your own MongoDB](EXTERNAL-DATABASES.md).

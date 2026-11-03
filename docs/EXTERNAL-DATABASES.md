@@ -114,6 +114,36 @@ MONGODB_URI=mongodb://user:pass@mongo.acme.local:27017/callman?authSource=admin&
 
 `preflight.sh` checks that the file you reference actually exists.
 
+Checked with a MongoDB 8.2 that requires TLS and a certificate from a private
+CA: with `tls=true&tlsCAFile=…` the backend connects and migrates; without the
+CA it stops with *unable to verify the first certificate*; without `tls=true`
+the server closes the connection. Use `tls=true` with the CA, never
+`tlsInsecure` / `tlsAllowInvalidCertificates`.
+
+## Encryption at rest — whose job it is
+
+Callman does **not** encrypt the database files. What it stores encrypted
+itself, with `CONNECTION_ENCRYPTION_KEY` (AES-256-GCM), are the secrets:
+connection credentials, managed AI connections, the company and personal AI
+keys, storage, LDAP and notification secrets; sessions with
+`SESSION_TOKEN_ENCRYPTION_SECRET`. Everything else — collections, requests,
+scenarios, reports, AI Knowledge sources and parts, AI conversations — is in
+plain BSON so it can be searched and indexed.
+
+Protecting the files on disk is the deployment's job:
+
+| Setup | How the data is encrypted at rest |
+|---|---|
+| **Your own MongoDB** (recommended for production) | MongoDB Enterprise *Encrypted Storage Engine* with your KMIP / key manager, or MongoDB Atlas / a managed MongoDB with encryption at rest, or an encrypted volume |
+| **The bundled `mongo` container** | Community edition: no encryption of its own. Put the Docker volume on an encrypted disk (LUKS / dm-crypt, BitLocker, an encrypted cloud volume, a storage array with encryption) |
+| **Backups** (`backups` volume, your own dumps) | The same: an encrypted disk or encrypted backup storage. Dumps are compressed, not encrypted |
+
+Application-level encryption of every document was considered and not done:
+it would break search, the AI Knowledge text index and reports, and the key
+would sit next to the data in the same process — the disk or the database
+engine is the place for it. Secrets are the exception, and are encrypted
+already.
+
 ---
 
 ## Writing the Redis URL
