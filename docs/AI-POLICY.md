@@ -74,8 +74,8 @@ provider hosts at your proxy as well ([NETWORK.md](NETWORK.md)).
   fails with `AI_SOURCE_NOT_ALLOWED` and nothing is sent.
 - **When the policy can't be read** (the database is unreachable), the server
   refuses every AI source (`503 AI_POLICY_UNAVAILABLE`) while **Refuse AI when
-  the policy can't be read** is on — the default on-prem, under AI Settings → AI
-  data protection. A desktop that can't reach the server refuses AI on the
+  the policy can't be read** is on (off by default; AI Settings → AI data
+  protection). A desktop that can't reach the server refuses AI on the
   computer too, once its 30-second copy runs out. Turned off, everything is
   allowed meanwhile, as before the policy existed.
 - **AI Knowledge for a feature** (`POST /api/ai/grounding`, used by the desktop

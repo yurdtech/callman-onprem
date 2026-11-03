@@ -5,21 +5,47 @@ administrator controls. Settings are under **Admin panel → AI Settings → AI
 data protection**; which AI source each feature may use is in
 [AI-POLICY.md](AI-POLICY.md).
 
+**Defaults.** Until an administrator changes something here, Callman behaves
+as it did before these settings existed: AI Testing masks, every other AI
+feature sends data as it is, every AI source and provider is allowed, model
+servers on the company network count as trusted, AI is allowed when the policy
+can't be read, AI Testing keeps its original screenshots for 90 days, and a
+computer without a keychain keeps the sign-in in a plain file. Every
+restriction below is a switch the administrator turns on; nobody notices a
+difference until then.
+
+| Setting | Default | On |
+|---|---|---|
+| Mask personal data in every AI feature | off (AI Testing only) | [Masking](#masking) in every feature, on the server and the desktop, and in what the MCP server returns |
+| Trust every model server on the company network | on | Off: only listed [trusted model servers](#trusted-model-servers) see data unmasked |
+| Personal AI keys may use their own server address | on | Off: personal keys only reach their provider's public API |
+| Refuse AI when the policy can't be read | off | AI stops while the policy can't be read |
+| Keep only the masked copy of screenshots | off | [AI Testing files](#ai-testing-files-on-testers-computers) keep the masked copy only |
+| Require the system keychain | off | No sign-in or password in a plain file ([DESKTOP-APP.md §9](DESKTOP-APP.md#9-computers-without-a-system-keychain)) |
+| Allowed AI providers, accounts on the computer | all | Only the providers / sources you tick |
+
 ## Masking
 
-Every AI call passes a privacy shield first. It replaces sensitive values with
-tokens, and puts the real values back in the model's answer where the answer is
-used. The same value always gets the same token, so the model can still compare
-values and write them by their token.
+AI Testing always masks when its model works outside the tester's computer.
+With **Mask personal data in every AI feature** on, every AI call passes the
+privacy shield first. It replaces sensitive values with tokens, and puts the
+real values back in the model's answer where the answer is used. The same
+value always gets the same token, so the model can still compare values and
+write them by their token.
 
 | Where | Applies to |
 |---|---|
 | Callman server, in front of every hosted model call | Request AI, the workspace, scenario and diagram assistants, the scenario AI node, AI Testing steps and scenario writing on a company key, an AI connection or a personal key. Applied whatever the desktop sent, so an old or modified desktop can't send values around it. |
-| The desktop app, before a call leaves the computer | The same features on a subscription, an AI command-line tool or a model server (Ollama), and AI Testing on every source (screens, element lists, test data). |
+| The desktop app, before a call leaves the computer | The same features on a subscription, an AI command-line tool or a model server (Ollama). AI Testing masks on every source (screens, element lists, test data) with the setting on or off. |
+| The MCP server | Run results and report values it hands an AI tool. |
 
-Users cannot turn masking off. A model on the tester's own computer, or a
-model server an administrator listed as trusted, gets the text unmasked (see
-[Trusted model servers](#trusted-model-servers)).
+With the setting on, the workspace assistant also sees values under secret
+header, query and field names as `••••`, and Scenario AI sees environment
+values as `••••` (the app keeps the real ones). Users cannot turn masking off.
+A model on the tester's own computer, or a model server the administrator
+trusts, gets the text unmasked (see [Trusted model servers](#trusted-model-servers)).
+The AI audit marks a call that went as it is because the setting is off as
+*Not masked · masking off*.
 
 ### What is found
 
@@ -113,21 +139,18 @@ admin's choice per source. See
 ## Trusted model servers
 
 A model the tester runs on their own computer (Ollama on `localhost`) sees
-data unmasked: nothing leaves the computer. Any other model server is masked
-unless an administrator lists it under **Trusted model servers** — one host or
-`host:port` per line (`llm.bank.internal:11434`, `10.20.0.15`). This applies
-to Ollama and OpenAI-compatible servers on the desktop, and to an
-OpenAI-compatible AI connection or company key on the Callman server. A cloud
-provider (OpenAI, Anthropic, Google, DeepSeek) and an Ollama `-cloud` model are
-never trusted.
-
-**Changed in this release.** Earlier versions treated every private address
-(`10.x`, `192.168.x`, `172.16–31.x`), `.local`, `.lan`, `.internal` and
-bare hostnames as local and turned masking off for them. Such a server can
-forward requests to a cloud service, so they are now masked until listed. If
-your testers use a company model server, add it to the list to keep the old
-behaviour. On the Callman server even `localhost` is not trusted by default:
-a model server next to the backend is often a proxy to a cloud provider.
+data unmasked: nothing leaves the computer. **Trust every model server on the
+company network** (on by default, as before) also trusts any private address
+(`10.x`, `192.168.x`, `172.16–31.x`), `.local`, `.lan`, `.internal` and bare
+hostnames. Such a server can forward requests to a cloud service: turn it off,
+and only the servers listed under **Trusted model servers** — one host or
+`host:port` per line (`llm.bank.internal:11434`, `10.20.0.15`) — see data
+unmasked. This applies to Ollama and OpenAI-compatible servers on the
+desktop, and to an OpenAI-compatible AI connection or company key on the
+Callman server. A cloud provider (OpenAI, Anthropic, Google, DeepSeek) and an
+Ollama `-cloud` model are never trusted. On the Callman server `localhost` is
+not trusted on its own: a model server next to the backend is often a proxy to
+a cloud provider.
 
 ## Providers
 
@@ -138,14 +161,11 @@ ChatGPT and Gemini sign-ins and command-line tools, Cursor, Ollama). The server
 refuses a provider off the list (`AI_PROVIDER_NOT_ALLOWED`) and the app hides
 it. With every provider ticked there is no allowlist.
 
-**Personal AI keys may use their own server address** is off by default: a key
-a user saves for themselves always goes to its provider's public API. The
-server refuses a key with its own base URL (`AI_BASE_URL_NOT_ALLOWED`) before
-it contacts that address, also when the key is checked. Turn it on only if
-users must reach a server of their own.
-
-**Changed in this release.** A personal key saved earlier with its own base URL
-stops working until the setting is turned on.
+**Personal AI keys may use their own server address** is on by default, as
+before. Turned off, a key a user saves for themselves always goes to its
+provider's public API: the server refuses a key with its own base URL
+(`AI_BASE_URL_NOT_ALLOWED`) before it contacts that address, also when the key
+is checked, and a key saved earlier with its own base URL stops working.
 
 ## Accounts on the computer and provider plans
 
@@ -218,7 +238,8 @@ days, default 365). The worker deletes older rows once a day.
 
 Each AI audit row says how many values were hidden, by kind (`card 1, email 2,
 secret 1`), never the values. A call whose model got the data unmasked — on the
-tester's computer or on a trusted server — is marked **Not masked**; the
+tester's computer, on a trusted server, or with masking off for that feature —
+is marked **Not masked**; the
 **Masking: none** filter lists only those, and the totals above the table count
 them. In the desktop app, an AI Testing run on such a model shows **Not masked**
 in its History.
@@ -230,9 +251,11 @@ something. Whatever detection finds is already hidden, so blocking on it would
 only stop calls that are safe; what detection misses, a block rule cannot see
 either. To keep data in:
 
+- turn on **Mask personal data in every AI feature**;
 - allow only the company key and AI connections under AI policy, so every call
   goes through the Callman server and its masking;
-- list only the model servers you run yourself as trusted;
+- turn off **Trust every model server on the company network** and list only
+  the model servers you run yourself as trusted;
 - add your own formats and secret field names;
 - review **Not masked** calls in AI audit.
 
@@ -241,13 +264,13 @@ either. To keep data in:
 
 An AI Testing run keeps, on the tester's computer under `~/.callman/ai-engine/runs/<run>/`,
 a screenshot per step, the recorded screens (texts and positions) and the
-steps. Admin panel → **AI Settings → AI data protection → AI Testing on
-testers' computers**:
+steps. Admin panel → **AI Settings → AI data protection → On testers'
+computers**:
 
-| Setting | Default on-prem | What it does |
+| Setting | Default | What it does |
 |---|---|---|
-| **Keep only the masked copy of screenshots** | on | Personal data — card and account numbers, IBANs, FINs, phones, emails, keys and your own formats — is blacked out on every screenshot the run keeps, hidden in the recorded screen texts and in the steps, **whatever the model is** (a model on the tester's computer sees the screen in full; the files still keep only the masked copy). A screenshot where the data can't be placed (the page couldn't be read in full, a text no element owns) is not kept. Exported reports are built from these files, so they carry the masked copy too. Off: the original screenshots are kept. |
-| **Keep AI Testing runs for** | 90 days | Older runs are deleted when the app starts, every 6 hours and after each run. |
+| **Keep only the masked copy of screenshots** | off | Personal data — card and account numbers, IBANs, FINs, phones, emails, keys and your own formats — is blacked out on every screenshot the run keeps, hidden in the recorded screen texts and in the steps, **whatever the model is** (a model on the tester's computer sees the screen in full; the files still keep only the masked copy). A screenshot where the data can't be placed (the page couldn't be read in full, a text no element owns) is not kept. Exported reports are built from these files, so they carry the masked copy too. Off (the default, as before): the original screenshots are kept. |
+| **Keep AI Testing runs for** | 90 days, as before | Older runs are deleted when the app starts, every 6 hours and after each run. |
 
 Testers can also:
 
@@ -259,22 +282,23 @@ Testers can also:
 
 **Test data** (Data tab: the PINs, passwords and phone numbers a scenario
 types) is kept encrypted with the computer's keychain (`ai-test-data.bin`),
-no longer in the app's local storage. On a computer without a keychain an
-on-prem build keeps it until the app quits and says so.
+no longer in the app's local storage. On a computer without a keychain it is
+kept in a plain file, as before, unless the administrator requires the
+keychain — then it is kept until the app quits, and the app says so.
 
 **Run files are not encrypted by Callman** (a decision, not a gap left open):
 the app has to show them to the same user, so a key the app holds protects
 nothing from that user's account or from malware running as it, and every
 report would have to be decrypted to be read. What keeps them safe instead:
-only the masked copy is kept by default, the run folders are readable only
+only the masked copy is kept once the administrator turns it on, the run folders are readable only
 by the user (mode 700), they are deleted after the retention above, and the
 disk is protected by the operating system's full-disk encryption (FileVault
 / BitLocker / LUKS), which a bank's workstations already require.
 
 ## Screenshots to the model
 
-**Send screenshots to the AI model** (AI data protection → AI Testing on
-testers' computers; on by default). Off:
+**Send screenshots to the AI model** (AI data protection → On testers'
+computers; on by default). Off:
 
 - no screenshot of the app or page under test reaches any model — web,
   Android and iOS, whatever the tester's Vision setting; the AI works from the
@@ -317,7 +341,7 @@ OCR may come later as an extra check on top of masking.
 
 Banking and payment apps mark screens secure: the phone and every screenshot
 taken inside it show them black. **Capture screens the app marks secure**
-(AI data protection → AI Testing on testers' computers; on by default) decides
+(AI data protection → On testers' computers; on by default) decides
 whether Callman may still capture them, for AI Testing **and** the UI-test
 screen mirror:
 

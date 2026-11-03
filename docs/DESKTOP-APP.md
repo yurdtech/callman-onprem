@@ -258,10 +258,24 @@ deployment changes.
 
 ## 9. Computers without a system keychain
 
-The desktop app keeps the sign-in, the device id, local-only environments
-and Kubernetes cluster sign-ins encrypted with the operating system's
-keychain (Keychain on macOS, DPAPI on Windows, a Secret Service such as GNOME
-Keyring on Linux). An on-prem build never writes them in plain text:
+The desktop app keeps these encrypted with the operating system's keychain:
+
+- the Callman sign-in (access and refresh token) and the device id;
+- local-only environments;
+- Kubernetes cluster sign-ins;
+- passwords of local database, Redis and Kafka connections;
+- AI Testing test data (the Data tab).
+
+Windows always has a keychain (DPAPI, tied to the Windows sign-in) and so does
+macOS (Keychain). Only a computer without one — in practice Linux without a
+Secret Service such as GNOME Keyring or KWallet, or a stripped-down VDI image —
+is affected. There, by default, the desktop keeps these in a plain file in the
+user's profile, readable by anything running as that user, as it always did.
+
+**Require the system keychain** (admin panel → AI Settings → AI data
+protection → On testers' computers; off by default) stops that. The desktop
+learns the setting after a sign-in and remembers it, and from then on, on a
+computer without a keychain:
 
 | Without a keychain | What happens |
 |---|---|
@@ -269,24 +283,26 @@ Keyring on Linux). An on-prem build never writes them in plain text:
 | Device id | Kept for the run only (it resumes the device's sessions on the server, so it is treated as a secret). Each run shows as a new device under **Devices** |
 | Local-only environments | Not saved; the user sees why. Workspace environments are stored on the server and work as usual |
 | Kubernetes cluster sign-in | Not remembered after the app quits |
+| Local database, Redis and Kafka connection passwords, AI Testing test data | Not saved; the user sees why |
 | AI subscription sign-ins | Not saved (as on every build) |
 
-Database connections are stored on the Callman server, encrypted there, and
-are not affected.
+When the setting turns on, a plain-text sign-in and device id already on such
+a computer are removed at once (the current run keeps them in memory).
+Workspace data — workspace environments, server-side connections — lives on
+the Callman server, encrypted there, and is not affected.
 
-IT can allow the old plain-text fallback on a machine by setting the
-environment variable `CALLMAN_ALLOW_PLAINTEXT_SECRETS=1` for the user, or
-require the keychain on any build with `=0`. Prefer enabling a keychain:
-plain-text files in the user profile can be read by anything running as that
-user.
+IT can also require the keychain on one machine, whatever the admin panel
+says, with the environment variable `CALLMAN_ALLOW_PLAINTEXT_SECRETS=0` for the
+user. `=1` can't overrule the admin's setting. Prefer enabling a keychain over
+plain-text files.
 
 ## 10. Desktop modules
 
 Two parts of the desktop are downloaded the first time a tester needs them,
 because they are large: the **mobile UI-test engine** (`callmanui.jar`, about
 140 MB — recorded Android and iOS flows, and AI Testing on devices) and the
-**iOS simulator driver** (a .zip). An on-prem desktop takes them **only from
-your Callman server**:
+**iOS simulator driver** (a .zip). An on-prem desktop takes them **from your
+Callman server** once you upload them there:
 
 1. We publish each module with its version and SHA-256 in the release notes.
 2. In the admin panel → **Desktop modules**, give the version, paste the
@@ -297,8 +313,12 @@ your Callman server**:
    checks the SHA-256 again and installs nothing that doesn't match; the
    module it already had stays in place.
 
-No GitHub address and no download token are built into on-prem installers.
-Before the admin uploads a module, a desktop that needs it says so ("Your
+Until you upload a module (or with an older server, or before anyone signed
+in), the desktop downloads the engine from where it always did, our release
+host, as before. A company whose desktops must never reach the internet for it
+gets an installer built with no download token at all
+(`CALLMAN_MODULES_SERVER_ONLY=1` when we build it): it takes modules only from
+your server, and before you upload one a desktop that needs it says so ("Your
 administrator hasn't put the mobile UI-test engine on the Callman server
 yet"). The engine still needs a Java runtime on the computer; the engine
 replacing it will not.

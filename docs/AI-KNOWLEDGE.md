@@ -104,17 +104,20 @@ Each source has a **Secrets and personal data** setting:
 
 | Choice | What happens |
 |---|---|
-| **Hide them** (default) | The value is replaced in the stored part: `Test card [hidden card number], key [hidden secret]`. The value itself is never stored in the index, and no AI feature or AI tool receives it |
+| **Keep them as written** (default, as before the check existed) | The parts are stored and sent to the AI as they are; the list says what was found, so you can clean the source or choose one of the others |
+| **Hide them** | The value is replaced in the stored part: `Test card [hidden card number], key [hidden secret]`. The value itself is never stored in the index, and no AI feature or AI tool receives it |
 | **Don't index the source** | Nothing new is indexed while the source holds any. The source shows *Blocked: secrets or personal data* with what was found, and keeps serving its last good parts (already hidden). Remove the values and **Reindex** |
 
 The list says what was found, by kind and count — never the values: *Holds
 secrets or personal data: 1 card number, 1 JWT. They are hidden in its parts.*
+(or *The AI gets them as written* while the source keeps them).
 The re-index toast says it too, and the Audit Log entry of a re-index
 (`ai-knowledge.source.reindex`) carries the counts (`sensitiveFound`).
 
-Parts are checked again whenever they are read (Preview, every AI feature,
-`search_knowledge` in AI tools), so parts indexed before this check existed,
-and formats you add later, are hidden without a re-index. A **Reindex** makes
+A *Hide them* source's parts are checked again whenever they are read
+(Preview, every AI feature, `search_knowledge` in AI tools), so parts indexed
+before this check existed, and formats you add later, are hidden without a
+re-index. A **Reindex** makes
 it permanent in the stored parts.
 
 Only the value is replaced, not the text around it, so the AI still learns

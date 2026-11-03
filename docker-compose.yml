@@ -117,8 +117,8 @@ services:
       <<: *db-env
       # Old pre-migration dumps go (docs/BACKUP.md): the newest N, none older
       # than N days. 0 = keep them all.
-      BACKUP_KEEP_COUNT: ${BACKUP_KEEP_COUNT:-10}
-      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_KEEP_COUNT: ${BACKUP_KEEP_COUNT:-0}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-0}
     # Overrides the shared mounts on purpose: this job needs the backup volume and
     # touches no storage provider, so the local-files mount is not repeated.
     volumes:
