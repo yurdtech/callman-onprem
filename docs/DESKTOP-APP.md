@@ -269,32 +269,17 @@ The desktop app keeps these encrypted with the operating system's keychain:
 Windows always has a keychain (DPAPI, tied to the Windows sign-in) and so does
 macOS (Keychain). Only a computer without one — in practice Linux without a
 Secret Service such as GNOME Keyring or KWallet, or a stripped-down VDI image —
-is affected. There, by default, the desktop keeps these in a plain file in the
+is affected. There the desktop keeps these in a plain file in the
 user's profile, readable by anything running as that user, as it always did.
 
-**Require the system keychain** (admin panel → AI Settings → AI data
-protection → On testers' computers; off by default) stops that. The desktop
-learns the setting after a sign-in and remembers it, and from then on, on a
-computer without a keychain:
-
-| Without a keychain | What happens |
-|---|---|
-| Signing in | Works. The sign-in is kept in memory until the app quits; the user is told once, and signs in again next time |
-| Device id | Kept for the run only (it resumes the device's sessions on the server, so it is treated as a secret). Each run shows as a new device under **Devices** |
-| Local-only environments | Not saved; the user sees why. Workspace environments are stored on the server and work as usual |
-| Kubernetes cluster sign-in | Not remembered after the app quits |
-| Local database, Redis and Kafka connection passwords, AI Testing test data | Not saved; the user sees why |
-| AI subscription sign-ins | Not saved (as on every build) |
-
-When the setting turns on, a plain-text sign-in and device id already on such
-a computer are removed at once (the current run keeps them in memory).
-Workspace data — workspace environments, server-side connections — lives on
-the Callman server, encrypted there, and is not affected.
-
-IT can also require the keychain on one machine, whatever the admin panel
-says, with the environment variable `CALLMAN_ALLOW_PLAINTEXT_SECRETS=0` for the
-user. `=1` can't overrule the admin's setting. Prefer enabling a keychain over
-plain-text files.
+Users stay signed in across restarts in every case. On a computer without a
+keychain, the plain file is the only way to keep the sign-in without asking
+for it at every start, so the file is protected only by the user's account
+(and the disk's full-disk encryption). For real data on Linux, install and
+enable a Secret Service (GNOME Keyring or KWallet) for the users' session:
+Callman uses it from the next start, and a value it saved in plain text is
+encrypted the next time it is saved. AI subscription sign-ins are never saved
+without a keychain.
 
 ## 10. Desktop modules
 

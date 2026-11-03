@@ -9,10 +9,9 @@ data protection**; which AI source each feature may use is in
 as it did before these settings existed: AI Testing masks, every other AI
 feature sends data as it is, every AI source and provider is allowed, model
 servers on the company network count as trusted, AI is allowed when the policy
-can't be read, AI Testing keeps its original screenshots for 90 days, and a
-computer without a keychain keeps the sign-in in a plain file. Every
-restriction below is a switch the administrator turns on; nobody notices a
-difference until then.
+can't be read, and AI Testing keeps its original screenshots for 90 days.
+Every restriction below is a switch the administrator turns on; nobody
+notices a difference until then.
 
 | Setting | Default | On |
 |---|---|---|
@@ -21,7 +20,6 @@ difference until then.
 | Personal AI keys may use their own server address | on | Off: personal keys only reach their provider's public API |
 | Refuse AI when the policy can't be read | off | AI stops while the policy can't be read |
 | Keep only the masked copy of screenshots | off | [AI Testing files](#ai-testing-files-on-testers-computers) keep the masked copy only |
-| Require the system keychain | off | No sign-in or password in a plain file ([DESKTOP-APP.md §9](DESKTOP-APP.md#9-computers-without-a-system-keychain)) |
 | Allowed AI providers, accounts on the computer | all | Only the providers / sources you tick |
 
 ## Masking
@@ -283,8 +281,8 @@ Testers can also:
 **Test data** (Data tab: the PINs, passwords and phone numbers a scenario
 types) is kept encrypted with the computer's keychain (`ai-test-data.bin`),
 no longer in the app's local storage. On a computer without a keychain it is
-kept in a plain file, as before, unless the administrator requires the
-keychain — then it is kept until the app quits, and the app says so.
+kept in a plain file, like the app's other local secrets
+([DESKTOP-APP.md §9](DESKTOP-APP.md#9-computers-without-a-system-keychain)).
 
 **Run files are not encrypted by Callman** (a decision, not a gap left open):
 the app has to show them to the same user, so a key the app holds protects
