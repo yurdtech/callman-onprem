@@ -271,6 +271,41 @@ by the user (mode 700), they are deleted after the retention above, and the
 disk is protected by the operating system's full-disk encryption (FileVault
 / BitLocker / LUKS), which a bank's workstations already require.
 
+## Screens the app marks secure (Android FLAG_SECURE)
+
+Banking and payment apps mark screens secure: the phone and every screenshot
+taken inside it show them black. **Capture screens the app marks secure**
+(AI data protection → AI Testing on testers' computers; on by default) decides
+whether Callman may still capture them, for AI Testing **and** the UI-test
+screen mirror:
+
+| | On | Off |
+|---|---|---|
+| Emulator | The emulator's own grab of its display shows the screen (it is drawn on the computer's GPU, outside the app's protection). The AI and the mirror see it; every capture is recorded | Never captured. The AI gets no picture of it and is told *SECURE SCREEN* — it works from the screen's element list; the mirror shows the elements |
+| Physical device | Not captured either way by `screencap`; the UI-test driver's capture is tried | The driver's capture is not tried either |
+
+A black frame of a secure screen is never sent to a model.
+
+Each capture of a secure screen is in **AI audit** as feature *Secure screen
+captured* — the surface (`ai_testing` or `screen_mirror`) and the device —
+at most one row per surface and device every 5 minutes. They are listed, not
+counted as AI calls.
+
+**What was verified** (Android emulator, Android 17 / API 37, a test app with
+`FLAG_SECURE`, Callman AI Testing and the mirror):
+
+| Check | Result |
+|---|---|
+| `adb screencap` | black |
+| Emulator grab, setting on | the real screen; AI Testing sent it to the model (vision on); audit rows for both surfaces |
+| Setting off | mirror black, the AI got no image and the *SECURE SCREEN* note, no audit row |
+
+**Not verified:** a physical device, and Android below 11 (API 30) — this lab
+has neither. On such devices the UI-test driver's capture may show a secure
+screen; Callman treats it as able to and turns it off with the setting. Test
+on your own devices before relying on *On*, and turn the setting **off** if
+secure screens must never leave the device.
+
 ## AI conversations: how long they stay, and deleting them
 
 What people ask the AI and what it answers is stored in the Callman database:
