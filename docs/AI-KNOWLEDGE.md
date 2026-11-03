@@ -81,7 +81,9 @@ without deleting it.
   than 1,800 characters keeps only its start; the status says how many parts
   were cut. Headings and operations are split instead, nothing is lost there.
 
-**Preview** (below the list) shows exactly what the AI would receive. Pick a
+**Preview** (below the list) shows what the AI would receive — the same parts,
+selected and masked the same way — for the feature, groups and question you
+give. Pick a
 feature and the asker's groups, type what they ask, and optionally the endpoint
 (`POST https://…/payments/123/refunds`). You see the parts and the text block
 that would be added to the prompt. Use it to check a new source before people
@@ -123,12 +125,12 @@ uploaded) is kept unchanged so you can edit it; only admins see it.
 
 | AI feature | Knowledge it gets |
 |---|---|
-| Request AI (requests, tests, contract rules) | The parts for the request's own endpoint first, then the rest |
+| Request AI (requests, tests, contract rules) | The parts for the request's own endpoint (its method and URL) first, then the rest |
 | Scenario assistant | Matching the user's instruction |
 | Workspace assistant | Matching the user's question |
 | Diagram assistant | Matching the user's instruction |
 | AI Testing: writing scenarios from a ticket | Matching the ticket's text. The sources used appear as **Grounded in** under the result |
-| AI Testing: runs | Matching the scenario, at most 12,000 characters. Shown as **Grounded in** under the Run button |
+| AI Testing: runs | Matching the scenario, within the same 6,000 characters. Shown as **Grounded in** under the Run button |
 | AI tools (MCP) | The `search_knowledge` tool. The tool asks for what it needs |
 
 How the parts are picked, in this order, within about 6,000 characters per
@@ -182,8 +184,8 @@ result.
   knowledge. The sources are kept.
 - Permissions: viewing the page and the preview needs `ai-knowledge:read`
   (analyst and above). Adding, changing and deleting sources needs
-  `ai-knowledge:manage` (admin and super admin). Every change is in the audit
-  log.
+  `ai-knowledge:manage` (admin and super admin). Every change — sources,
+  re-indexes and the search strictness — is in the audit log.
 - Personal AI-tool tokens read knowledge with the `collections:read` scope.
 
 ## Network
