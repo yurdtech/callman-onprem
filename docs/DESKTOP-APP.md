@@ -298,9 +298,10 @@ Callman server** once you upload them there:
    checks the SHA-256 again and installs nothing that doesn't match; the
    module it already had stays in place.
 
-Until you upload a module (or with an older server, or before anyone signed
-in), the desktop downloads the engine from where it always did, our release
-host, as before. A company whose desktops must never reach the internet for it
+When your server can't give a module — you haven't uploaded it, the server is
+older, nobody is signed in yet, or the download fails or doesn't match its
+checksum — the desktop downloads the engine from where it always did, our
+release host, as before; testers never have to wait for the admin panel. A company whose desktops must never reach the internet for it
 gets an installer built with no download token at all
 (`CALLMAN_MODULES_SERVER_ONLY=1` when we build it): it takes modules only from
 your server, and before you upload one a desktop that needs it says so ("Your
