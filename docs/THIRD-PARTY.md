@@ -49,8 +49,10 @@ on Android and iOS uses the module's drivers as listed above.
 
 - **Where it comes from.** The desktop downloads the module the first time a
   mobile flow or a mobile AI run needs it, into the user's profile
-  (`~/.callman/modules/`), from the location the build was configured with.
-  It is not part of the installer.
+  (`~/.callman/modules/`). On-prem it comes only from your Callman server,
+  where an admin uploaded it, with its SHA-256 checked
+  ([DESKTOP-APP.md](DESKTOP-APP.md#10-desktop-modules)). It is not part of
+  the installer.
 - **Its licenses.** The module carries the engine's Apache-2.0 license and
   NOTICE, but it bundles many libraries (it is a single ~140 MB Java archive)
   and does **not** yet carry a complete attribution list for them. That list

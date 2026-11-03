@@ -280,6 +280,29 @@ require the keychain on any build with `=0`. Prefer enabling a keychain:
 plain-text files in the user profile can be read by anything running as that
 user.
 
+## 10. Desktop modules
+
+Two parts of the desktop are downloaded the first time a tester needs them,
+because they are large: the **mobile UI-test engine** (`callmanui.jar`, about
+140 MB — recorded Android and iOS flows, and AI Testing on devices) and the
+**iOS simulator driver** (a .zip). An on-prem desktop takes them **only from
+your Callman server**:
+
+1. We publish each module with its version and SHA-256 in the release notes.
+2. In the admin panel → **Desktop modules**, give the version, paste the
+   SHA-256 and upload the file. A file whose SHA-256 doesn't match is refused.
+   Uploads and removals are in the Activity Log.
+3. A tester's desktop downloads the module from the backend when they first
+   need it (the engine and, on a Mac, the iOS simulator driver together). It
+   checks the SHA-256 again and installs nothing that doesn't match; the
+   module it already had stays in place.
+
+No GitHub address and no download token are built into on-prem installers.
+Before the admin uploads a module, a desktop that needs it says so ("Your
+administrator hasn't put the mobile UI-test engine on the Callman server
+yet"). The engine still needs a Java runtime on the computer; the engine
+replacing it will not.
+
 ## See also
 
 - [`STORAGE.md`](./STORAGE.md) — connecting the storage the installers live in

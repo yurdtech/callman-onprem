@@ -50,14 +50,19 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | The databases users test | Requests' database steps, the scenario builder's **Run**, UI tests run in the app, schema import and the desktop side of connection tests connect from the workstation ([DATABASE-CONNECTIONS.md](DATABASE-CONNECTIONS.md)) |
 | `download.oracle.com` | The Oracle client for Oracle 11g, once per machine when a user installs it — only if your server has no package for that platform under **Database drivers** |
 | Model providers, when a user picks an AI connection that runs on their computer: a subscription they signed in to in the app — Claude (`claude.ai`, `console.anthropic.com`, `api.anthropic.com`), ChatGPT (`auth.openai.com`, `chatgpt.com`), Gemini (`accounts.google.com`, `oauth2.googleapis.com`, `cloudcode-pa.googleapis.com`) — or an AI CLI's own hosts | AI features on that connection; for **AI Testing** a screenshot and the page structure go with each step. Connections on the Callman server (company key, AI connections, personal keys) go through the backend instead (row above). A model the user runs (Ollama) is reached at the address they set, `localhost:11434` by default |
-| `github.com`, `api.github.com`, the Playwright CDN | Once per machine: the browser for web **AI Testing** and web UI tests (Playwright CDN), and the Android UI-test driver (GitHub) |
+| The Playwright CDN | Once per machine: the browser for web **AI Testing** and web UI tests |
 | `api.figma.com` | Figma import / visual compare, only with a Figma token |
 
 AI Testing downloads nothing else: it runs in the desktop app's own code (no
 Python runtime, no agent app). On an Android device it installs only a small
-Callman keyboard to type with, which ships inside the desktop app. The Android
-UI-test driver can be pre-staged on a workstation at
-`~/.callman/modules/callmanui.jar` to skip its download.
+Callman keyboard to type with, which ships inside the desktop app.
+
+**The mobile UI-test engine and the iOS simulator driver come from your
+Callman server**, not from the internet: an admin uploads them once under
+**Desktop modules** ([DESKTOP-APP.md](DESKTOP-APP.md#10-desktop-modules)) and
+an on-prem desktop downloads them from the backend over the user's session,
+checking each file's SHA-256. On-prem builds carry no GitHub address or token
+for them.
 
 **TLS inspection.** Behind a proxy that re-signs HTTPS with a company certificate,
 the desktop's AI requests that fail the certificate check are retried through the
