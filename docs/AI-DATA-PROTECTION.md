@@ -271,6 +271,48 @@ by the user (mode 700), they are deleted after the retention above, and the
 disk is protected by the operating system's full-disk encryption (FileVault
 / BitLocker / LUKS), which a bank's workstations already require.
 
+## Screenshots to the model
+
+**Send screenshots to the AI model** (AI data protection → AI Testing on
+testers' computers; on by default). Off:
+
+- no screenshot of the app or page under test reaches any model — web,
+  Android and iOS, whatever the tester's Vision setting; the AI works from the
+  page's text and the screen's element list, and the run log says so;
+- the Callman server refuses an AI Testing step that carries an image
+  (`403 AI_SCREENSHOTS_NOT_ALLOWED`) — an older desktop can't send one either;
+- a connection on the tester's computer gets the text without the image.
+
+On, personal data on a screenshot is blacked out for cloud models from the
+page text (web) and the element tree (mobile). Text that is only pixels —
+inside an image, a canvas, a closed shadow root, an app without accessibility
+labels — is not found that way. Banks that need certainty turn screenshots off.
+
+**What it costs** — the same scenarios with and without screenshots
+(Gemini 3.5 Flash-Lite, one run each, November 2026):
+
+| Scenario | With screenshots | Without |
+|---|---|---|
+| Web: sign in and check the welcome message | passed, 4 steps | passed, 4 steps |
+| Web: search and count the results | passed, 4 steps | passed, 3 steps |
+| Web: a value drawn only on a canvas chart | not passed (its proof isn't page text) | not passed |
+| Android: check a balance (text in the element tree) | passed, 1 step | passed, 1 step |
+| Android: a Compose button without an accessibility label | not passed | not passed |
+
+Every step of the "without" runs reached the model with no image (AI audit:
+*Screenshot = No*). Screens whose content is text work the same without
+screenshots; content that exists only as pixels doesn't work reliably either
+way. A small sample on one model — check your own apps before switching.
+
+**OCR (reading text on the image to black it out) — decided against for
+now, by measurement.** On-device OCR (tesseract.js, English) took 0.1–0.2 s
+per web frame (1440×900) and 0.5–0.7 s per phone frame (1440×3120) after a
+2.3 s start, and adds ~15 MB. It read an email inside an image with one wrong
+letter (still recognised as an email) — so it can find what the page text
+misses, but it can also misread or miss a value, so it can't be the
+guarantee, and it slows every step. The guarantee is *Send screenshots* off;
+OCR may come later as an extra check on top of masking.
+
 ## Screens the app marks secure (Android FLAG_SECURE)
 
 Banking and payment apps mark screens secure: the phone and every screenshot
