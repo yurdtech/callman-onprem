@@ -148,3 +148,10 @@ builds differ where noted.
   trigger type and token name, environment, node and test counts, failed node. **Missing:** git commit and
   pipeline id in server reports (the CLI's own JSON has them), duration percentiles, per-assertion detail in the
   list feed (it is in the full report).
+- **Team KPIs:** in the admin panel, **QA / KPI → KPI catalog → New team KPI** creates your Grafana panels from templates
+  (regression automation coverage, weekly run pass ratio, executed vs regression scope, "Will Be Automated"
+  backlog, regression share) per squad, tribe and the organization, with min / target per quarter. Mark tests
+  with the KPI fields (regression scope, automation status, test key, leave out of KPIs) in the desktop or in
+  bulk in **Test inventory**; every user sees their own squad and tribe in the desktop's **KPI** page. Field
+  mapping, the validity rule and where numbers differ (manual Jira cases are not counted):
+  [KPI.md](KPI.md). Grafana can read the same numbers from `GET /api/kpi/feed`.

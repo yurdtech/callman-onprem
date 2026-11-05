@@ -334,6 +334,8 @@ Read this before running the upgrade; one item can stop the chart rendering.
 Worker scale-out is safe (shared BullMQ queue + per-schedule redlock — see
 [SCALING.md](SCALING.md)). `admin.replicaCount > 1` additionally requires
 `admin.extraEnv.RELEASE_REMINDERS_ENABLED: "false"` (the chart enforces it).
+The team-KPI engine needs nothing: replicas share a lease in MongoDB, so only
+one computes at a time.
 UI-runner: budget ~4 GiB memory per replica at concurrency 2 (the chart
 default limit); its in-memory `/dev/shm` (`uiRunner.shmSize`, default 1Gi)
 counts against the container memory limit.

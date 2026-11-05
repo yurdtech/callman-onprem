@@ -208,6 +208,7 @@ is enabled in the panel — see
 | `ADMIN_API_DOCS_ENABLED` | optional | off in production | Serves the Swagger page at `/admin/docs` (it lists every route and is readable by anyone who reaches the port; calling a route still needs a login). Set `true` to turn it on. |
 | `CORS_ORIGINS` | optional | `http://localhost:5173` | Admin API allowed browser origins — only needed if the UI is served cross-origin. |
 | `RATE_LIMIT_MAX` | optional | `300` | Admin API request rate cap. |
+| `KPI_ENGINE_ENABLED` | optional | `true` | Runs the team-KPI engine (QA / KPI in the panel, the KPI page in the desktop): a per-minute check that recomputes KPI results on the refresh interval set in **QA / KPI → Settings** and freezes ended weeks and quarters. Safe with several admin replicas (a lease in MongoDB lets one compute at a time). `false` stops all KPI computation; the pages then show the last results. See [KPI.md](KPI.md). |
 
 \* `ADMIN_BOOTSTRAP_EMAIL` + `ADMIN_BOOTSTRAP_PASSWORD` are needed only to seed
 the **first** admin. Once an admin exists you can remove them.
@@ -224,8 +225,10 @@ compose file, or your backend runs on another host, you MUST set it in `.env`.
 > the managed-connections **Test** button (the real DB/Kafka/Redis/Slack
 > drivers are in the backend — `/api/internal/connections/test`), the Storage
 > **Test** button (`/api/internal/storage/test`), desktop releases
-> (`/api/internal/desktop-releases/*`) and the Oracle client install
-> (`/api/internal/oracle-client/*`). Everything else the panel does goes
+> (`/api/internal/desktop-releases/*`), the Oracle client install
+> (`/api/internal/oracle-client/*`) and the KPI test inventory's bulk edit
+> (`/api/internal/kpi/qa-bulk`; after each KPI refresh the panel also tells the
+> backend so open desktops update — `/api/internal/kpi/changed`). Everything else the panel does goes
 > straight to MongoDB, so it keeps working while the backend is down. The connection config travels **encrypted** with the shared
 > `CONNECTION_ENCRYPTION_KEY` (never plaintext), which is also why that key
 > must be identical for the backend and the admin panel. If Test fails with a

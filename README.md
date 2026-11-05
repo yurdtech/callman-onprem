@@ -190,6 +190,7 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/DESKTOP-APP.md`](docs/DESKTOP-APP.md) | Getting a new desktop version to your users: upload it once in the admin panel and every desktop updates itself |
 | [`docs/SCALING.md`](docs/SCALING.md) | Watch the job backlog and add worker containers under load |
 | [`docs/LOAD-LAB.md`](docs/LOAD-LAB.md) | Load Testing Lab: fire N × scenario runs at once and read the report |
+| [`docs/KPI.md`](docs/KPI.md) | Team KPIs per tribe and squad: test KPI fields, the validity rule, how your Grafana panels map to Callman, targets, the Grafana feed |
 | [`docs/MONITORING.md`](docs/MONITORING.md) | DevOps monitoring: Prometheus `/metrics` catalog, the `/ops/*` JSON diagnostics API, log levels and rotation |
 | [`docs/REALTIME.md`](docs/REALTIME.md) | Live updates: what the desktops' streaming connection needs from your proxy, `scripts/check-realtime.sh`, turning it off |
 | [`docs/NETWORK.md`](docs/NETWORK.md) | Ports, firewall rules and every optional feature that reaches the internet |
