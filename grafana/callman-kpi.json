@@ -1,0 +1,1401 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_CALLMAN",
+      "label": "Callman Public API",
+      "type": "datasource",
+      "pluginId": "yesoreyeram-infinity-datasource",
+      "pluginName": "Infinity"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "yesoreyeram-infinity-datasource",
+      "name": "Infinity",
+      "version": "2.0.0"
+    }
+  ],
+  "uid": "callman-kpi",
+  "title": "Callman \u2014 QA KPIs",
+  "description": "Team KPIs from the Callman Public API: the bank's five Grafana panels, running tests today, people. See callman-onprem docs/GRAFANA.md.",
+  "tags": [
+    "callman",
+    "kpi",
+    "qa"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "yesoreyeram-infinity-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1
+      },
+      {
+        "name": "tribe",
+        "label": "Tribe",
+        "type": "query",
+        "datasource": {
+          "type": "yesoreyeram-infinity-datasource",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "queryType": "infinity",
+          "refId": "variable",
+          "infinityQuery": {
+            "refId": "variable",
+            "datasource": {
+              "type": "yesoreyeram-infinity-datasource",
+              "uid": "${datasource}"
+            },
+            "type": "json",
+            "source": "url",
+            "parser": "backend",
+            "format": "table",
+            "url": "/api/public/v1/org/groups",
+            "url_options": {
+              "method": "GET",
+              "data": "",
+              "params": [
+                {
+                  "key": "level",
+                  "value": "tribe"
+                }
+              ]
+            },
+            "root_selector": "data.rows",
+            "columns": [
+              {
+                "selector": "__text",
+                "text": "__text",
+                "type": "string"
+              },
+              {
+                "selector": "__value",
+                "text": "__value",
+                "type": "string"
+              }
+            ],
+            "filters": [],
+            "computed_columns": []
+          }
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": "$__all",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
+      },
+      {
+        "name": "squad",
+        "label": "Squad",
+        "type": "query",
+        "datasource": {
+          "type": "yesoreyeram-infinity-datasource",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "queryType": "infinity",
+          "refId": "variable",
+          "infinityQuery": {
+            "refId": "variable",
+            "datasource": {
+              "type": "yesoreyeram-infinity-datasource",
+              "uid": "${datasource}"
+            },
+            "type": "json",
+            "source": "url",
+            "parser": "backend",
+            "format": "table",
+            "url": "/api/public/v1/org/groups",
+            "url_options": {
+              "method": "GET",
+              "data": "",
+              "params": [
+                {
+                  "key": "level",
+                  "value": "squad"
+                },
+                {
+                  "key": "parentId",
+                  "value": "${tribe:csv}"
+                }
+              ]
+            },
+            "root_selector": "data.rows",
+            "columns": [
+              {
+                "selector": "__text",
+                "text": "__text",
+                "type": "string"
+              },
+              {
+                "selector": "__value",
+                "text": "__value",
+                "type": "string"
+              }
+            ],
+            "filters": [],
+            "computed_columns": []
+          }
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": "$__all",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Organization",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "KPI data refreshed",
+      "description": "When the Callman KPI engine last refreshed. Stale = older than twice the refresh interval.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/status",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": []
+          },
+          "root_selector": "data",
+          "columns": [
+            {
+              "selector": "lastRefreshAt",
+              "text": "Last refresh",
+              "type": "timestamp"
+            },
+            {
+              "selector": "stale",
+              "text": "Stale",
+              "type": "boolean"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Last refresh/"
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Organization \u2014 this week",
+      "description": "Every team KPI for the whole organization, current week. Needs an organization-wide token.",
+      "gridPos": {
+        "h": 4,
+        "w": 18,
+        "x": 6,
+        "y": 1
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/results",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "week"
+              },
+              {
+                "key": "level",
+                "value": "org"
+              },
+              {
+                "key": "frozen",
+                "value": "false"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "kpi",
+              "text": "KPI",
+              "type": "string"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": ""
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "vertical",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "displayName": "${__data.fields.KPI}"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Regression automation coverage (quarter)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Squads \u2014 Test Automation Scenario counts",
+      "description": "Valid regression tests \u00f7 (regression \u2212 can't automate \u2212 no need to automate), this quarter, per squad.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/results",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "quarter"
+              },
+              {
+                "key": "kpiId",
+                "value": "regression_automation_coverage"
+              },
+              {
+                "key": "level",
+                "value": "squad"
+              },
+              {
+                "key": "frozen",
+                "value": "false"
+              },
+              {
+                "key": "groupId",
+                "value": "${squad:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "value",
+              "text": "Coverage %",
+              "type": "number"
+            },
+            {
+              "selector": "targetMin",
+              "text": "Minimum",
+              "type": "number"
+            },
+            {
+              "selector": "target",
+              "text": "Target",
+              "type": "number"
+            },
+            {
+              "selector": "status",
+              "text": "Status",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Group": 0,
+              "Coverage %": 1,
+              "Minimum": 2,
+              "Target": 3,
+              "Status": 4
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coverage %"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "lcd"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 60
+                    },
+                    {
+                      "color": "green",
+                      "value": 80
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Tribes \u2014 Tribe Base Test Automation Scenario",
+      "description": "The same KPI per tribe (pooled over its squads), this quarter.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/results",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "quarter"
+              },
+              {
+                "key": "kpiId",
+                "value": "regression_automation_coverage"
+              },
+              {
+                "key": "level",
+                "value": "tribe"
+              },
+              {
+                "key": "frozen",
+                "value": "false"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "value",
+              "text": "Coverage %",
+              "type": "number"
+            },
+            {
+              "selector": "targetMin",
+              "text": "Minimum",
+              "type": "number"
+            },
+            {
+              "selector": "target",
+              "text": "Target",
+              "type": "number"
+            },
+            {
+              "selector": "status",
+              "text": "Status",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Group": 0,
+              "Coverage %": 1,
+              "Minimum": 2,
+              "Target": 3,
+              "Status": 4
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Coverage %"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "lcd"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 60
+                    },
+                    {
+                      "color": "green",
+                      "value": 80
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Weekly runs",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Weekly Automation Run Ratio \u2014 passed \u00f7 executed",
+      "description": "Latest decided run of each test in the week: passed \u00f7 executed, per squad.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/results",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "week"
+              },
+              {
+                "key": "kpiId",
+                "value": "weekly_run_pass_ratio"
+              },
+              {
+                "key": "level",
+                "value": "squad"
+              },
+              {
+                "key": "groupId",
+                "value": "${squad:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "Group"
+            ],
+            "keepFields": false
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Weekly Automation Run Ratio \u2014 executed vs selected",
+      "description": "Executed regression tests \u00f7 regression tests, per squad and week.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/results",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "week"
+              },
+              {
+                "key": "kpiId",
+                "value": "regression_execution_coverage"
+              },
+              {
+                "key": "level",
+                "value": "squad"
+              },
+              {
+                "key": "groupId",
+                "value": "${squad:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "Group"
+            ],
+            "keepFields": false
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Scope",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Will Be Automated count (this week)",
+      "description": "Tests marked \u201cWill be automated\u201d or not approved yet \u2014 lower is better.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/results",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "week"
+              },
+              {
+                "key": "kpiId",
+                "value": "automation_backlog"
+              },
+              {
+                "key": "level",
+                "value": "squad"
+              },
+              {
+                "key": "frozen",
+                "value": "false"
+              },
+              {
+                "key": "groupId",
+                "value": "${squad:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "value",
+              "text": "Will be automated",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "options": {
+        "xField": "Group",
+        "orientation": "horizontal",
+        "showValue": "always",
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "min": 0,
+          "custom": {
+            "axisSoftMax": 5
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Regression / Total Scenario (this quarter)",
+      "description": "Built from the raw measures: regression tests \u00f7 all tests. Works without creating a KPI for it.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/measures",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "quarter"
+              },
+              {
+                "key": "level",
+                "value": "squad"
+              },
+              {
+                "key": "measure",
+                "value": "items_regression,items_total"
+              },
+              {
+                "key": "groupId",
+                "value": "${squad:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "groupPath",
+              "text": "group",
+              "type": "string"
+            },
+            {
+              "selector": "periodKey",
+              "text": "quarter",
+              "type": "string"
+            },
+            {
+              "selector": "items_regression",
+              "text": "regression",
+              "type": "number"
+            },
+            {
+              "selector": "items_total",
+              "text": "tests",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [
+            {
+              "selector": "regression / tests * 100",
+              "text": "share",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "group": 0,
+              "quarter": 1,
+              "regression": 2,
+              "tests": 3,
+              "share": 4
+            },
+            "renameByName": {
+              "group": "Group",
+              "quarter": "Quarter",
+              "regression": "Regression tests",
+              "tests": "Tests",
+              "share": "Regression share %"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "share"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": "row",
+      "title": "Today",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "panels": []
+    },
+    {
+      "id": 14,
+      "type": "table",
+      "title": "Running tests today",
+      "description": "Runs queued and running now, and the runs that finished today (KPI timezone).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/live",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "shape",
+                "value": "summary"
+              },
+              {
+                "key": "groupId",
+                "value": "${squad:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "queued",
+              "text": "Queued",
+              "type": "number"
+            },
+            {
+              "selector": "running",
+              "text": "Running",
+              "type": "number"
+            },
+            {
+              "selector": "finishedToday",
+              "text": "Finished today",
+              "type": "number"
+            },
+            {
+              "selector": "passRateToday",
+              "text": "Pass rate today %",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Group": 0,
+              "Queued": 1,
+              "Running": 2,
+              "Finished today": 3,
+              "Pass rate today %": 4
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pass rate today %"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 60
+                    },
+                    {
+                      "color": "green",
+                      "value": 80
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "People \u2014 this week",
+      "description": "Each person's KPIs from the tests they own. Needs a token with the \u201cKPIs per person\u201d scope; otherwise this panel shows an error.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/kpi/users",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "periodType",
+                "value": "week"
+              },
+              {
+                "key": "frozen",
+                "value": "false"
+              },
+              {
+                "key": "groupId",
+                "value": "${squad:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "userName",
+              "text": "Person",
+              "type": "string"
+            },
+            {
+              "selector": "groups",
+              "text": "Groups",
+              "type": "string"
+            },
+            {
+              "selector": "kpi",
+              "text": "KPI",
+              "type": "string"
+            },
+            {
+              "selector": "value",
+              "text": "Value",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "KPI",
+            "rowField": "Person",
+            "valueField": "Value"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

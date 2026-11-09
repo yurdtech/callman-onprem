@@ -5,6 +5,10 @@ backend:
     host: callman.apps.ocp.bank.local
     tls:
       termination: edge
+publicApi:
+  route:
+    enabled: true
+    host: callman-api.apps.ocp.bank.local
 admin:
   route:
     enabled: true

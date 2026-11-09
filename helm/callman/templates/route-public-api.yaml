@@ -1,0 +1,24 @@
+{{- /* OpenShift: the Public API on its own host (see ingress-public-api.yaml). */ -}}
+{{- if .Values.publicApi.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "callman.fullname" . }}-public-api
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "backend") | nindent 4 }}
+  {{- with .Values.publicApi.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ required "publicApi.route.host is required when publicApi.route.enabled" .Values.publicApi.route.host | quote }}
+  path: /api/public
+  to:
+    kind: Service
+    name: {{ include "callman.fullname" . }}-backend
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.publicApi.route.tls.termination }}
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

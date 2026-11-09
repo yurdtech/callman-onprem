@@ -154,4 +154,5 @@ builds differ where noted.
   with the KPI fields (regression scope, automation status, test key, leave out of KPIs) in the desktop or in
   bulk in **Test inventory**; every user sees their own squad and tribe in the desktop's **KPI** page. Field
   mapping, the validity rule and where numbers differ (manual Jira cases are not counted):
-  [KPI.md](KPI.md). Grafana can read the same numbers from `GET /api/kpi/feed`.
+  [KPI.md](KPI.md). Grafana reads the same numbers through the Public API with an admin-minted token
+  ([GRAFANA.md](GRAFANA.md), [PUBLIC_API.md](PUBLIC_API.md)).

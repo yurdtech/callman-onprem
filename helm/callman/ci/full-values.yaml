@@ -46,6 +46,15 @@ backend:
     tls:
       - hosts: [callman.bank.local]
         secretName: callman-tls
+publicApi:
+  ingress:
+    enabled: true
+    host: callman-api.bank.local    # integrations host: only /api/public
+    annotations:
+      nginx.ingress.kubernetes.io/whitelist-source-range: "10.20.0.0/16"
+    tls:
+      - hosts: [callman-api.bank.local]
+        secretName: callman-api-tls
 admin:
   replicaCount: 2
   extraEnv:
