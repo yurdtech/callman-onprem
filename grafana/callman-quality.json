@@ -1,0 +1,1386 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_CALLMAN",
+      "label": "Callman Public API",
+      "type": "datasource",
+      "pluginId": "yesoreyeram-infinity-datasource",
+      "pluginName": "Infinity"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "yesoreyeram-infinity-datasource",
+      "name": "Infinity",
+      "version": "2.0.0"
+    }
+  ],
+  "uid": "callman-quality",
+  "title": "Callman — test runs and inventory",
+  "description": "Runs, pass rate, failing and flaky tests, the test inventory — Callman Public API (runs:read, tests:read). See callman-onprem docs/GRAFANA.md.",
+  "tags": [
+    "callman",
+    "qa",
+    "runs"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "yesoreyeram-infinity-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1
+      },
+      {
+        "name": "tribe",
+        "label": "Tribe",
+        "type": "query",
+        "datasource": {
+          "type": "yesoreyeram-infinity-datasource",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "queryType": "infinity",
+          "refId": "variable",
+          "infinityQuery": {
+            "refId": "variable",
+            "datasource": {
+              "type": "yesoreyeram-infinity-datasource",
+              "uid": "${datasource}"
+            },
+            "type": "json",
+            "source": "url",
+            "parser": "backend",
+            "format": "table",
+            "url": "/api/public/v1/org/groups",
+            "url_options": {
+              "method": "GET",
+              "data": "",
+              "params": [
+                {
+                  "key": "level",
+                  "value": "tribe"
+                }
+              ]
+            },
+            "root_selector": "data.rows",
+            "columns": [
+              {
+                "selector": "__text",
+                "text": "__text",
+                "type": "string"
+              },
+              {
+                "selector": "__value",
+                "text": "__value",
+                "type": "string"
+              }
+            ],
+            "filters": [],
+            "computed_columns": []
+          }
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": "$__all",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Runs",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Runs in range",
+      "description": "Scenario, UI test and pipeline runs started in the dashboard's time range (load tests and desktop runs not counted).",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/stats",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "interval",
+                "value": "day"
+              },
+              {
+                "key": "by",
+                "value": "org"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "runs",
+              "text": "Runs",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "sum"
+          ],
+          "fields": "/^Runs$/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Pass rate — latest week",
+      "description": "passed ÷ (passed + failed) of the most recent week in range.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/stats",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "interval",
+                "value": "week"
+              },
+              {
+                "key": "by",
+                "value": "org"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "passRate",
+              "text": "Pass rate",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Pass rate$/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Failed runs in range",
+      "description": "",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/stats",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "interval",
+                "value": "day"
+              },
+              {
+                "key": "by",
+                "value": "org"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "failed",
+              "text": "Failed",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "sum"
+          ],
+          "fields": "/^Failed$/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "p95 run duration — latest week",
+      "description": "",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/stats",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "interval",
+                "value": "week"
+              },
+              {
+                "key": "by",
+                "value": "org"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "p95DurationMs",
+              "text": "p95",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^p95$/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Runs per day by kind",
+      "description": "Scenario / UI test / pipeline runs per day.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/stats",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "interval",
+                "value": "day"
+              },
+              {
+                "key": "by",
+                "value": "kind"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "kind",
+              "text": "Kind",
+              "type": "string"
+            },
+            {
+              "selector": "runs",
+              "text": "Runs",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "Kind"
+            ],
+            "keepFields": false
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": true,
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pass rate per week by tribe",
+      "description": "passed ÷ (passed + failed) per tribe and week.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/stats",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "interval",
+                "value": "week"
+              },
+              {
+                "key": "by",
+                "value": "tribe"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Time",
+              "type": "timestamp"
+            },
+            {
+              "selector": "groupPath",
+              "text": "Tribe",
+              "type": "string"
+            },
+            {
+              "selector": "passRate",
+              "text": "Pass rate",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "Tribe"
+            ],
+            "keepFields": false
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "min": 0,
+          "max": 100,
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Failing and flaky",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Most failing tests",
+      "description": "The tests that failed most in the range, with the last error (credentials scrubbed).",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/failures",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "top",
+                "value": "20"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "item",
+              "text": "Test",
+              "type": "string"
+            },
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "failed",
+              "text": "Failed",
+              "type": "number"
+            },
+            {
+              "selector": "runs",
+              "text": "Runs",
+              "type": "number"
+            },
+            {
+              "selector": "failRate",
+              "text": "Fail rate %",
+              "type": "number"
+            },
+            {
+              "selector": "failedNode",
+              "text": "Failing step",
+              "type": "string"
+            },
+            {
+              "selector": "lastError",
+              "text": "Last error",
+              "type": "string"
+            },
+            {
+              "selector": "lastFailedAt",
+              "text": "Last failed",
+              "type": "timestamp"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Test": 0,
+              "Group": 1,
+              "Failed": 2,
+              "Runs": 3,
+              "Fail rate %": 4,
+              "Failing step": 5,
+              "Last error": 6,
+              "Last failed": 7
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fail rate %"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 10
+                    },
+                    {
+                      "color": "red",
+                      "value": 30
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Flaky tests",
+      "description": "Tests whose result keeps flipping pass ↔ fail — at least two flips in the range.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs/flaky",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "minFlips",
+                "value": "2"
+              },
+              {
+                "key": "top",
+                "value": "20"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "item",
+              "text": "Test",
+              "type": "string"
+            },
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "flips",
+              "text": "Flips",
+              "type": "number"
+            },
+            {
+              "selector": "runs",
+              "text": "Runs",
+              "type": "number"
+            },
+            {
+              "selector": "flakinessScore",
+              "text": "Flakiness",
+              "type": "number"
+            },
+            {
+              "selector": "lastStatus",
+              "text": "Last",
+              "type": "string"
+            },
+            {
+              "selector": "lastRunAt",
+              "text": "Last run",
+              "type": "timestamp"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Test": 0,
+              "Group": 1,
+              "Flips": 2,
+              "Runs": 3,
+              "Flakiness": 4,
+              "Last": 5,
+              "Last run": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Latest failed runs",
+      "description": "The 50 newest failed runs in the range.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/runs",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "status",
+                "value": "failed"
+              },
+              {
+                "key": "limit",
+                "value": "50"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              },
+              {
+                "key": "from",
+                "value": "${__from}"
+              },
+              {
+                "key": "to",
+                "value": "${__to}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "time",
+              "text": "Started",
+              "type": "timestamp"
+            },
+            {
+              "selector": "kind",
+              "text": "Kind",
+              "type": "string"
+            },
+            {
+              "selector": "item",
+              "text": "Test",
+              "type": "string"
+            },
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "triggerType",
+              "text": "Trigger",
+              "type": "string"
+            },
+            {
+              "selector": "userName",
+              "text": "Started by",
+              "type": "string"
+            },
+            {
+              "selector": "failedNode",
+              "text": "Failing step",
+              "type": "string"
+            },
+            {
+              "selector": "ciBranch",
+              "text": "CI branch",
+              "type": "string"
+            },
+            {
+              "selector": "durationMs",
+              "text": "Duration",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Started": 0,
+              "Kind": 1,
+              "Test": 2,
+              "Group": 3,
+              "Trigger": 4,
+              "Started by": 5,
+              "Failing step": 6,
+              "CI branch": 7,
+              "Duration": 8
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Test inventory",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "barchart",
+      "title": "Tests per group",
+      "description": "Scenarios, UI tests and pipeline collections per tribe / squad.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/tests",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "limit",
+                "value": "5000"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "id",
+              "text": "id",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "Group": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "id": {
+                "aggregations": [
+                  "count"
+                ],
+                "operation": "aggregate"
+              }
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "id (count)": "Tests"
+            }
+          }
+        }
+      ],
+      "options": {
+        "xField": "Group",
+        "orientation": "horizontal",
+        "showValue": "always",
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "min": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "table",
+      "title": "Tests without a Jira key",
+      "description": "Tests not linked to a Jira test key yet — what a Jira / Xray sync cannot match.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "${datasource}"
+          },
+          "type": "json",
+          "source": "url",
+          "parser": "backend",
+          "format": "table",
+          "url": "/api/public/v1/tests",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "params": [
+              {
+                "key": "hasTestKey",
+                "value": "false"
+              },
+              {
+                "key": "limit",
+                "value": "500"
+              },
+              {
+                "key": "groupId",
+                "value": "${tribe:csv}"
+              }
+            ]
+          },
+          "root_selector": "data.rows",
+          "columns": [
+            {
+              "selector": "name",
+              "text": "Test",
+              "type": "string"
+            },
+            {
+              "selector": "kind",
+              "text": "Kind",
+              "type": "string"
+            },
+            {
+              "selector": "groupPath",
+              "text": "Group",
+              "type": "string"
+            },
+            {
+              "selector": "ownerName",
+              "text": "Owner",
+              "type": "string"
+            },
+            {
+              "selector": "state",
+              "text": "State",
+              "type": "string"
+            },
+            {
+              "selector": "lastRunStatus",
+              "text": "Last run",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Test": 0,
+              "Kind": 1,
+              "Group": 2,
+              "Owner": 3,
+              "State": 4,
+              "Last run": 5
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
