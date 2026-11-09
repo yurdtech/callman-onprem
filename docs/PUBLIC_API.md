@@ -388,7 +388,34 @@ while :; do
 done
 ```
 
-### 8.4 SIEM — Filebeat (Elastic, QRadar via Logstash)
+### 8.4 SIEM — JSON Lines to a file
+
+For a SIEM that ships log files (Splunk Universal Forwarder, Filebeat, NXLog, QRadar
+WinCollect …): append the stream as JSON Lines to a file the forwarder tails. Same
+schedule and guarantees as §8.3 (a page is written before its cursor is saved, so a crash can repeat a page but never skip one).
+
+```sh
+#!/usr/bin/env bash
+# callman-audit-to-file.sh — needs curl.  CALLMAN=…  CALLMAN_TOKEN=cm_int_…
+set -euo pipefail
+OUT=${OUT:-/var/log/callman/audit.jsonl}
+STATE=${STATE:-/var/lib/callman-audit/cursor-file}
+mkdir -p "$(dirname "$OUT")" "$(dirname "$STATE")"
+CURSOR=$(cat "$STATE" 2>/dev/null || true)
+while :; do
+  head=$(mktemp); body=$(mktemp)
+  curl -fsS -D "$head" -o "$body" -H "Authorization: Bearer $CALLMAN_TOKEN" \
+    "$CALLMAN/api/public/v1/audit/events?format=jsonl&limit=1000${CURSOR:+&cursor=$CURSOR}"
+  cat "$body" >> "$OUT"
+  CURSOR=$(awk 'tolower($1)=="x-next-cursor:" {print $2}' "$head" | tr -d '\r')
+  more=$(awk 'tolower($1)=="x-has-more:" {print $2}' "$head" | tr -d '\r')
+  rm -f "$head" "$body"
+  printf '%s' "$CURSOR" > "$STATE"
+  [ "$more" = "true" ] || break
+done
+```
+
+### 8.5 SIEM — Filebeat httpjson (Elastic, QRadar via Logstash)
 
 Filebeat's `httpjson` input keeps the cursor in its registry:
 
@@ -423,7 +450,7 @@ filebeat.inputs:
 The first run reads the last 24 hours; add `&from=2026-01-01T00:00:00Z` to
 `request.url` once to backfill further.
 
-### 8.5 Jira / Xray status sync
+### 8.6 Jira / Xray status sync
 
 Pull what changed since the last run, then match by test key:
 
@@ -434,7 +461,7 @@ curl -s "$CALLMAN/api/public/v1/tests?hasTestKey=true&limit=5000" -H "Authorizat
 curl -s "$CALLMAN/api/public/v1/tests?hasTestKey=true&updatedSince=2026-11-09T00:00:00Z&limit=5000" -H "Authorization: Bearer $TOKEN"
 ```
 
-### 8.6 BI / Excel
+### 8.7 BI / Excel
 
 Every list endpoint takes `format=csv`; Power BI / Excel *From Web* with the
 `Authorization` header, or a scheduled `curl … -o file.csv`:
