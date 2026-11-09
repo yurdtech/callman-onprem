@@ -77,7 +77,7 @@ parts of the audit stream (403 `INT_ORG_TOKEN_REQUIRED`).
 
 | | |
 |---|---|
-| **IP allowlist** | IPv4 / IPv6 addresses or CIDR ranges (≤ 50). Checked against the client address; `X-Forwarded-For` is honoured only from a loopback / private proxy (your ingress). Outside → 403 `INT_IP_FORBIDDEN`. |
+| **IP allowlist** | IPv4 / IPv6 addresses or CIDR ranges (≤ 50). Checked against the caller's address: behind your ingress / reverse proxy, the `X-Forwarded-For` entry that proxy added (the rightmost; with two proxies set `PUBLIC_API_PROXY_HOPS=2`, [ENVIRONMENT.md](ENVIRONMENT.md)) — entries a caller writes into the header themselves are ignored. Outside → 403 `INT_IP_FORBIDDEN`. |
 | **Rate limit** | Requests per minute per token, cluster-wide (Redis). Every answer carries `X-RateLimit-Limit` / `X-RateLimit-Remaining`; over the limit → 429 `INT_RATE_LIMITED` with `Retry-After` (seconds). |
 | **Expiry** | At most 365 days. An expired token answers 401 `INT_TOKEN_INVALID`. |
 | **Rotate** | **Rotate** on the token's page issues a new secret; the **old one keeps working for 24 hours** (status *grace*) while you replace it. |
@@ -447,8 +447,10 @@ curl -s "$CALLMAN/api/public/v1/kpi/results?periodType=quarter&format=csv" -H "A
 
 The Public API is part of the backend: wherever `/api` reaches the backend (the
 backend ingress / route, path `/`), `/api/public/v1` works — nothing to switch on
-and no new environment variable. (`PUBLIC_API_BASE_URL` in
-[ENVIRONMENT.md](ENVIRONMENT.md) is unrelated: it is the address the desktops use.)
+and no new environment variable, except `PUBLIC_API_PROXY_HOPS` when **two**
+proxies (e.g. an F5 in front of the ingress) add to `X-Forwarded-For` (§4).
+(`PUBLIC_API_BASE_URL` in [ENVIRONMENT.md](ENVIRONMENT.md) is unrelated: it is the
+address the desktops use.)
 
 To publish it on a host of its own — an integrations hostname your monitoring
 network can reach while the main host stays internal — the Helm chart has an
@@ -470,8 +472,10 @@ publicApi:
 ```
 
 Behind your own reverse proxy (Docker Compose), route `/api/public/` to the backend
-like the rest of `/api/` and pass `X-Forwarded-For` — the token IP allowlist reads
-it from private / loopback proxies only.
+like the rest of `/api/` and set `X-Forwarded-For` (nginx: `proxy_set_header
+X-Forwarded-For $proxy_add_x_forwarded_for;` or `$remote_addr`) — the token IP
+allowlist reads the entry your proxy added, and only from a private / loopback
+proxy.
 
 ## 10. Security notes
 
