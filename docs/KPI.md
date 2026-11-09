@@ -166,19 +166,27 @@ For a "lower is better" KPI (the backlog) the comparisons are reversed.
 
 ## 10. Grafana
 
-To keep existing dashboards, point Grafana's JSON / Infinity data source at the
-backend:
+Grafana reads the KPIs through the **Public API** with an organization-owned
+integration token that an admin creates in **Integration → Public API** — no service
+account, no personal token. [GRAFANA.md](GRAFANA.md) has the data source, the ready
+dashboard (`grafana/callman-kpi.json`, with the panels of §5) and the field list;
+[PUBLIC_API.md](PUBLIC_API.md) the API reference. The endpoints:
 
-```
-GET <CALLMAN_URL>/api/kpi/feed?periodType=week&from=2026-07-01&to=2026-12-31
-Authorization: Bearer <personal access token with scenarios:read>
-```
+| Endpoint | What |
+|---|---|
+| `/api/public/v1/kpi/results` | KPI values of the organization, tribes and squads per week / quarter |
+| `/api/public/v1/kpi/measures` | the raw measures behind them (§4), for your own formulas |
+| `/api/public/v1/kpi/users` | the same KPIs per person, from the tests they own (*KPIs per person* scope) |
+| `/api/public/v1/kpi/live` | runs queued / running now, and today's finished runs |
+| `/api/public/v1/metrics/kpi` | the current values in Prometheus format |
 
-The response's `data.rows` holds one row per KPI, group and period: `kpi`,
-`group`, `parentGroup`, `periodKey`, `periodStart`, `value`, `numerator`,
-`denominator`, `targetMin`, `target`, `status`, `partial`. A token sees the groups
-its owner belongs to (plus the organization row when it is shown on the desktop),
-so use a service account that is a member of every group.
+**KPI settings → KPIs per person** (on by default) makes the engine compute the
+per-person numbers; they are only ever read through the Public API.
+
+The older `GET /api/kpi/feed` (a personal access token with `scenarios:read`, the
+token owner's groups only) still works for existing dashboards but is deprecated —
+move them to `/api/public/v1/kpi/results`, which has the same fields plus `level`,
+`groupPath`, `tribe`, `templateKey`, paging and CSV.
 
 ## 11. Where numbers differ from your current dashboards
 
