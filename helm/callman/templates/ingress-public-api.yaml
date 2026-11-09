@@ -1,0 +1,38 @@
+{{- /*
+  Optional: the Public API (/api/public/v1 — Grafana, SIEM, BI with admin-minted
+  integration tokens) on its OWN host, e.g. an integrations hostname the
+  monitoring network can reach while the main host stays internal. Only the
+  /api/public prefix is published here. The backend ingress (path /) serves the
+  same API on the main host either way.
+*/ -}}
+{{- if .Values.publicApi.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "callman.fullname" . }}-public-api
+  labels:
+    {{- include "callman.labels" (dict "root" $ "component" "backend") | nindent 4 }}
+  {{- with .Values.publicApi.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with (.Values.publicApi.ingress.className | default .Values.backend.ingress.className) }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ required "publicApi.ingress.host is required when publicApi.ingress.enabled" .Values.publicApi.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api/public
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "callman.fullname" . }}-backend
+                port:
+                  name: http
+  {{- with .Values.publicApi.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

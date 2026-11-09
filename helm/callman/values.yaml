@@ -189,6 +189,28 @@ backend:
     tls:
       termination: edge             # edge | reencrypt | passthrough
 
+# Public API (/api/public/v1) — read-only data for Grafana, SIEM and BI with
+# integration tokens an admin mints in the admin panel (docs/PUBLIC_API.md).
+# The backend ingress / route above already serves it on the main host; this
+# optional ingress publishes ONLY /api/public on a host of its own, e.g. an
+# integrations hostname your monitoring network reaches while the main host
+# stays internal. Restrict who may call it in `annotations` (ingress-nginx:
+# nginx.ingress.kubernetes.io/whitelist-source-range: "10.20.0.0/16") — each
+# token can also carry its own IP allowlist.
+publicApi:
+  ingress:
+    enabled: false
+    className: ""                   # "" = backend.ingress.className
+    host: ""                        # required when enabled
+    annotations: {}
+    tls: []
+  route:                            # OpenShift; mutually exclusive with ingress
+    enabled: false
+    host: ""                        # required when enabled
+    annotations: {}
+    tls:
+      termination: edge             # edge | reencrypt | passthrough
+
 worker:
   replicaCount: 1
   healthPort: 9090                  # ≈ WORKER_HEALTH_PORT

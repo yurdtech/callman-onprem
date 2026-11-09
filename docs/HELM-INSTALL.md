@@ -103,6 +103,15 @@ admin:
 Neither Route nor Ingress is required — with both off, use
 `kubectl port-forward` (the chart prints the commands after install).
 
+### Public API on a host of its own (optional)
+
+The Public API (`/api/public/v1`, [PUBLIC_API.md](PUBLIC_API.md)) is served by the
+backend Ingress / Route like every other `/api` path — nothing to enable. To expose
+**only** `/api/public` on an integrations hostname (for the Grafana / SIEM network,
+while the main host stays internal), set `publicApi.ingress` (or `publicApi.route`
+on OpenShift): `enabled: true`, `host`, and e.g.
+`nginx.ingress.kubernetes.io/whitelist-source-range` in `annotations`.
+
 ## 4. Install
 
 ```bash
