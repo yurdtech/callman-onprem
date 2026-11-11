@@ -13,6 +13,13 @@ helm install callman oci://ghcr.io/yurdtech/charts/callman \
 Full guide, secret setup, the `.env` → values mapping table, airgap
 procedure: [`docs/HELM-INSTALL.md`](../../docs/HELM-INSTALL.md).
 
+Chart 0.6.0 (on-prem 1.0.7) adds the AI worker for AI assistant tests
+(`aiWorker.*`, on by default), the optional `INTERNAL_API_SECRET` and
+`CONNECTION_ENCRYPTION_KEY_PREVIOUS` secrets, an optional Public API host
+(`publicApi.ingress` / `publicApi.route`) and pruning of old pre-migration dumps
+(`migrate.backup.keepCount` / `keepDays`, off by default) — see
+[`docs/HELM-INSTALL.md`](../../docs/HELM-INSTALL.md#upgrading-to-chart-060).
+
 Chart 0.5.0 (on-prem 1.0.6) adds the Load Testing Lab (`loadLab.*`,
 `loadLabWorker`), optional KEDA autoscaling (`worker.keda`, `loadLabWorker.keda`)
 and database connection pooling (`dbPool.*`, on by default) — see

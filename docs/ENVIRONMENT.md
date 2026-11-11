@@ -13,10 +13,10 @@ placeholders you must replace.
 
 | Variable | Required | Default | Description / how to create |
 |---|---|---|---|
-| `CALLMAN_VERSION` | ✅ | — | Image version to run (e.g. `1.0.6`). We tell you which. |
+| `CALLMAN_VERSION` | ✅ | — | Image version to run (e.g. `1.0.7`). We tell you which. |
 | `JWT_SECRET` | ✅ | — | Signs access tokens. ≥ 32 chars. `openssl rand -hex 32` |
 | `JWT_REFRESH_SECRET` | ✅ | — | Signs refresh tokens. ≥ 32 chars, **different** from the others. |
-| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin panel image version (e.g. `1.0.6`). Separate from `CALLMAN_VERSION`. |
+| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin panel image version (e.g. `1.0.7`). Separate from `CALLMAN_VERSION`. |
 | `SESSION_TOKEN_ENCRYPTION_SECRET` | ✅ | — | Encrypts stored sessions. ≥ 32 chars, **different**. |
 | `CONNECTION_ENCRYPTION_KEY` | ✅ | — | Encrypts saved DB/connection credentials. ≥ 32 chars, **different**. **Shared with the admin panel** — see below. |
 | `INTERNAL_API_SECRET` | recommended | `CONNECTION_ENCRYPTION_KEY` | The password the admin panel uses on the backend's internal API. ≥ 32 chars, **different** from the four. Without it the panel sends `CONNECTION_ENCRYPTION_KEY` there and the backend logs a warning. |
@@ -194,7 +194,7 @@ is enabled in the panel — see
 
 | Variable | Required | Default | Description / how to create |
 |---|---|---|---|
-| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin image version to run (e.g. `1.0.6`). Separate from `CALLMAN_VERSION`. |
+| `CALLMAN_ADMIN_VERSION` | ✅ | — | Admin image version to run (e.g. `1.0.7`). Separate from `CALLMAN_VERSION`. |
 | `CALLMAN_ADMIN_PORT` | optional | `5100` | Port to reach the admin UI + API on (same origin). |
 | `CALLMAN_BACKEND_API_URL` | optional* | `http://backend:<CALLMAN_PORT>` | Base URL of the Callman **backend** API, used for the actions whose code lives in the backend (connection and storage **Test**, desktop releases, the Oracle client) — see below. Defaults to the bundled backend service; set it only when the backend runs outside this compose file. |
 | `ADMIN_JWT_SECRET` | ✅ | — | Signs admin access tokens. ≥ 32 chars. `openssl rand -hex 32`. Separate from backend secrets. |

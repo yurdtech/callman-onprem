@@ -10,9 +10,9 @@ By default the stack is **all-in-one** — it brings its own MongoDB and Redis, 
 one command gives you a working install. You can point it at your company's
 existing databases instead.
 
-This documentation describes Callman on-prem 1.0.6 — backend, admin panel and
-UI-test runner 1.0.6, Helm chart 0.5.0, desktop 2.0.14, CLI (`callme-cli`)
-1.13.1, MCP (`callman-mcp`) 0.12.1.
+This documentation describes Callman on-prem 1.0.7 — backend, admin panel and
+UI-test runner 1.0.7, Helm chart 0.6.0, desktop 2.0.15, CLI (`callme-cli`)
+1.14.0, MCP (`callman-mcp`) 0.16.0.
 
 ---
 
@@ -244,7 +244,7 @@ and has its own login, independent of the backend's. By default it can only
 
 Configure it in `.env` (already in `.env.example`):
 
-- `CALLMAN_ADMIN_VERSION` — the admin image version we tell you (e.g. `1.0.6`).
+- `CALLMAN_ADMIN_VERSION` — the admin image version we tell you (e.g. `1.0.7`).
 - `CALLMAN_ADMIN_PORT` — port to reach it on (default `5100`).
 - `ADMIN_JWT_SECRET`, `ADMIN_JWT_REFRESH_SECRET` — each `openssl rand -hex 32`
   (separate from the backend secrets).
