@@ -597,7 +597,7 @@ admin:
     repository: ghcr.io/yurdtech/callman-onprem-admin
     # Pinned per chart release (≈ CALLMAN_ADMIN_VERSION) — the admin/backend
     # pair below is what this chart version was tested with.
-    tag: "1.0.6"
+    tag: "1.0.7"
   replicaCount: 1
   resources:
     requests:

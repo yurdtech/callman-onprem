@@ -8,9 +8,9 @@ for downloads.
 admin panel, and (unless you bring your own) a MongoDB and Redis — all running
 as containers on one server.
 
-This guide describes Callman on-prem 1.0.6 — backend, admin panel and UI-test
-runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.13.1, MCP (`callman-mcp`)
-0.12.1.
+This guide describes Callman on-prem 1.0.7 — backend, admin panel and UI-test
+runner 1.0.7, desktop 2.0.15, CLI (`callme-cli`) 1.14.0, MCP (`callman-mcp`)
+0.16.0.
 
 ---
 
@@ -121,7 +121,7 @@ chmod 600 .env        # it will hold passwords — keep it private
 Open `.env` in an editor and fill in every `<CHANGE_ME...>` value:
 
 - **`CALLMAN_VERSION`** and **`CALLMAN_ADMIN_VERSION`** — the versions we told
-  you to install (e.g. `1.0.6` and `1.0.6`).
+  you to install (e.g. `1.0.7` and `1.0.7`).
 - **`MONGO_ROOT_PASSWORD`** and **`REDIS_PASSWORD`** — strong passwords for the
   bundled databases. (Skip whichever you replaced in step 3.)
 - **`ADMIN_BOOTSTRAP_EMAIL`** / **`ADMIN_BOOTSTRAP_PASSWORD`** — the first
@@ -233,7 +233,7 @@ curl http://localhost:8080/health
 Expected: HTTP 200 and JSON like:
 
 ```json
-{"success":true,"data":{"status":"ok","version":"1.0.6","gitSha":"<sha>","edition":"onprem","queue":{...}}}
+{"success":true,"data":{"status":"ok","version":"1.0.7","gitSha":"<sha>","edition":"onprem","queue":{...}}}
 ```
 
 **d) Dependencies reachable:**
@@ -404,6 +404,23 @@ start on the new version. Confirm with `curl http://localhost:8080/version`.
 > `./scripts/check-realtime.sh https://<your Callman host>` once from the
 > users' network: if a proxy buffers the stream, desktops keep working but
 > keep polling ([REALTIME.md](REALTIME.md)).
+
+> Release **1.0.7** (`CALLMAN_VERSION=1.0.7`, `CALLMAN_ADMIN_VERSION=1.0.7`)
+> adds no schema migration and needs no new `.env` line. Take the new
+> `docker-compose.yml` from this release: it adds an **`ai-worker`** container
+> for AI assistant tests ([AI-ASSISTANT-TESTS.md](AI-ASSISTANT-TESTS.md)). It
+> runs from the backend image you already pull and starts with
+> `docker compose up -d`. Optional new settings, all with the old behavior when
+> unset:
+> - `INTERNAL_API_SECRET` (recommended): the admin panel's password on the
+>   backend's internal API; `./scripts/preflight.sh` warns while it is missing.
+> - `BACKUP_KEEP_COUNT` / `BACKUP_KEEP_DAYS`: prune old pre-migration dumps
+>   ([BACKUP.md](BACKUP.md)).
+> - `AI_PROXY_URL` / `AI_NO_PROXY`: send the server's AI calls through your
+>   proxy ([NETWORK.md](NETWORK.md)).
+>
+> The admin panel's new AI data protection switches all start in the old
+> behavior ([AI-DATA-PROTECTION.md](AI-DATA-PROTECTION.md)).
 
 ### Rollback note
 

@@ -5,8 +5,8 @@ how to exercise it, the evidence worth keeping, and the limits we know about —
 "Partial" is written down with its caveat, not discovered later. Setup first:
 [PILOT-QUICKSTART.md](PILOT-QUICKSTART.md); network and egress: [NETWORK.md](NETWORK.md).
 
-Versions this guide describes: Callman on-prem 1.0.6 — backend, admin panel and UI-test runner
-1.0.6, desktop 2.0.14, `callme-cli` 1.13.1, `callman-mcp` 0.12.1. Older
+Versions this guide describes: Callman on-prem 1.0.7 — backend, admin panel and UI-test runner
+1.0.7, desktop 2.0.15, `callme-cli` 1.14.0, `callman-mcp` 0.16.0. Older
 builds differ where noted.
 
 ## Admin panel (users, groups, roles, tokens, workspaces)

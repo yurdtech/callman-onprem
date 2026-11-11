@@ -9,9 +9,9 @@ inside the admin panel (see [AUTH_SETUP.md](AUTH_SETUP.md)).
 Works on vanilla Kubernetes (Ingress) and OpenShift (Route, restricted-v2
 SCC) from the same chart.
 
-This guide describes Callman on-prem 1.0.6 — Helm chart 0.5.0, backend, admin
-panel and UI-test runner 1.0.6, desktop 2.0.14, CLI (`callme-cli`) 1.13.1, MCP
-(`callman-mcp`) 0.12.1.
+This guide describes Callman on-prem 1.0.7 — Helm chart 0.6.0, backend, admin
+panel and UI-test runner 1.0.7, desktop 2.0.15, CLI (`callme-cli`) 1.14.0, MCP
+(`callman-mcp`) 0.16.0.
 
 ---
 
@@ -226,6 +226,53 @@ kubectl -n $NS get deploy -l app.kubernetes.io/instance=$REL
 
 The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 `helm uninstall`.
+
+### Upgrading to chart 0.6.0
+
+Chart 0.6.0 is the chart of on-prem 1.0.7 (backend, worker, migrate, mock,
+storage and ui-runner `1.0.7` through `appVersion`, `admin.image.tag: "1.0.7"`).
+Upgrade chart and images together. 1.0.7 adds no schema migration: the migrate
+Job runs, takes its pre-migration dump and finishes. Your values file does not
+need to change.
+
+- **AI worker (new, on by default).** `helm upgrade` adds a
+  `<fullname>-ai-worker` Deployment for AI assistant tests
+  ([AI-ASSISTANT-TESTS.md](AI-ASSISTANT-TESTS.md)). It runs the backend image
+  with `WORKER_QUEUES=ai-scenarios`, so those runs, which can take hours, never
+  hold up the regular workers. One replica by default; it requests 100m CPU and
+  256 Mi and is limited to 1536 Mi. New values: `aiWorker.*`. With
+  `aiWorker.enabled: false`, AI assistant test runs answer 503. It needs a
+  1.0.7 backend image: don't pin `backend.image.tag` to an older release.
+- **`INTERNAL_API_SECRET` (optional, recommended).** The admin panel calls the
+  backend's internal API with it. Without it, both keep using
+  `CONNECTION_ENCRYPTION_KEY`, as before. To set it, add the key to your Secret
+  (or `secrets.values.INTERNAL_API_SECRET`). It must be at least 32 characters
+  and different from the four backend secrets; the chart refuses an inline
+  value that breaks either rule. The backend and admin panel read the same
+  Secret, so one upgrade sets it on both. Key rotation
+  (`CONNECTION_ENCRYPTION_KEY_PREVIOUS`) and secrets read from Vault or a key
+  manager: [ENVIRONMENT.md](ENVIRONMENT.md#secrets-from-vault-or-a-cloud-key-manager).
+- **Public API.** `/api/public/v1` (Grafana, SIEM, BI; tokens are minted in the
+  admin panel) is served on the backend host with nothing to enable. Optional
+  `publicApi.ingress` / `publicApi.route` publish it on a host of its own:
+  [Public API on a host of its own](#public-api-on-a-host-of-its-own-optional),
+  [PUBLIC_API.md](PUBLIC_API.md).
+- **Old pre-migration dumps can be pruned.** `migrate.backup.keepCount` and
+  `migrate.backup.keepDays` default to `0`, which keeps every dump, as before.
+  We recommend 10 dumps and 30 days ([BACKUP.md](BACKUP.md)).
+- **AI data protection.** New admin panel switches (masking in every AI
+  feature, trusted model servers, allowed providers, AI audit…) all start in
+  the old behavior. Nothing changes for users until an administrator turns one
+  on ([AI-DATA-PROTECTION.md](AI-DATA-PROTECTION.md)). To send the server's AI
+  calls through your proxy, set `AI_PROXY_URL` / `AI_NO_PROXY` in
+  `backend.extraEnv`, `worker.extraEnv` and `aiWorker.extraEnv`
+  ([NETWORK.md](NETWORK.md)).
+- **Desktop modules from your server.** The admin panel → **Desktop modules**
+  stores the mobile UI-test engine (about 140 MB) and the iOS simulator driver
+  in your MongoDB, one copy of each; size the Mongo volume for it. The admin
+  Ingress / Route already allows uploads that large. Desktops that find no
+  module on the server download it as before
+  ([DESKTOP-APP.md](DESKTOP-APP.md#10-desktop-modules)).
 
 ### Upgrading to chart 0.5.0
 
@@ -514,7 +561,7 @@ exactly as documented in [EXTERNAL-DATABASES.md](EXTERNAL-DATABASES.md).
 | `MOCK_MAX_IMPORT_BYTES` | `mock.limits.maxImportBytes` |
 | `SKIP_MIGRATION_BACKUP` | `migrate.backup.enabled: false` |
 | `MONGODB_BACKUP_DIR` | fixed `/backups` on the backups PVC |
-| any other [ENVIRONMENT.md](ENVIRONMENT.md) var | `backend.extraEnv` / `worker.extraEnv` / `uiRunner.extraEnv` / `storage.extraEnv` / `mock.extraEnv` / `admin.extraEnv` |
+| any other [ENVIRONMENT.md](ENVIRONMENT.md) var | `backend.extraEnv` / `worker.extraEnv` / `aiWorker.extraEnv` / `uiRunner.extraEnv` / `storage.extraEnv` / `mock.extraEnv` / `admin.extraEnv` |
 
 ## 11. Troubleshooting quick hits
 
