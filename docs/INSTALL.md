@@ -143,8 +143,10 @@ Open `.env` in an editor and fill in every `<CHANGE_ME...>` value:
   `https://callman.yourcompany.local`. Every desktop fetches its updates from
   it. `.env.example` ships `https://callman.example.com`; replace it (or comment
   it out for a first local test) — `preflight.sh` refuses the example value.
-  Also set **`ONPREM_COMPANY_SLUG`** to the company slug from the delivered
-  `build-manifest.json` ([DESKTOP-APP.md](DESKTOP-APP.md)).
+  While you still receive per-company desktop builds (2.0.16 and older), also
+  set **`ONPREM_COMPANY_SLUG`** to the company slug from the delivered
+  `build-manifest.json`; universal builds (2.0.17+) do not need it
+  ([DESKTOP-APP.md](DESKTOP-APP.md)).
 
 > The app **refuses to start** if a secret is shorter than 32 characters, or if
 > any two of the four backend secrets are equal.

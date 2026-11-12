@@ -7,20 +7,28 @@ panel instead of sending files to every person.
 Nothing leaves your network. We hand you the installers; you upload them into
 your own deployment; the desktops download from your own storage.
 
+**From desktop 2.0.17 there is one build for every company.** The folder we
+deliver has no server address inside; each desktop learns yours on its own
+computer — from your IT, from a link you send, or from the address the user
+types once. The admin panel's **Connect desktops** card prepares all three.
+See [§11](#11-connecting-desktops-to-your-server).
+
 ---
 
 ## 1. What you get from us
 
-A folder per version, named after your company and that version, containing:
+A folder per version. From 2.0.17 it is the same folder for every company
+(`Callman-<version>-…`); 2.0.16 and older were built for one company and carry
+its name (`Callman-<company>-<version>-…`) and its server address. It contains:
 
 | File | What it is |
 |---|---|
-| `Callman-<company>-<version>-x64.exe`, `…-arm64.exe` | the Windows installers |
-| `Callman-<company>-<version>.exe` | one Windows installer covering both architectures — handy to hand to a person, but the panel does not upload it (the per-architecture ones are what updates use) |
-| `Callman-<company>-<version>-arm64.dmg`, `…-x64.dmg` | the macOS installers a person runs |
-| `Callman-<company>-<version>-arm64.zip`, `…-x64.zip` | what the automatic update installs on macOS — **not** for installing by hand |
+| `Callman-<version>-x64.exe`, `…-arm64.exe` | the Windows installers |
+| `Callman-<version>.exe` | one Windows installer covering both architectures — handy to hand to a person, but the panel does not upload it (the per-architecture ones are what updates use) |
+| `Callman-<version>-arm64.dmg`, `…-x64.dmg` | the macOS installers a person runs |
+| `Callman-<version>-arm64.zip`, `…-x64.zip` | what the automatic update installs on macOS — **not** for installing by hand |
 | `latest.yml`, `latest-mac.yml` | describe the release: which file, how big, and its checksum |
-| `build-manifest.json` | which company, version and server address this build was made for |
+| `build-manifest.json` | the version and build this folder holds. `"universal": true` means it serves every company; an older per-company build names the company and server address it was made for |
 | `README-DELIVERY.txt` | the short version of this page |
 
 **Upload all of it.** The `.yml` files are not optional extras — they are how the
@@ -40,13 +48,17 @@ Three settings, all in `.env`, all checked by `scripts/preflight.sh`:
 ```bash
 # The address your users' desktops reach the backend on. This is what they are
 # told to fetch updates from — a wrong value sends every desktop to the wrong
-# host. Include the scheme, no trailing slash.
+# host. It is also the address the Connect desktops card puts into the IT files
+# and the connect link, and the one a desktop saves when a user typed another
+# name for the same server. Include the scheme, no trailing slash.
 PUBLIC_API_BASE_URL=https://callman.yourcompany.local
 
-# Your company slug, exactly as it appears in the delivered build-manifest.json.
-# The second half of the foreign-build check — PUBLIC_API_BASE_URL above already
-# refuses a build made for another deployment, since a build carries the API
-# address it was built against. This catches the rest.
+# Only for per-company builds (desktop 2.0.16 and older): your company slug,
+# exactly as it appears in the delivered build-manifest.json. The second half
+# of the foreign-build check — PUBLIC_API_BASE_URL above already refuses a
+# per-company build made for another deployment, since such a build carries the
+# API address it was built against. A universal build carries neither, so
+# neither check applies to it. Harmless to leave set.
 ONPREM_COMPANY_SLUG=yourcompany
 
 # An installer upload is a single HTTP request of up to 2 GB. The 2-minute
@@ -115,7 +127,8 @@ user a **Restart** button. Nobody has to be told anything.
 
 | What it says | What it means |
 |---|---|
-| built for a different deployment | The `build-manifest.json` names another company or another server address. **Do not override it.** A build carries the server address baked in, so publishing it would point every desktop here at someone else's Callman. Come back to us. |
+| built for a different deployment | A per-company build (2.0.16 or older) whose `build-manifest.json` names another company or another server address. **Do not override it.** That build carries the server address baked in, so publishing it would point every desktop here at someone else's Callman. Come back to us. A universal build never gets this message. |
+| something about `company` or `apiUrl` (missing, required, must be a string) | Your deployment is older than on-prem 1.0.8 and cannot take a universal build yet. Upgrade it first. |
 | does not match the checksum | That file is damaged or came from a different build. Copy it out of the delivered folder again. |
 | not the size the update file declares | Same cause: the folder has been mixed with another build's files. |
 | is not part of this release | You are uploading a file no update file mentions — probably a leftover from an older folder. |
@@ -187,7 +200,7 @@ curl -i -H "Authorization: Bearer $TOKEN" \
 
 # The installer, resumably. Expect 206 Partial Content.
 curl -i -r 0-99 -o /dev/null -H "Authorization: Bearer $TOKEN" \
-  "$API/api/desktop-releases/feed/win/x64/Callman-yourcompany-2.1.0-x64.exe"
+  "$API/api/desktop-releases/feed/win/x64/Callman-2.1.0-x64.exe"
 
 # What the app itself asks, and what it decides from.
 curl -s -H "Authorization: Bearer $TOKEN" \
@@ -308,6 +321,83 @@ your server, and before you upload one a desktop that needs it says so ("Your
 administrator hasn't put the mobile UI-test engine on the Callman server
 yet"). The engine still needs a Java runtime on the computer; the engine
 replacing it will not.
+
+## 11. Connecting desktops to your server
+
+A universal build (desktop 2.0.17 and later) asks each computer which Callman
+server to use. It looks in this order, and the first answer wins:
+
+1. **Your IT's configuration** — set once for every computer, before or after
+   Callman is installed. It can **lock** the server, so users cannot point the
+   app anywhere else.
+2. **The user's own choice** — a `callman://connect?server=…` link they opened,
+   or the address they typed on the first-run screen or in **Settings › Server**.
+   Kept on that computer, and kept through every update.
+3. **The address an older, per-company build carried** — see "Moving from
+   per-company builds" below.
+
+With none of these, the app opens on **Connect to your company's Callman** and
+asks for the address.
+
+Admin panel → **Desktop Releases** → **Connect desktops** prepares every piece,
+already filled in with `PUBLIC_API_BASE_URL`. You make the files once, not per
+release; make them again only if the server address changes.
+
+### Through your IT (recommended for many computers)
+
+Turn on **Lock computers to this server** in the card if users must not change
+it, then hand IT the file for each system:
+
+| System | File | How IT pushes it | Where it lands |
+|---|---|---|---|
+| macOS | `callman-<host>.mobileconfig` | an MDM (Jamf, Intune, Kandji, Mosyle…) | managed preferences for `com.callman.desktop` (`/Library/Managed Preferences/`) |
+| Windows | `callman-<host>.reg` | Group Policy, Intune or SCCM (or double-click on one PC) | `HKLM\SOFTWARE\Policies\Callman\Desktop` |
+| any | `server.json` | any software-distribution tool | macOS `/Library/Application Support/Callman/`, Windows `%ProgramData%\Callman\`, Linux `/etc/callman/` |
+
+The keys are `ServerUrl` (the `/api` address) and `ServerLocked` (true/1 to
+lock); `server.json` is `{ "serverUrl": "...", "locked": true }`. Windows also
+reads the same key under `HKCU` when `HKLM` has none. A running app picks the
+setting up the next time it starts.
+
+### Through a link (a handful of users, or no MDM)
+
+Send users the installer download links and the connect link from the card.
+After installing, the user opens the link; Callman asks *"Connect to
+callman.yourcompany.local?"* and, on yes, restarts on your server. A link is
+never applied without that question, and is ignored on a computer IT locked.
+
+### By hand
+
+On the first-run screen the user types the address — `callman.yourcompany.local`
+is enough; `https://` and `/api` are added. Callman checks it before saving and
+says what is wrong: not reachable (VPN?), not answering over https, a
+certificate this computer does not trust (install your company's CA
+certificate on it), not a Callman server, or Callman Cloud.
+
+### More than one server
+
+**Settings › Server** lists the servers a computer has used — your test and
+production Callman, say — and switches between them (the app restarts). Each
+server keeps its own sign-in, tabs and local data on that computer; removing a
+server deletes only that computer's copy, never anything on the server. On a
+locked computer the section only shows the server IT set.
+
+### Updates
+
+Unchanged: a desktop polls the server it is connected to, so it takes the
+releases your admins publish there. One universal folder is uploaded to each
+deployment the same way as before (§3).
+
+### Moving from per-company builds
+
+1. Upgrade the deployment to **on-prem 1.0.8** — older ones refuse a
+   universal build (§3, "If the panel refuses").
+2. Publish **desktop 2.0.16**, the last per-company build. On its first start
+   it copies its built-in server address into the computer's own setting.
+3. Publish **desktop 2.0.17**, the first universal build. Desktops already on
+   2.0.16 update and open on your server without asking anything. A desktop
+   that skipped 2.0.16 shows the connect screen once — the IT files or the
+   connect link spare users even that.
 
 ## See also
 

@@ -155,7 +155,9 @@ backend:
   # for, so with that set a build belonging to another deployment is already
   # refused. This adds the company name on top, which matters when two
   # deployments answer on the same host. Worth setting; not load-bearing on its
-  # own. Must match `company` in the delivered build-manifest.json.
+  # own. Must match `company` in the delivered build-manifest.json. Only
+  # per-company builds (desktop 2.0.16 and older) are checked: a universal build
+  # (2.0.17+) carries no company or address, so it does not need this.
   onpremCompanySlug: ""
   # ≈ HTTP_REQUEST_TIMEOUT_MS. Node applies it to the whole request INCLUDING
   # the body, so the 120000 default cuts an installer upload off part-way.

@@ -227,6 +227,21 @@ kubectl -n $NS get deploy -l app.kubernetes.io/instance=$REL
 The `backups` PVC carries `helm.sh/resource-policy: keep` — it survives even
 `helm uninstall`.
 
+### Upgrading to on-prem 1.0.8
+
+- **One desktop build for every company.** From desktop 2.0.17 we deliver the
+  same folder to every customer; each desktop learns your server from your IT,
+  from a connect link, or from the address the user types once. Admin panel →
+  **Desktop Releases** → **Connect desktops** makes the macOS profile, the
+  Windows `.reg` file, `server.json` and the link, filled in with
+  `backend.publicApiBaseUrl` — so set that value if you have not. Upgrade the
+  deployment **before** you publish the first universal build (older ones
+  refuse it), and publish desktop 2.0.16 before 2.0.17 so desktops move over
+  without asking anything ([DESKTOP-APP.md](DESKTOP-APP.md#11-connecting-desktops-to-your-server)).
+- `backend.onpremCompanySlug` matters only for per-company builds (2.0.16 and
+  older). Universal builds are not checked against it; leaving it set is
+  harmless.
+
 ### Upgrading to chart 0.6.0
 
 Chart 0.6.0 is the chart of on-prem 1.0.7 (backend, worker, migrate, mock,
