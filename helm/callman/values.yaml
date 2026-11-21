@@ -480,10 +480,11 @@ storage:                            # ≈ COMPOSE_PROFILES storage
     # is connected. Leave false and connect real storage instead.
     #
     # ⚠ `accessModes` must be ReadWriteMany when this is on. The claim is mounted
-    # by the API Deployment as well as the gateway, because desktop release
-    # artifacts are written and served by the API process. With ReadWriteOnce the
-    # two pods can only both mount it on the same node, and a release uploaded to
-    # one would be invisible to the other.
+    # by the API, worker and UI-runner Deployments as well as the gateway:
+    # desktop release artifacts are written and served by the API process, and
+    # the worker / UI runner read the workspace files tests send. With
+    # ReadWriteOnce the pods can only all mount it on the same node, and a file
+    # written by one would be invisible to the others.
     enabled: false
     mountPath: /var/lib/callman/files
     size: 50Gi

@@ -69,7 +69,9 @@ x-app: &app
     # appear to succeed, the bytes would vanish on the next restart, and a second
     # API replica would serve 404s for files the first one "has".
     #
-    # Inert for S3 / MinIO / FileNet, and inert in the worker. Keep it.
+    # The worker reads them too: a scenario's file part sends a workspace file
+    # (kept in Callman storage when it is connected). Inert for S3 / MinIO /
+    # FileNet. Keep it.
     - storage_local:/var/lib/callman/files
 
 # DB/cache connection strings.
@@ -353,6 +355,9 @@ services:
     stop_grace_period: 150s
     volumes:
       - ./certs:/certs:ro
+      # "Upload file" steps send workspace files, which the "Local volume"
+      # storage provider keeps here (see the app anchor above). Inert otherwise.
+      - storage_local:/var/lib/callman/files
     depends_on:
       <<: *db-depends
       migrate:
