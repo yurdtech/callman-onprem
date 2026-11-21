@@ -88,12 +88,23 @@ spec:
             - name: backups
               mountPath: /backups
             {{- end }}
+            {{- if and .Values.storage.enabled .Values.storage.localVolume.enabled }}
+            # The "Local volume" provider's files: a scenario's file part sends a
+            # workspace file, and this process runs scheduled scenarios.
+            - name: files
+              mountPath: {{ .Values.storage.localVolume.mountPath }}
+            {{- end }}
             {{- include "callman.certsMount" . | nindent 12 }}
       volumes:
         {{- if and .Values.worker.mountBackups .Values.migrate.backup.enabled }}
         - name: backups
           persistentVolumeClaim:
             claimName: {{ include "callman.fullname" . }}-backups
+        {{- end }}
+        {{- if and .Values.storage.enabled .Values.storage.localVolume.enabled }}
+        - name: files
+          persistentVolumeClaim:
+            claimName: {{ include "callman.fullname" . }}-storage-files
         {{- end }}
         {{- include "callman.certsVolume" . | nindent 8 }}
       {{- with .Values.worker.nodeSelector }}

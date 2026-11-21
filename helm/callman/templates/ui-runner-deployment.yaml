@@ -90,12 +90,23 @@ spec:
             # --disable-dev-shm-usage, so this no longer needs to be 2Gi).
             - name: dshm
               mountPath: /dev/shm
+            {{- if and .Values.storage.enabled .Values.storage.localVolume.enabled }}
+            # The "Local volume" provider's files: an "Upload file" step
+            # sends a workspace file into the page.
+            - name: files
+              mountPath: {{ .Values.storage.localVolume.mountPath }}
+            {{- end }}
             {{- include "callman.certsMount" . | nindent 12 }}
       volumes:
         - name: dshm
           emptyDir:
             medium: Memory
             sizeLimit: {{ .Values.uiRunner.shmSize }}
+        {{- if and .Values.storage.enabled .Values.storage.localVolume.enabled }}
+        - name: files
+          persistentVolumeClaim:
+            claimName: {{ include "callman.fullname" . }}-storage-files
+        {{- end }}
         {{- include "callman.certsVolume" . | nindent 8 }}
       {{- with .Values.uiRunner.nodeSelector }}
       nodeSelector:

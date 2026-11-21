@@ -188,12 +188,20 @@ version automates.
 - **The *Local volume* provider and desktop releases:** it works, but the files
   are touched by more than the gateway now — the API process writes them (the
   panel uploads through it) and serves them (the desktops' update feed reads
-  through it). So **every app container must see the same directory**. Compose
-  does that for you: the volume is mounted into all of them. On Kubernetes the
-  claim is mounted by the API Deployment as well as the gateway, which means
+  through it) — and the worker and the UI-test runner read the workspace files
+  that scenarios and "Upload file" steps send. So **every app container must see
+  the same directory**. Compose does that for you: the volume is mounted into all
+  of them. On Kubernetes the claim is mounted by the API, worker and UI-runner
+  Deployments as well as the gateway, which means
   `storage.localVolume.accessModes` **must include `ReadWriteMany`** — the chart
   refuses to render otherwise and tells you to use S3/MinIO if RWX is not
   available to you.
+- **Workspace files for tests:** once storage is connected, the files people
+  upload for their tests — a scenario's file part, a UI test's "Upload file"
+  step, a request's form-data file — are kept here (kind `request_file`), in one
+  list for the whole workspace. Before that they go to the database
+  (10 MB each, `FIXTURE_FILE_MAX_BYTES`); those keep working after you connect
+  storage, nothing is moved.
 - **Retention:** Callman deletes what it no longer needs through the provider's
   delete API. Your own bucket lifecycle rules still apply on top — if you set
   one, make sure it is not shorter than what your teams expect to keep.
