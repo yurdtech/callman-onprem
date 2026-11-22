@@ -93,6 +93,7 @@ Copy `certs/` yourself if your storage, LDAP or tested systems use a private CA.
 | What happened | Result |
 |---|---|
 | Failed or cancelled before **Replace** | The new server is unchanged. Start again |
+| The old server's storage dropped the connection while a file was read | Reading goes on from that byte by itself. After 5 attempts without a new byte the migration fails and names the file; the new server is unchanged |
 | The old backend died during the snapshot | The old server opens by itself within 30 seconds. Start again |
 | The new backend died during **Replace** | It answers `423` until a backend process is back, then finishes by itself. It never opens half replaced |
 | The snapshot took over 30 minutes | It stops and the old server opens. Raise `MIGRATION_MAX_PAUSE_MS` |
