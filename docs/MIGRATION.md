@@ -16,6 +16,7 @@ upgrade.
 | MongoDB | The same major version on both. Standalone is fine |
 | Network | The old **backend** reaches the new server's Callman API address (`/api/migration-peer`). Nothing has to reach the old server |
 | Who | A super admin on each server |
+| New server's admin panel | `CALLMAN_DB_WRITE_ENABLED=true` (Helm: `admin.dbWriteEnabled: true`). The default is `false`, and then **Allow replace** is not available. The old server needs no change; the new one can go back to `false` afterwards |
 | Space, old server | About the database's size in the backend's temporary directory, or in `MIGRATION_SPOOL_DIR`. It holds the whole database for the length of the run and is removed after it |
 | Space, new server | About 2.2 times the database, plus the largest file, free in its MongoDB during the copy |
 | Storage | If the old server has files: an active storage on the new one, with **its own** bucket, prefix or volume. A shared one is refused |
@@ -28,7 +29,8 @@ The same build matters: a tag rebuilt from another commit is refused too.
 
 1. Install the new server ([INSTALL.md](INSTALL.md) or
    [HELM-INSTALL.md](HELM-INSTALL.md)), sign in with its bootstrap admin,
-   activate the license and connect its storage.
+   activate the license, connect its storage and make sure its admin panel
+   runs with `CALLMAN_DB_WRITE_ENABLED=true`.
 2. New server, **Migration > Receive on this server**: **Create token**.
 3. Old server, **Migration > Copy from this server**: enter the new server's
    API address and that token, **Save token**. It shows its own token.

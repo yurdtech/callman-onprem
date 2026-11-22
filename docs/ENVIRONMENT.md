@@ -204,7 +204,7 @@ is enabled in the panel — see
 | `ADMIN_JWT_EXPIRES_IN` | optional | `1h` | Admin access-token lifetime. |
 | `ADMIN_JWT_REFRESH_EXPIRES_IN` | optional | `7d` | Admin refresh-token lifetime. |
 | `ADMIN_BCRYPT_ROUNDS` | optional | `12` | Admin password hashing cost. |
-| `CALLMAN_DB_WRITE_ENABLED` | optional | `false` | Keep `false` for a read-only panel: with it the panel can READ Callman data but never MODIFY it, and **revoking a token, ending a session, disabling a schedule, restoring a version, or deleting a user or workspace answers 403 *write disabled***. Set `true` when operators need those actions (a pilot usually does), and review the audit log. |
+| `CALLMAN_DB_WRITE_ENABLED` | optional | `false` | Keep `false` for a read-only panel: with it the panel can READ Callman data but never MODIFY it, and **revoking a token, ending a session, disabling a schedule, restoring a version, or deleting a user or workspace answers 403 *write disabled***. Set `true` when operators need those actions (a pilot usually does), and review the audit log. Deleting in **Files** and **Migration > Allow replace** (on a server that receives a copy, see [MIGRATION.md](MIGRATION.md)) need it too. |
 | `ADMIN_API_DOCS_ENABLED` | optional | off in production | Serves the Swagger page at `/admin/docs` (it lists every route and is readable by anyone who reaches the port; calling a route still needs a login). Set `true` to turn it on. |
 | `CORS_ORIGINS` | optional | `http://localhost:5173` | Admin API allowed browser origins — only needed if the UI is served cross-origin. |
 | `RATE_LIMIT_MAX` | optional | `300` | Admin API request rate cap. |
