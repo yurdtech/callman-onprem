@@ -387,6 +387,15 @@ required).
 | `BACKUP_KEEP_COUNT` | `0` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them, as before; `10` is a sensible value. |
 | `BACKUP_KEEP_DAYS` | `0` | Also remove archives older than N days (never the newest one), so deleted data doesn't live on in old dumps. `0` = no age limit, as before; `30` is a sensible value. |
 
+### Server migration
+
+See [MIGRATION.md](MIGRATION.md). Both are read by the backend of the server that is copied.
+
+| Variable | Default | Description |
+|---|---|---|
+| `MIGRATION_SPOOL_DIR` | the container's temp directory | Where the snapshot is written before it is sent. Needs about the database's size and holds the whole database during the run, so use a private path. |
+| `MIGRATION_MAX_PAUSE_MS` | `1800000` | The longest changes may wait for the snapshot (10 s to 6 h). Past it the migration fails and the server opens. |
+
 ### AI calls through your proxy
 
 | Variable | Default | Description |

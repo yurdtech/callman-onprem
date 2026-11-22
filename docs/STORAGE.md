@@ -165,6 +165,25 @@ hand.
 Copying the historical files across is a separate, optional step that a later
 version automates.
 
+Do not edit a provider that holds files to point at another bucket or folder:
+its files stay where they were and stop opening. Add a new provider instead.
+
+## Seeing every file
+
+The admin panel's **Files** page lists every file Callman keeps: workspace
+files (in storage, or in MongoDB when no storage was active), app builds and
+desktop installers, with who uploaded each, where it is kept and where it is
+used. It works without a storage too.
+
+| | Analyst | Admin | Super admin |
+|---|---|---|---|
+| See the list | Their groups | Their groups | Everything |
+| Download | No | Yes | Yes |
+| Delete a workspace file | No | Yes | Yes |
+
+Deleting a file that is still used asks first. A download goes through the
+admin panel as a stream; the link works once, for one minute.
+
 ## Day-2 operations
 
 - **Scale:** the gateway holds no state, so `docker compose up -d --scale
