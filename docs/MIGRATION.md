@@ -53,7 +53,7 @@ To migrate again, repeat 6 and 7. The pairing stays.
 | Copying files | Works as usual | Works as usual |
 | Snapshot (a `mongodump` of the database, so it grows with its size) | Reading works. Changes wait; one waiting over 15 s gets `423` and can be retried | Works as usual |
 | Sending, restoring, verifying | Works as usual | Works as usual |
-| Replace | Works as usual | `423` until the data is swapped, then every process restarts |
+| Replace | Works as usual | `423` until the data is swapped, then every process restarts and nothing answers until it has started (minutes on a busy machine). The report's "Data swap, before the restart" does not include that start |
 
 Run it at a quiet hour. Do not upgrade or run schema migrations on either
 server while one runs.
