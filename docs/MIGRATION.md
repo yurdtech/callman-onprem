@@ -19,7 +19,7 @@ upgrade.
 | Space, old server | About the database's size in the backend's temporary directory, or in `MIGRATION_SPOOL_DIR`. It holds the whole database for the length of the run and is removed after it |
 | Space, new server | About 2.2 times the database, plus the largest file, free in its MongoDB during the copy |
 | Storage | If the old server has files: an active storage on the new one, with **its own** bucket, prefix or volume. A shared one is refused |
-| License | None is needed to receive: it comes with the data. Testing a storage does need one, so with files activate the same license file on the new server first |
+| License | An active one on both servers. Activate the same certificate on the new server first (it is not bound to a host); a migration replaces it with the old server's copy |
 | Secrets | Each server keeps its **own** `.env` secrets. Nothing from `.env` is copied |
 
 The same build matters: a tag rebuilt from another commit is refused too.
@@ -27,8 +27,8 @@ The same build matters: a tag rebuilt from another commit is refused too.
 ## Steps
 
 1. Install the new server ([INSTALL.md](INSTALL.md) or
-   [HELM-INSTALL.md](HELM-INSTALL.md)), sign in with its bootstrap admin and
-   connect its storage.
+   [HELM-INSTALL.md](HELM-INSTALL.md)), sign in with its bootstrap admin,
+   activate the license and connect its storage.
 2. New server, **Migration > Receive on this server**: **Create token**.
 3. Old server, **Migration > Copy from this server**: enter the new server's
    API address and that token, **Save token**. It shows its own token.
