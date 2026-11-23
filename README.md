@@ -181,6 +181,7 @@ running on the Docker host: **[docs/EXTERNAL-DATABASES.md](docs/EXTERNAL-DATABAS
 | [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | Every `.env` setting: required/optional, default, meaning |
 | [`docs/EXTERNAL-DATABASES.md`](docs/EXTERNAL-DATABASES.md) | Use your own MongoDB / Redis |
 | [`docs/BACKUP.md`](docs/BACKUP.md) | Backing up and restoring your data |
+| [`docs/MIGRATION.md`](docs/MIGRATION.md) | Copy a whole Callman server to another one from the admin panel: tokens, checks, what users notice, what is and is not copied |
 | [`docs/AUTH_SETUP.md`](docs/AUTH_SETUP.md) | How people sign in — email + password, or your corporate LDAP / Active Directory (configured in the admin panel) |
 | [`docs/UI-RUNNER.md`](docs/UI-RUNNER.md) | Optional UI-test runner: scheduled web UI tests in a headless browser |
 | [`docs/STORAGE.md`](docs/STORAGE.md) | Where Callman keeps large files: connect your own S3 / MinIO / FileNet, and the optional storage gateway |

@@ -22,6 +22,9 @@ address. Example (nginx):
 location ~ ^/(ops|metrics|api/internal)(/|$) { return 404; }   # user-facing server block
 ```
 
+`/api/migration-peer/*` has to pass the proxy of a server that receives a
+[server migration](MIGRATION.md); it answers 404 unless the servers are paired.
+
 Behind a proxy, raise the body-size and timeout limits for desktop installer uploads
 and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-APP.md)).
 
@@ -37,6 +40,7 @@ and set `PUBLIC_API_BASE_URL` to the public address ([DESKTOP-APP.md](DESKTOP-AP
 | `ghcr.io` (or your registry) | Pulling images | Install and upgrade only; none with an air-gap bundle ([INSTALL.md](INSTALL.md)) |
 | `api.telegram.org` | Error forwarding | Only if `TELEGRAM_ENABLED` is on; leave it empty |
 | The AI providers on the server: the one set in **AI Settings**, your AI connections (**Managed connections**) and the providers of users' personal keys — `api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com`, `api.deepseek.com`, or an OpenAI-compatible server someone names | AI assistants, the AI node, and AI Testing steps that run on one of these (a screenshot and the page structure go with each step) | Only if configured; turn sources off in the AI policy ([AI-POLICY.md](AI-POLICY.md)) or switch the `ai*` flags off. To send all of it through your proxy / DLP instead of opening these hosts, set `AI_PROXY_URL` (and `AI_NO_PROXY` for model servers on your network) — [ENVIRONMENT.md](ENVIRONMENT.md#ai-calls-through-your-proxy) |
+| The new server's Callman API address | [Server migration](MIGRATION.md): the old backend sends to the new one | Only while you migrate |
 | Slack webhook | Notification connections | Only if someone creates one |
 | An OpenAPI URL in **AI Knowledge** | The backend and worker fetch the definition (and re-fetch it daily if set so) | Only if an admin adds a source by URL; uploading the file instead needs no network ([AI-KNOWLEDGE.md](AI-KNOWLEDGE.md)) |
 | `download.oracle.com` | Oracle Instant Client for Oracle 11g | Only when an admin clicks **Download from Oracle**; uploading the package instead needs no internet |

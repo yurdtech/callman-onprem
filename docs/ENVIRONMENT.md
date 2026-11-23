@@ -204,7 +204,7 @@ is enabled in the panel — see
 | `ADMIN_JWT_EXPIRES_IN` | optional | `1h` | Admin access-token lifetime. |
 | `ADMIN_JWT_REFRESH_EXPIRES_IN` | optional | `7d` | Admin refresh-token lifetime. |
 | `ADMIN_BCRYPT_ROUNDS` | optional | `12` | Admin password hashing cost. |
-| `CALLMAN_DB_WRITE_ENABLED` | optional | `false` | Keep `false` for a read-only panel: with it the panel can READ Callman data but never MODIFY it, and **revoking a token, ending a session, disabling a schedule, restoring a version, or deleting a user or workspace answers 403 *write disabled***. Set `true` when operators need those actions (a pilot usually does), and review the audit log. |
+| `CALLMAN_DB_WRITE_ENABLED` | optional | `false` | Keep `false` for a read-only panel: with it the panel can READ Callman data but never MODIFY it, and **revoking a token, ending a session, disabling a schedule, restoring a version, or deleting a user or workspace answers 403 *write disabled***. Set `true` when operators need those actions (a pilot usually does), and review the audit log. Deleting in **Files** and **Migration > Allow replace** (on a server that receives a copy, see [MIGRATION.md](MIGRATION.md)) need it too. |
 | `ADMIN_API_DOCS_ENABLED` | optional | off in production | Serves the Swagger page at `/admin/docs` (it lists every route and is readable by anyone who reaches the port; calling a route still needs a login). Set `true` to turn it on. |
 | `CORS_ORIGINS` | optional | `http://localhost:5173` | Admin API allowed browser origins — only needed if the UI is served cross-origin. |
 | `RATE_LIMIT_MAX` | optional | `300` | Admin API request rate cap. |
@@ -386,6 +386,15 @@ required).
 | `BACKUP_REQUIRED` | `false` | If `true`, a failed backup aborts the migration (default: warn + continue). |
 | `BACKUP_KEEP_COUNT` | `0` | Keep only the newest N pre-migration archives in `MONGODB_BACKUP_DIR` after a successful backup. `0` keeps all of them, as before; `10` is a sensible value. |
 | `BACKUP_KEEP_DAYS` | `0` | Also remove archives older than N days (never the newest one), so deleted data doesn't live on in old dumps. `0` = no age limit, as before; `30` is a sensible value. |
+
+### Server migration
+
+See [MIGRATION.md](MIGRATION.md). Both are read by the backend of the server that is copied.
+
+| Variable | Default | Description |
+|---|---|---|
+| `MIGRATION_SPOOL_DIR` | the container's temp directory | Where the snapshot is written before it is sent. Needs about the database's size and holds the whole database during the run, so use a private path. |
+| `MIGRATION_MAX_PAUSE_MS` | `1800000` | The longest changes may wait for the snapshot (10 s to 6 h). Past it the migration fails and the server opens. |
 
 ### AI calls through your proxy
 

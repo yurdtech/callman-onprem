@@ -181,6 +181,11 @@ Going forward again re-applies the migrations normally.
 
 ## Moving to a new server
 
+With both servers running, use the admin panel's **Migration** page instead
+([MIGRATION.md](MIGRATION.md)): it copies the database **and the files**,
+proves the copy identical and lets each server keep its own secrets. The steps
+below are for when the old server is gone, or the two cannot reach each other.
+
 1. Install per [INSTALL.md](INSTALL.md), but **do not start yet**.
 2. Copy the old `.env` across (keeping the secrets identical) and update
    anything host-specific.
